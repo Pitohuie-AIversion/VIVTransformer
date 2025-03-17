@@ -1,0 +1,54 @@
+data:
+  path: "F:/Zhaoyang/merged_all_pressures_separated_normalized.pt"
+  batch_size: 4096
+
+training:
+  epochs: 1000
+  learning_rate: 0.0001
+  early_stop_patience: 500
+
+model:
+  input_dim: 400
+  output_dim: 40000
+  d_model: 512
+  num_heads: 8
+  num_layers: 6
+  max_time_steps: 100
+  attention_type: "relative"  # 这里的默认类型可以随时更改
+
+attention_types:
+  - "relative"
+  - "sparse"
+  - "lsh"
+  - "se"
+  - "sk"
+  - "cbam"
+  - "bam"
+  - "eca"
+  - "danet"
+  - "psa"
+  - "shuffle"
+  - "muse"
+  - "sge"
+  - "a2"
+  - "aft"
+  - "outlook"
+  - "vip"
+  - "coatnet"
+  - "halo"
+  - "polarized"
+  - "cot"
+  - "residual"
+  - "s2"
+  - "crossformer"
+  - "moa"
+  - "dat"
+  - "parnet"
+  - "mobilevit"
+  - "mobilevitv2"
+
+device: "cuda"
+visualization:
+  enabled: true  # 是否启用可视化
+  interval: 100   # 每隔多少个 epoch 画一次图
+  max_samples: 5 # 最多可视化多少个样本

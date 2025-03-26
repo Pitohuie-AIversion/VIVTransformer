@@ -8,8 +8,7 @@ from modify_multi_attention.utils.visualization import plot_losses  # 导入plot
 
 
 def train_model(model, train_loader, valid_loader, test_loader, criterion, optimizer, num_epochs=100, device='cuda',
-                early_stop_patience=10, attention_type='default',
-                config_path='modify_multi_attention/configs/config.yaml'):
+                early_stop_patience=10, attention_type='default', config_path='modify_multi_attention/configs/config.yaml'):
     # 读取 YAML 配置
     with open(config_path, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f)
@@ -26,15 +25,6 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
 
     best_valid_loss = float('inf')
     patience_counter = 0
-
-    # 创建保存损失的日志文件
-    loss_log_dir = f"attention_results/{attention_type}/loss_logs"
-    os.makedirs(loss_log_dir, exist_ok=True)
-    loss_log_path = os.path.join(loss_log_dir, "loss_log.txt")
-
-    # 写入文件头
-    with open(loss_log_path, 'w') as log_file:
-        log_file.write("Epoch, Train Loss, Valid Loss, Test Loss\n")
 
     for epoch in range(num_epochs):
         model.train()
@@ -53,8 +43,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
             total_train_loss += loss_value.item()
 
             if (i + 1) % 50 == 0 or i == 0:
-                print(
-                    f"    🔄 Epoch [{epoch + 1}/{num_epochs}], Batch [{i + 1}/{len(train_loader)}], Loss: {loss_value.item():.6f}")
+                print(f"    🔄 Epoch [{epoch + 1}/{num_epochs}], Batch [{i + 1}/{len(train_loader)}], Loss: {loss_value.item():.6f}")
 
         avg_train_loss = total_train_loss / len(train_loader)
         train_loss_history.append(avg_train_loss)
@@ -86,12 +75,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         avg_test_loss = total_test_loss / len(test_loader)
         test_loss_history.append(avg_test_loss)
 
-        # 打印损失信息并记录到文件
-        print(
-            f"🎯 Epoch [{epoch + 1}/{num_epochs}], Train Loss: {avg_train_loss:.6f}, Valid Loss: {avg_valid_loss:.6f}, Test Loss: {avg_test_loss:.6f}")
-
-        with open(loss_log_path, 'a') as log_file:
-            log_file.write(f"{epoch + 1}, {avg_train_loss:.6f}, {avg_valid_loss:.6f}, {avg_test_loss:.6f}\n")
+        print(f"🎯 Epoch [{epoch + 1}/{num_epochs}], Train Loss: {avg_train_loss:.6f}, Valid Loss: {avg_valid_loss:.6f}, Test Loss: {avg_test_loss:.6f}")
 
         if avg_valid_loss < best_valid_loss:
             best_valid_loss = avg_valid_loss
@@ -166,79 +150,3 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
 
     plt.ioff()
     return model, train_loss_history, valid_loss_history, test_loss_history
-
-def test_model(model, test_loader, criterion, device='cuda', attention_type='default', parent_dir="attention_results",
-               config_path='modify_multi_attention/configs/config.yaml'):
-
-    # 读取 YAML 配置
-    with open(config_path, 'r', encoding='utf-8') as f:
-        cfg = yaml.safe_load(f)
-
-    vis_enabled = cfg["visualization"]["enabled"]
-    max_samples = cfg["visualization"]["max_samples"]
-
-    model.eval()
-    model.to(device)
-    total_test_loss = 0
-
-    # 创建保存测试损失的日志文件
-    loss_log_dir = f"attention_results/{attention_type}/loss_logs"
-    os.makedirs(loss_log_dir, exist_ok=True)
-    loss_log_path = os.path.join(loss_log_dir, "test_loss_log.txt")
-
-    # 写入文件头
-    with open(loss_log_path, 'w') as log_file:
-        log_file.write("Batch, Test Loss\n")
-
-    with torch.no_grad():
-        for idx, (in_press, out_pressure, time_steps) in enumerate(test_loader):
-            in_press, out_pressure, time_steps = (
-                in_press.to(device), out_pressure.to(device), time_steps.to(device)
-            )
-
-            model_out = model(in_press, time_steps)
-            loss_value = criterion(model_out, out_pressure)
-            total_test_loss += loss_value.item()
-
-            # 记录每个批次的测试损失到日志文件
-            with open(loss_log_path, 'a') as log_file:
-                log_file.write(f"{idx + 1}, {loss_value.item():.6f}\n")
-
-            if vis_enabled and idx < max_samples:
-                input_pressure = in_press[0].view(20, 20).cpu().numpy()
-                true_pressure = out_pressure[0].view(200, 200).cpu().numpy()
-                predicted_pressure = model_out[0].view(200, 200).cpu().numpy()
-
-                # 原有对比图
-                plot_comparison_figure(
-                    input_pressure=input_pressure,
-                    true_pressure=true_pressure,
-                    predicted_pressure=predicted_pressure,
-                    time_step=time_steps[0].item(),
-                    epoch=0,
-                    idx=idx,
-                    attention_type=attention_type,
-                    parent_dir=parent_dir,
-                    mode='test'
-                )
-
-                # 新增的差异图
-                plot_difference_figure(
-                    true_pressure=true_pressure,
-                    predicted_pressure=predicted_pressure,
-                    time_step=time_steps[0].item(),
-                    epoch=0,
-                    idx=idx,
-                    attention_type=attention_type,
-                    parent_dir=parent_dir,
-                    mode='test'
-                )
-
-    avg_test_loss = total_test_loss / len(test_loader)
-    print(f"🧪 测试完成，{attention_type} Test Loss: {avg_test_loss:.6f}")
-
-    # 记录测试损失（平均损失）到日志文件
-    with open(loss_log_path, 'a') as log_file:
-        log_file.write(f"Average Test Loss: {avg_test_loss:.6f}\n")
-
-    return avg_test_loss

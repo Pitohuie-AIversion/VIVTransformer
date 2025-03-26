@@ -87,6 +87,15 @@ class CustomEncoderLayer(nn.Module):
 
         elif isinstance(self.self_attn, (ExternalAttention, AFT_FULL)):
             src2 = self.self_attn(src)
+        elif isinstance(self.self_attn, (OutlookAttention, WeightedPermuteMLP)):
+            src_reshaped = src.view(batch_size, spatial_dim, spatial_dim, d_model)  # 注意这里形状变为 (B,H,W,C)
+            src2 = self.self_attn(src_reshaped)
+            src2 = src2.view(batch_size, seq_len, d_model)
+        elif isinstance(self.self_attn, ResidualAttention):
+            src_reshaped = src.transpose(1, 2).contiguous().view(batch_size, d_model, spatial_dim, spatial_dim)
+            src2 = self.self_attn(src_reshaped)
+            src2 = src2.view(batch_size, d_model, seq_len).transpose(1, 2)
+
 
         # 默认Transformer类机制（QKV）
         else:
@@ -173,6 +182,13 @@ class CustomDecoderLayer(nn.Module):
 
         elif isinstance(self.multihead_attn, (ExternalAttention, AFT_FULL)):
             tgt2 = self.multihead_attn(tgt)
+        elif isinstance(self.multihead_attn, (OutlookAttention, WeightedPermuteMLP)):
+            # 明确调整reshape顺序为 (B,H,W,C)
+            tgt_reshaped = tgt.view(batch_size, spatial_dim, spatial_dim, d_model)
+            memory_reshaped = memory.view(batch_size, spatial_dim, spatial_dim, d_model)
+            tgt2 = self.multihead_attn(tgt_reshaped)
+            tgt2 = tgt2.view(batch_size, seq_len, d_model)
+
 
         # 默认使用标准Transformer交叉注意力(Q,K,V)
         else:
@@ -211,48 +227,43 @@ class CustomDecoder(nn.Module):
 
 class TransformerFlowReconstructionModel(nn.Module):
     def __init__(self, input_dim, output_dim, num_heads=8, num_layers=6,
-                 d_model=512, max_time_steps=100, attention_type="relative"):
+                 d_model=512, max_time_steps=100, attention_type="relative", seq_len=49):
         super().__init__()
 
-        # 记录当前使用的注意力机制
         self.attention_type = attention_type
+        self.seq_len = seq_len
 
-        # 输入嵌入层
-        self.embedding = nn.Linear(input_dim, d_model)
+        self.embedding = nn.Linear(input_dim, seq_len * d_model) # ✅ 重点修改
         self.time_step_embedding = nn.Embedding(max_time_steps, d_model)
-
-        # 位置编码（可选）
         self.positional_encoding = nn.Parameter(torch.zeros(1, d_model))
 
-        # 选择注意力机制
         encoder_layer = CustomEncoderLayer(d_model=d_model, num_heads=num_heads,
                                            dim_feedforward=2048, attention_type=attention_type)
         decoder_layer = CustomDecoderLayer(d_model=d_model, num_heads=num_heads,
                                            dim_feedforward=2048, attention_type=attention_type)
 
-        self.encoder = CustomEncoder(encoder_layer=encoder_layer, num_layers=num_layers)
-        self.decoder = CustomDecoder(decoder_layer=decoder_layer, num_layers=num_layers)
-
-        # 输出层
+        self.encoder = CustomEncoder(encoder_layer, num_layers)
+        self.decoder = CustomDecoder(decoder_layer, num_layers)
         self.fc_out = nn.Linear(d_model, output_dim)
 
     def forward(self, x_in_pressures_flat, x_time_steps):
-        # 直接在 `forward` 里打印当前使用的注意力机制
-        # print(f"\033[92m当前使用的注意力机制: {self.attention_type}\033[0m")  # 绿色高亮输出
+        batch_size = x_in_pressures_flat.size(0)
         x_time_steps = x_time_steps.long()
 
-        # 输入嵌入和时间步嵌入
-        x_embedded = self.embedding(x_in_pressures_flat) + \
-                     self.time_step_embedding(x_time_steps) + \
-                     self.positional_encoding
+        # 修改embedding输出维度明确匹配seq_len=49和d_model=512
+        seq_len = 49
+        x_embedded = self.embedding(x_in_pressures_flat)  # [batch_size, seq_len * d_model]
 
-        # 编码器处理
-        encoder_output = self.encoder(x_embedded.unsqueeze(1))  # 维度 [batch, seq_len=1, d_model]
+        # reshape 为 [batch_size, seq_len, d_model]
+        x_embedded = x_embedded.view(batch_size, seq_len, -1)
 
-        # 解码器处理
+        # 加上时间步和位置编码
+        x_embedded = x_embedded + self.time_step_embedding(x_time_steps).unsqueeze(1) + self.positional_encoding
+
+        encoder_output = self.encoder(x_embedded)
         decoder_output = self.decoder(encoder_output, encoder_output)
 
-        # 最终输出
         out_pressure_flat_pred = self.fc_out(decoder_output.mean(dim=1))
 
         return out_pressure_flat_pred
+

@@ -1,6 +1,6 @@
 data:
   path: "F:/Zhaoyang/merged_all_pressures_separated_normalized.pt"
-  batch_size: 4096
+  batch_size: 2048
 
 training:
   epochs: 1000
@@ -15,7 +15,7 @@ model:
   num_layers: 6
   max_time_steps: 100
   attention_type: "relative"  # 这里的默认类型可以随时更改
-
+  seq_len: 49  # 明确指定7x7空间尺寸，支持CNN注意力
 attention_types:
   - "relative"
   - "sparse"

@@ -4,33 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="64e92687-6eb1-4d79-b85d-75d825f2466b" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/1.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/cudatest.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/main.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/main2.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/data/dataloader.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/data/dataset.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/multi-attention.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/mymodels/components/attention.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/mymodels/components/attention_factory.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/mymodels/export_to_onnx.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/mymodels/transformer.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/mymodels/transformer_oldv1.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/requirements.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/training/trainerold.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/visualization.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/multi-attention/dataset.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/multi-attention/multi-attention.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/multi-attention/view.py" afterDir="false" />
+    <list default="true" id="64e92687-6eb1-4d79-b85d-75d825f2466b" name="更改" comment="mend the attention issue and loss plot">
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/attention_test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/visualization1.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/mymodels/components/attention_factory.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/mymodels/components/attention_factory.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/mymodels/transformer.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/mymodels/transformer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/utils/visualization.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/utils/visualization.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,6 +31,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Pitohuie-AIversion&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Pitohuie-AIversion/VIVTransformer.git&quot;,
+    &quot;accountId&quot;: &quot;2961af8d-867f-45a1-8c54-1247ca4a9311&quot;
+  }
+}</component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="CurrentFile" />
   </component>
@@ -63,34 +57,39 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python 测试.Python 测试 (main.py 内).executor": "Run",
-    "Python 测试.Python 测试 (main4withpic_paralleltest.py 内).executor": "Run",
-    "Python 测试.Python 测试 (main4withpic_paralleltest1.py 内).executor": "Run",
-    "Python 测试.Python 测试 (multi-attention.py 内).executor": "Run",
-    "Python.cudatest.executor": "Run",
-    "Python.dataloader.executor": "Run",
-    "Python.dataset.executor": "Run",
-    "Python.export_to_onnx.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.main2.executor": "Run",
-    "Python.modify_multi_attention.executor": "Run",
-    "Python.modify_multi_attiontion_main.executor": "Run",
-    "Python.multi-attention.executor": "Run",
-    "Python.multi-attentionnomodel.executor": "Run",
-    "Python.multi-attentionnomodel1.executor": "Run",
-    "Python.transformer.executor": "Run",
-    "Python.view.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "F:/Zhaoyang/VIVTransformer/modify_multi_attention/multi-attention.py"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python 测试.Python 测试 (main.py 内).executor&quot;: &quot;Run&quot;,
+    &quot;Python 测试.Python 测试 (main4withpic_paralleltest.py 内).executor&quot;: &quot;Run&quot;,
+    &quot;Python 测试.Python 测试 (main4withpic_paralleltest1.py 内).executor&quot;: &quot;Run&quot;,
+    &quot;Python 测试.Python 测试 (multi-attention.py 内).executor&quot;: &quot;Run&quot;,
+    &quot;Python 测试.main_test.test_attention_mechanism 的 Python 测试.executor&quot;: &quot;Run&quot;,
+    &quot;Python.attention_test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.cudatest.executor&quot;: &quot;Run&quot;,
+    &quot;Python.dataloader.executor&quot;: &quot;Run&quot;,
+    &quot;Python.dataset.executor&quot;: &quot;Run&quot;,
+    &quot;Python.export_to_onnx.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.modify_multi_attention.executor&quot;: &quot;Run&quot;,
+    &quot;Python.modify_multi_attiontion_main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.multi-attention.executor&quot;: &quot;Run&quot;,
+    &quot;Python.multi-attentionnomodel.executor&quot;: &quot;Run&quot;,
+    &quot;Python.multi-attentionnomodel1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.transformer.executor&quot;: &quot;Run&quot;,
+    &quot;Python.view.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/Zhaoyang/VIVTransformer/modify_multi_attention/utils&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention\utils" />
       <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention" />
       <recent name="F:\Zhaoyang\VIVTransformer\multi-attention\visualization_results" />
       <recent name="F:\Zhaoyang\VIVTransformer\multi-attention" />
@@ -126,6 +125,28 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="attention_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="F:\Zhaoyang\VIVTransformer" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/attention_test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="cudatest" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="1" />
       <option name="ENV_FILES" value="" />
@@ -140,6 +161,29 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/cudatest.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="main_test" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="F:\ProgramData\anaconda3" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/main_test.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -256,15 +300,18 @@
       <method v="2" />
     </configuration>
     <list>
+      <item itemvalue="Python.main_test" />
       <item itemvalue="Python.modify_multi_attention" />
+      <item itemvalue="Python.modify_multi_attiontion_main" />
       <item itemvalue="Python.multi-attention" />
       <item itemvalue="Python.multi-attentionnomodel1" />
-      <item itemvalue="Python.modify_multi_attiontion_main" />
+      <item itemvalue="Python.attention_test" />
       <item itemvalue="Python.cudatest" />
       <item itemvalue="Python 测试.Python 测试 (multi-attention.py 内)" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.attention_test" />
         <item itemvalue="Python 测试.Python 测试 (multi-attention.py 内)" />
         <item itemvalue="Python.cudatest" />
       </list>
@@ -273,7 +320,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-14705d77f0bb-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.25659.43" />
+        <option value="bundled-python-sdk-4f4e415b4190-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.26053.29" />
       </set>
     </attachedChunks>
   </component>
@@ -286,7 +333,31 @@
       <option name="presentableId" value="Default" />
       <updated>1741254846029</updated>
     </task>
+    <task id="LOCAL-00001" summary="upload 1">
+      <option name="closed" value="true" />
+      <created>1742214517668</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1742214517668</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="upload 1" />
+    <option name="LAST_COMMIT_MESSAGE" value="upload 1" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

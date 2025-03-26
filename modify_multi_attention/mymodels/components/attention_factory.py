@@ -107,8 +107,10 @@ def get_attention_module(attention_type, d_model=512, num_heads=8, **kwargs):
     elif attention_type == "simplified_self":
         return ATTENTION_MODULES[attention_type](d_model=d_model, h=num_heads)
 
-    elif attention_type in ["se", "sk", "cbam", "bam",  "sge", "triplet", "coord"]:
+    elif attention_type in ["se", "sk", "cbam", "bam", "triplet", "coord"]:
         return ATTENTION_MODULES[attention_type](channel=d_model, reduction=8)
+    if attention_type in ["sge"]:
+        return ATTENTION_MODULES[attention_type](groups=8)
     elif attention_type == "eca":
         # ECAAttention 不需要 channel 和 reduction 参数
         return ATTENTION_MODULES[attention_type](kernel_size=3)
@@ -117,7 +119,7 @@ def get_attention_module(attention_type, d_model=512, num_heads=8, **kwargs):
         return ATTENTION_MODULES[attention_type](d_model=d_model, kernel_size=3, H=7, W=7)
 
     elif attention_type in ["psa"]:
-        return ATTENTION_MODULES[attention_type](channel=d_model, reduction=8)
+        return ATTENTION_MODULES[attention_type](channel=d_model, reduction=8).to('cuda')
 
     elif attention_type in ["shuffle"]:
         return ATTENTION_MODULES[attention_type](channel=d_model, G=8)
@@ -135,10 +137,10 @@ def get_attention_module(attention_type, d_model=512, num_heads=8, **kwargs):
         return ATTENTION_MODULES[attention_type](d_model, seg_dim=8)
 
     elif attention_type in ["coatnet"]:
-        return ATTENTION_MODULES[attention_type](in_ch=3, image_size=224)
+        return ATTENTION_MODULES[attention_type](in_ch=d_model, image_size=spatial_dim)
 
     elif attention_type in ["halo"]:
-        return ATTENTION_MODULES[attention_type](dim=d_model, block_size=2, halo_size=1)
+        return ATTENTION_MODULES[attention_type](dim=d_model, block_size=1, halo_size=1)
 
     elif attention_type in ["polarized"]:
         return ATTENTION_MODULES[attention_type](channel=d_model)
@@ -147,7 +149,7 @@ def get_attention_module(attention_type, d_model=512, num_heads=8, **kwargs):
         return ATTENTION_MODULES[attention_type](dim=d_model, kernel_size=3)
 
     elif attention_type in ["residual"]:
-        return ATTENTION_MODULES[attention_type](channel=d_model, num_class=1000, la=0.2)
+        return ATTENTION_MODULES[attention_type](channel=d_model, num_class=d_model, la=0.2)
 
     elif attention_type in ["s2"]:
         return ATTENTION_MODULES[attention_type](channels=d_model)

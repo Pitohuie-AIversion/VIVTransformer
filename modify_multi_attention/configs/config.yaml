@@ -1,11 +1,20 @@
 data:
   path: "F:/Zhaoyang/merged_all_pressures_separated_normalized.pt"
-  batch_size: 2048
-
+  batch_size: 512
+  num_workers: 4  # 设置数据加载的进程数
 training:
-  epochs: 1000
+  epochs: 100
   learning_rate: 0.0001
   early_stop_patience: 500
+
+  # ✅ 新增：损失函数选择和区域加权控制
+  loss_function: custom_masked        # 可选 "mse" 或 "custom_masked"
+  mask_enabled: true                  # 是否启用掩码区域控制
+  mask_regions:                       # 多个感兴趣区域的坐标范围 [x_start, x_end, y_start, y_end]
+    - [50, 75, 0, 200]
+    - [125, 150, 0, 200]
+  lambda_l2: 0.9                     # L2 损失权重
+  lambda_mask: 0.1                    # 掩码区域损失权重
 
 model:
   input_dim: 400
@@ -15,40 +24,42 @@ model:
   num_layers: 6
   max_time_steps: 100
   attention_type: "relative"  # 这里的默认类型可以随时更改
-  seq_len: 49  # 明确指定7x7空间尺寸，支持CNN注意力
+  seq_len: 49                 # 明确指定7x7空间尺寸，支持CNN注意力
+
 attention_types:
   - "relative"
-  - "sparse"
-  - "lsh"
-  - "se"
-  - "sk"
-  - "cbam"
-  - "bam"
-  - "eca"
-  - "danet"
-  - "psa"
-  - "shuffle"
-  - "muse"
-  - "sge"
-  - "a2"
-  - "aft"
-  - "outlook"
-  - "vip"
-  - "coatnet"
-  - "halo"
-  - "polarized"
-  - "cot"
-  - "residual"
-  - "s2"
-  - "crossformer"
-  - "moa"
-  - "dat"
-  - "parnet"
-  - "mobilevit"
-  - "mobilevitv2"
+#  - "sparse"
+#  - "lsh"
+#  - "se"
+#  - "sk"
+#  - "cbam"
+#  - "bam"
+#  - "eca"
+#  - "danet"
+#  - "psa"
+#  - "shuffle"
+#  - "muse"
+#  - "sge"
+#  - "a2"
+#  - "aft"
+#  - "outlook"
+#  - "vip"
+#  - "coatnet"
+#  - "halo"
+#  - "polarized"
+#  - "cot"
+#  - "residual"
+#  - "s2"
+#  - "crossformer"
+#  - "moa"
+#  - "dat"
+#  - "parnet"
+#  - "mobilevit"
+#  - "mobilevitv2"
 
 device: "cuda"
+
 visualization:
-  enabled: true  # 是否启用可视化
-  interval: 100   # 每隔多少个 epoch 画一次图
-  max_samples: 5 # 最多可视化多少个样本
+  enabled: true       # 是否启用可视化
+  interval: 10       # 每隔多少个 epoch 画一次图
+  max_samples: 5      # 最多可视化多少个样本    再看看我的config需要如何修改

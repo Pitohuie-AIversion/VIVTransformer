@@ -266,4 +266,3 @@ class TransformerFlowReconstructionModel(nn.Module):
         out_pressure_flat_pred = self.fc_out(decoder_output.mean(dim=1))
 
         return out_pressure_flat_pred
-

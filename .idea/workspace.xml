@@ -5,11 +5,22 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="64e92687-6eb1-4d79-b85d-75d825f2466b" name="更改" comment="mend the attention issue and loss plot">
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/attention_test.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/visualization1.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD/SVDfistaddweight.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD/SVDfistaddweight_loc.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD/Svd Mode1 High Energy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD3.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD4multiu.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD4similarity.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVDeverypic.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/losses.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/mask_utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/svd2.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/svd_utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modify_multi_attention/mymodels/components/attention_factory.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/mymodels/components/attention_factory.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/data/dataloader.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/data/dataloader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/data/dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/data/dataset.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/mymodels/transformer.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/mymodels/transformer.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/utils/visualization.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/utils/visualization.py" afterDir="false" />
@@ -29,6 +40,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="master" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -50,58 +66,68 @@
   &quot;associatedIndex&quot;: 6
 }</component>
   <component name="ProjectId" id="2twEgHkJltFgeG5lyAmMABctgUW" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+  <component name="ProjectLevelVcsManager">
     <ConfirmationsSetting value="2" id="Add" />
   </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python 测试.Python 测试 (main.py 内).executor&quot;: &quot;Run&quot;,
-    &quot;Python 测试.Python 测试 (main4withpic_paralleltest.py 内).executor&quot;: &quot;Run&quot;,
-    &quot;Python 测试.Python 测试 (main4withpic_paralleltest1.py 内).executor&quot;: &quot;Run&quot;,
-    &quot;Python 测试.Python 测试 (multi-attention.py 内).executor&quot;: &quot;Run&quot;,
-    &quot;Python 测试.main_test.test_attention_mechanism 的 Python 测试.executor&quot;: &quot;Run&quot;,
-    &quot;Python.attention_test.executor&quot;: &quot;Run&quot;,
-    &quot;Python.cudatest.executor&quot;: &quot;Run&quot;,
-    &quot;Python.dataloader.executor&quot;: &quot;Run&quot;,
-    &quot;Python.dataset.executor&quot;: &quot;Run&quot;,
-    &quot;Python.export_to_onnx.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main2.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main_test.executor&quot;: &quot;Run&quot;,
-    &quot;Python.modify_multi_attention.executor&quot;: &quot;Run&quot;,
-    &quot;Python.modify_multi_attiontion_main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.multi-attention.executor&quot;: &quot;Run&quot;,
-    &quot;Python.multi-attentionnomodel.executor&quot;: &quot;Run&quot;,
-    &quot;Python.multi-attentionnomodel1.executor&quot;: &quot;Run&quot;,
-    &quot;Python.transformer.executor&quot;: &quot;Run&quot;,
-    &quot;Python.view.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;F:/Zhaoyang/VIVTransformer/modify_multi_attention/utils&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python 测试.Python 测试 (main.py 内).executor": "Run",
+    "Python 测试.Python 测试 (main4withpic_paralleltest.py 内).executor": "Run",
+    "Python 测试.Python 测试 (main4withpic_paralleltest1.py 内).executor": "Run",
+    "Python 测试.Python 测试 (multi-attention.py 内).executor": "Run",
+    "Python 测试.main_test.test_attention_mechanism 的 Python 测试.executor": "Run",
+    "Python.SVD3.executor": "Run",
+    "Python.SVD4multiu.executor": "Run",
+    "Python.SVD4similarity.executor": "Debug",
+    "Python.SVDeverypic.executor": "Run",
+    "Python.SVDfistaddweight.executor": "Run",
+    "Python.SVDfistaddweight_loc.executor": "Run",
+    "Python.Svd Mode1 High Energy.executor": "Run",
+    "Python.attention_test.executor": "Run",
+    "Python.cudatest.executor": "Run",
+    "Python.dataloader.executor": "Run",
+    "Python.dataset.executor": "Run",
+    "Python.export_to_onnx.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.main2.executor": "Run",
+    "Python.main_test.executor": "Run",
+    "Python.modify_multi_attention.executor": "Run",
+    "Python.modify_multi_attiontion_main.executor": "Run",
+    "Python.multi-attention.executor": "Run",
+    "Python.multi-attentionnomodel.executor": "Run",
+    "Python.multi-attentionnomodel1.executor": "Run",
+    "Python.svd2.executor": "Run",
+    "Python.svd_utils.executor": "Run",
+    "Python.transformer.executor": "Run",
+    "Python.view.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "V1.0",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "F:/Zhaoyang/VIVTransformer/modify_multi_attention/utils/SVD/attention_results",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention\utils\SVD\attention_results" />
       <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention\utils" />
       <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention" />
       <recent name="F:\Zhaoyang\VIVTransformer\multi-attention\visualization_results" />
       <recent name="F:\Zhaoyang\VIVTransformer\multi-attention" />
-      <recent name="F:\Zhaoyang\1" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention\utils\SVD" />
       <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention\mymodels" />
       <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention\mymodels\components" />
       <recent name="F:\Zhaoyang\VIVTransformer\multi-attention" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.modify_multi_attiontion_main">
+  <component name="RunManager" selected="Python.Svd Mode1 High Energy">
     <configuration default="true" type="PythonConfigurationType" factoryName="Python">
       <module name="1" />
       <option name="ENV_FILES" value="" />
@@ -125,7 +151,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="attention_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="SVD4similarity" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="1" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -134,11 +160,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="F:\Zhaoyang\VIVTransformer" />
+      <option name="SDK_NAME" value="F:\ProgramData\anaconda3" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/attention_test.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD4similarity.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -147,7 +174,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="cudatest" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="SVDeverypic" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="1" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -156,11 +183,81 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="SDK_NAME" value="F:\ProgramData\anaconda3" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/cudatest.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVDeverypic.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="SVDfistaddweight" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="F:\ProgramData\anaconda3" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD/SVDfistaddweight.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="SVDfistaddweight_loc" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="F:\ProgramData\anaconda3" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD/SVDfistaddweight_loc.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Svd Mode1 High Energy" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="F:\ProgramData\anaconda3" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD/Svd Mode1 High Energy.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -284,43 +381,32 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Python 测试 (multi-attention.py 内)" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
-      <module name="1" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/modify_multi_attention/multi-attention.py&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
-      <method v="2" />
-    </configuration>
     <list>
       <item itemvalue="Python.main_test" />
       <item itemvalue="Python.modify_multi_attention" />
       <item itemvalue="Python.modify_multi_attiontion_main" />
       <item itemvalue="Python.multi-attention" />
       <item itemvalue="Python.multi-attentionnomodel1" />
-      <item itemvalue="Python.attention_test" />
-      <item itemvalue="Python.cudatest" />
-      <item itemvalue="Python 测试.Python 测试 (multi-attention.py 内)" />
+      <item itemvalue="Python.Svd Mode1 High Energy" />
+      <item itemvalue="Python.SVD4similarity" />
+      <item itemvalue="Python.SVDeverypic" />
+      <item itemvalue="Python.SVDfistaddweight" />
+      <item itemvalue="Python.SVDfistaddweight_loc" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.attention_test" />
-        <item itemvalue="Python 测试.Python 测试 (multi-attention.py 内)" />
-        <item itemvalue="Python.cudatest" />
+        <item itemvalue="Python.Svd Mode1 High Energy" />
+        <item itemvalue="Python.SVDfistaddweight_loc" />
+        <item itemvalue="Python.SVDfistaddweight" />
+        <item itemvalue="Python.SVDeverypic" />
+        <item itemvalue="Python.SVD4similarity" />
       </list>
     </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-4f4e415b4190-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.26053.29" />
+        <option value="bundled-python-sdk-348a24fa61fa-5312c7369657-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-251.23774.444" />
       </set>
     </attachedChunks>
   </component>
@@ -341,7 +427,15 @@
       <option name="project" value="LOCAL" />
       <updated>1742214517668</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="mend the attention issue and loss plot">
+      <option name="closed" value="true" />
+      <created>1742980664269</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1742980664269</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -349,7 +443,19 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="V1.0" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>
@@ -357,7 +463,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="upload 1" />
-    <option name="LAST_COMMIT_MESSAGE" value="upload 1" />
+    <MESSAGE value="mend the attention issue and loss plot" />
+    <option name="LAST_COMMIT_MESSAGE" value="mend the attention issue and loss plot" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

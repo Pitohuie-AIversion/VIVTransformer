@@ -63,6 +63,11 @@ def plot_difference_figure(true_pressure, predicted_pressure, time_step, epoch, 
     # 计算差异（绝对误差）
     difference = np.abs(true_pressure - predicted_pressure)
 
+    # 保存差异矩阵到文件
+    difference_file_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}_difference_matrix.csv")
+    np.savetxt(difference_file_path, difference, delimiter=",")  # 保存为 CSV 格式
+
+    # 绘制差异图
     plt.figure(figsize=(6, 5))
     plt.imshow(difference, cmap='hot', interpolation='nearest')
     plt.colorbar()
@@ -74,3 +79,4 @@ def plot_difference_figure(true_pressure, predicted_pressure, time_step, epoch, 
     save_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}_difference.png")
     plt.savefig(save_path)
     plt.close()
+

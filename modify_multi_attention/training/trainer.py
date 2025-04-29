@@ -1,4 +1,4 @@
-from modify_multi_attention.utils.visualization import plot_difference_figure, plot_comparison_figure,plot_losses
+from modify_multi_attention.utils.visualization import plot_difference_figure, plot_comparison_figure, plot_losses
 import os
 import torch
 import matplotlib.pyplot as plt
@@ -6,7 +6,8 @@ import yaml
 
 
 def train_model(model, train_loader, valid_loader, test_loader, criterion, optimizer, num_epochs=100, device='cuda',
-                early_stop_patience=10, attention_type='default', config_path='modify_multi_attention/configs/config.yaml',
+                early_stop_patience=10, attention_type='default',
+                config_path='modify_multi_attention/configs/config.yaml',
                 use_mask=False, mask_boxes=None):
     with open(config_path, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f)
@@ -24,87 +25,78 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         model.train()
         total_train_loss = 0
 
-        for i, (in_press, out_pressure, time_steps, mask) in enumerate(train_loader):  # 解包为4个元素
-            in_press, out_pressure, time_steps, mask = in_press.to(device), out_pressure.to(device), time_steps.to(device), mask.to(device)
+        for i, (in_press, out_pressure, time_steps, mask, reynolds_idxs) in enumerate(train_loader):
+            in_press, out_pressure, time_steps, mask = in_press.to(device), out_pressure.to(device), time_steps.to(
+                device), mask.to(device)
 
             optimizer.zero_grad()
             model_out = model(in_press, time_steps)
 
-            loss_value = criterion(model_out, out_pressure, mask)  # 传递掩码
+            loss_value = criterion(model_out, out_pressure, mask)
             loss_value.backward()
             optimizer.step()
             total_train_loss += loss_value.item()
 
-            # 可视化：每隔一定的epoch或批次绘制图像
-            if cfg["visualization"]["enabled"] and (epoch + 1) % cfg["visualization"]["interval"] == 0 and i < cfg["visualization"]["max_samples"]:
-                # 获取图像数据
-                input_pressure = in_press[0].cpu().detach().numpy().reshape(20, 20)  # 假设数据形状为(20, 20)
-                true_pressure = out_pressure[0].cpu().detach().numpy().reshape(200, 200)  # 假设数据形状为(200, 200)
-                predicted_pressure = model_out[0].cpu().detach().numpy().reshape(200, 200)
+            if cfg["visualization"]["enabled"] and (epoch + 1) % cfg["visualization"]["interval"] == 0 and i < \
+                    cfg["visualization"]["max_samples"]:
+                rp = reynolds_idxs[0].item()  # 当前样本的Reynolds Number
+                ts = time_steps[0].item()  # 当前样本的时间步
 
-                # 对比图
+                # 使用 .detach() 断开计算图，然后转换为 numpy
+                input_pressure = in_press[0].cpu().detach().numpy().reshape(20, 20)
+                true_pressure = out_pressure[0].cpu().detach().numpy().reshape(200, 200)
+                pred_pressure = model_out[0].cpu().detach().numpy().reshape(200, 200)
+
                 plot_comparison_figure(
-                    input_pressure=input_pressure,
-                    true_pressure=true_pressure,
-                    predicted_pressure=predicted_pressure,
-                    time_step=time_steps[0].item(),
-                    epoch=epoch,
-                    idx=i,
-                    attention_type=attention_type,
-                    parent_dir="attention_results",
-                    mode='train'
+                    input_pressure, true_pressure, pred_pressure,
+                    reynolds_number=rp, time_step=ts,
+                    epoch=epoch, idx=i, attention_type=attention_type, mode='train'
                 )
-
-                # 差异图
                 plot_difference_figure(
-                    true_pressure=true_pressure,
-                    predicted_pressure=predicted_pressure,
-                    time_step=time_steps[0].item(),
-                    epoch=epoch,
-                    idx=i,
-                    attention_type=attention_type,
-                    parent_dir="attention_results",
-                    mode='train'
+                    true_pressure, pred_pressure,
+                    reynolds_number=rp, time_step=ts,
+                    epoch=epoch, idx=i, attention_type=attention_type, mode='train'
                 )
 
         avg_train_loss = total_train_loss / len(train_loader)
         train_loss_history.append(avg_train_loss)
 
-        # 可视化损失曲线
         if cfg["visualization"]["enabled"] and (epoch + 1) % cfg["visualization"]["interval"] == 0:
             result_dir = f"attention_results/{attention_type}"
             os.makedirs(result_dir, exist_ok=True)
             loss_fig_path = os.path.join(result_dir, f"loss_curve_epoch_{epoch + 1}.png")
             plot_losses(train_loss_history, valid_loss_history, test_loss_history, save_path=loss_fig_path)
 
-        # 验证集评估
         model.eval()
         total_valid_loss = 0
         with torch.no_grad():
-            for in_press, out_pressure, time_steps, mask in valid_loader:  # 解包为4个元素
-                in_press, out_pressure, time_steps, mask = in_press.to(device), out_pressure.to(device), time_steps.to(device), mask.to(device)
+            for in_press, out_pressure, time_steps, mask, reynolds_idxs in valid_loader:
+                in_press, out_pressure, time_steps, mask = in_press.to(device), out_pressure.to(device), time_steps.to(
+                    device), mask.to(device)
                 model_out = model(in_press, time_steps)
-                loss_value = criterion(model_out, out_pressure, mask)  # 传递掩码
+                loss_value = criterion(model_out, out_pressure, mask)
                 total_valid_loss += loss_value.item()
 
         avg_valid_loss = total_valid_loss / len(valid_loader)
         valid_loss_history.append(avg_valid_loss)
 
-        # 测试集评估
         total_test_loss = 0
         with torch.no_grad():
-            for in_press, out_pressure, time_steps, mask in test_loader:  # 解包为4个元素
-                in_press, out_pressure, time_steps, mask = in_press.to(device), out_pressure.to(device), time_steps.to(device), mask.to(device)
+            for in_press, out_pressure, time_steps, mask, reynolds_idxs in test_loader:
+                in_press, out_pressure, time_steps, mask = in_press.to(device), out_pressure.to(device), time_steps.to(
+                    device), mask.to(device)
                 model_out = model(in_press, time_steps)
-                loss_value = criterion(model_out, out_pressure, mask)  # 传递掩码
+                loss_value = criterion(model_out, out_pressure, mask)
                 total_test_loss += loss_value.item()
 
         avg_test_loss = total_test_loss / len(test_loader)
         test_loss_history.append(avg_test_loss)
 
-        print(f"🎯 Epoch [{epoch + 1}/{num_epochs}] - Train: {avg_train_loss:.6f}, Valid: {avg_valid_loss:.6f}, Test: {avg_test_loss:.6f}")
+        print(
+            f"🎯 Epoch [{epoch + 1}/{num_epochs}] - Train: {avg_train_loss:.6f}, Valid: {avg_valid_loss:.6f}, Test: {avg_test_loss:.6f}")
 
     return model, train_loss_history, valid_loss_history, test_loss_history
+
 
 def test_model(model, test_loader, criterion, device='cuda', attention_type='default', parent_dir="attention_results",
                config_path='modify_multi_attention/configs/config.yaml'):

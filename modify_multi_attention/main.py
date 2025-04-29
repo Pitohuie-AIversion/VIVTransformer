@@ -53,6 +53,7 @@ def get_loss_function(cfg):
 
 def main():
     with open('modify_multi_attention/configs/config.yaml', 'r', encoding="utf-8") as f:
+
         cfg = yaml.safe_load(f)
 
     device = torch.device(cfg["device"])

@@ -1,35 +1,8 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, time_step, epoch, attention_type, idx, parent_dir="attention_results", mode="test"):
-    # 创建对应注意力机制的子文件夹
-    result_dir = os.path.join(parent_dir, attention_type, "visualization_results")
-    os.makedirs(result_dir, exist_ok=True)
-
-    plt.figure(figsize=(18, 5))
-
-    plt.subplot(1, 3, 1)
-    plt.imshow(input_pressure, cmap='coolwarm', interpolation='nearest')
-    plt.colorbar()
-    plt.title(f"Input Pressure Matrix at t={time_step:.2f}")
-
-    plt.subplot(1, 3, 2)
-    plt.imshow(true_pressure, cmap='coolwarm', interpolation='nearest')
-    plt.colorbar()
-    plt.title(f"True Pressure Matrix at t={time_step:.2f}")
-
-    plt.subplot(1, 3, 3)
-    plt.imshow(predicted_pressure, cmap='coolwarm', interpolation='nearest')
-    plt.colorbar()
-    plt.title(f"Predicted Pressure Matrix at t={time_step:.2f}")
-
-    plt.tight_layout()
-
-    # 保存图片到对应文件夹
-    save_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.png")
-    plt.savefig(save_path)
-    plt.close()
-
+import yaml
+import torch
 
 def plot_losses(train_loss, valid_loss, test_loss, save_path=None):
     import matplotlib.pyplot as plt
@@ -55,7 +28,48 @@ def plot_losses(train_loss, valid_loss, test_loss, save_path=None):
     plt.close()
 
 
-def plot_difference_figure(true_pressure, predicted_pressure, time_step, epoch, attention_type, idx, parent_dir="attention_results", mode="test"):
+
+
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, reynolds_number, time_step, epoch, idx, attention_type, parent_dir="attention_results", mode="test"):
+    # 创建对应注意力机制的子文件夹
+    result_dir = os.path.join(parent_dir, attention_type, "visualization_results")
+    os.makedirs(result_dir, exist_ok=True)
+
+    # 使用 .detach() 断开计算图
+    input_pressure = input_pressure.detach().cpu().numpy() if isinstance(input_pressure, torch.Tensor) else input_pressure
+    true_pressure = true_pressure.detach().cpu().numpy() if isinstance(true_pressure, torch.Tensor) else true_pressure
+    predicted_pressure = predicted_pressure.detach().cpu().numpy() if isinstance(predicted_pressure, torch.Tensor) else predicted_pressure
+
+    # 保存可视化图像
+    plt.figure(figsize=(18, 5))
+
+    plt.subplot(1, 3, 1)
+    plt.imshow(input_pressure, cmap='coolwarm', interpolation='nearest')
+    plt.colorbar()
+    plt.title(f"Input Pressure Matrix at t={time_step:.2f}")
+
+    plt.subplot(1, 3, 2)
+    plt.imshow(true_pressure, cmap='coolwarm', interpolation='nearest')
+    plt.colorbar()
+    plt.title(f"True Pressure Matrix at t={time_step:.2f}")
+
+    plt.subplot(1, 3, 3)
+    plt.imshow(predicted_pressure, cmap='coolwarm', interpolation='nearest')
+    plt.colorbar()
+    plt.title(f"Predicted Pressure Matrix at t={time_step:.2f}")
+
+    plt.tight_layout()
+
+    # 保存图片
+    save_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.png")
+    plt.savefig(save_path)
+    plt.close()
+
+def plot_difference_figure(true_pressure, predicted_pressure, reynolds_number, time_step, epoch, idx, attention_type, parent_dir="attention_results", mode="test"):
     # 创建对应注意力机制的子文件夹
     result_dir = os.path.join(parent_dir, attention_type, "difference_results")
     os.makedirs(result_dir, exist_ok=True)
@@ -63,9 +77,17 @@ def plot_difference_figure(true_pressure, predicted_pressure, time_step, epoch, 
     # 计算差异（绝对误差）
     difference = np.abs(true_pressure - predicted_pressure)
 
-    # 保存差异矩阵到文件
-    difference_file_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}_difference_matrix.csv")
-    np.savetxt(difference_file_path, difference, delimiter=",")  # 保存为 CSV 格式
+    # 保存文件名中带上Reynolds Number 和 Time Step
+    save_prefix = f"Re_{reynolds_number}_time_{time_step:.2f}_{mode}_epoch_{epoch}_sample_{idx}"
+
+    # 根据 config.save_format 选择 npy/csv
+    save_fmt = "npy"  # 默认为npy格式
+    npy_save_path = os.path.join(result_dir, f"{save_prefix}_difference_matrix.npy")
+    np.save(npy_save_path, difference)
+
+    # 保存为CSV格式
+    csv_save_path = os.path.join(result_dir, f"{save_prefix}_difference_matrix.csv")
+    np.savetxt(csv_save_path, difference, delimiter=",")  # 保存为 CSV 格式
 
     # 绘制差异图
     plt.figure(figsize=(6, 5))
@@ -76,7 +98,6 @@ def plot_difference_figure(true_pressure, predicted_pressure, time_step, epoch, 
     plt.tight_layout()
 
     # 保存图片到对应文件夹
-    save_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}_difference.png")
+    save_path = os.path.join(result_dir, f"{save_prefix}_difference.png")
     plt.savefig(save_path)
     plt.close()
-

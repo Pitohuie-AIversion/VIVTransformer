@@ -1,5 +1,5 @@
 data:
-  path: "F:/Zhaoyang/merged_all_pressures_separated_normalized.pt"
+  path: "X:/2025/Graduation_project/simulation_results/merged_all_pressures_separated_normalized.pt"
   batch_size: 512
   num_workers: 4  # 设置数据加载的进程数
 training:
@@ -9,7 +9,7 @@ training:
 
   # ✅ 新增：损失函数选择和区域加权控制
   loss_function: custom_masked        # 可选 "mse" 或 "custom_masked"
-  mask_enabled: true                  # 是否启用掩码区域控制
+  mask_enabled: false                  # 是否启用掩码区域控制
   mask_regions:                       # 多个感兴趣区域的坐标范围 [x_start, x_end, y_start, y_end]
     - [50, 75, 0, 200]
     - [125, 150, 0, 200]
@@ -60,6 +60,7 @@ attention_types:
 device: "cuda"
 
 visualization:
-  enabled: true       # 是否启用可视化
-  interval: 10       # 每隔多少个 epoch 画一次图
-  max_samples: 5      # 最多可视化多少个样本    再看看我的config需要如何修改
+  enabled: true        # 打开可视化
+  interval: 1          # 每个epoch都保存
+  max_samples: 9999    # 保存每个epoch下所有batch的可视化
+  save_format: "npy"   # 选择保存格式 ("npy" 或 "csv")

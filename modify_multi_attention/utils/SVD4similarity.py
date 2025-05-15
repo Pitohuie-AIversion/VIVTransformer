@@ -193,6 +193,7 @@ if __name__ == "__main__":
     input_dir = "F:/Zhaoyang/VIVTransformer/attention_results/relative/difference_results"  # 差异矩阵文件夹路径
     output_dir = "F:/Zhaoyang/VIVTransformer/attention_results/relative/svd_results"  # 结果保存路径
     threshold = 0.9  # 90%的能量阈值
+
     summary_file = "F:/Zhaoyang/VIVTransformer/attention_results/relative/svd_results/svd_summary.csv"  # 汇总文件路径
     top_n = 10  # 显示前10个特征向量
 

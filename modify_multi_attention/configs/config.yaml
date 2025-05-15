@@ -1,20 +1,59 @@
 data:
-  path: "X:/2025/Graduation_project/simulation_results/merged_all_pressures_separated_normalized.pt"
-  batch_size: 512
+  path: "F:/Zhaoyang/merged_all_pressures_separated_normalized.pt"
+  batch_size: 1024
   num_workers: 4  # 设置数据加载的进程数
+
 training:
-  epochs: 100
+  epochs: 500
   learning_rate: 0.0001
   early_stop_patience: 500
 
+#training:
+#  # …（原有配置）…
+#  mask_weight_modes_enabled: true     # 是否启用多模态区域加权
+#  mask_weight_mode_paths:             # 按顺序列出每个模态的权重图文件
+#    - "path/to/svd_mode1_weights.pt"
+#    - "path/to/svd_mode2_weights.pt"
+#    - "path/to/svd_mode3_weights.pt"
+#  lambdas:                            # 对应每个模态的惩罚系数，顺序一一对应
+#    - 0.4
+#    - 0.3
+#    - 0.3
+
   # ✅ 新增：损失函数选择和区域加权控制
-  loss_function: custom_masked        # 可选 "mse" 或 "custom_masked"
-  mask_enabled: false                  # 是否启用掩码区域控制
-  mask_regions:                       # 多个感兴趣区域的坐标范围 [x_start, x_end, y_start, y_end]
+  loss_function: multi_mode_weighted     # 可选 "mse"、"custom_masked" 或 "multi_mode_weighted"
+  mask_weight_modes_enabled: true
+  mask_weight_mode_paths:
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse/attention_results/bam/svd_results/mode1/svd_mode1_weights.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse/attention_results/bam/svd_results/mode2/svd_mode2_weights.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse/attention_results/bam/svd_results/mode3/svd_mode3_weights.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse/attention_results/bam/svd_results/mode4/svd_mode4_weights.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse/attention_results/bam/svd_results/mode5/svd_mode5_weights.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse/attention_results/bam/svd_results/mode6/svd_mode6_weights.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse/attention_results/bam/svd_results/mode7/svd_mode7_weights.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse/attention_results/bam/svd_results/mode8/svd_mode8_weights.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse/attention_results/bam/svd_results/mode9/svd_mode9_weights.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse/attention_results/bam/svd_results/mode10/svd_mode10_weights.pt"
+
+  lambdas:                               # 对应每个模态的惩罚系数，顺序一一对应
+    - 0.4
+    - 0.3
+    - 0.2
+    - 0.1
+    - 0.05
+    - 0.05
+    - 0.05
+    - 0.05
+    - 0.05
+    - 0.05
+
+  mask_svd_iter_idx: 0    # 取第几次迭代的权重图（0 表示第一份）
+  mask_enabled: false                    # 是否启用掩码区域控制
+  mask_regions:                          # 多个感兴趣区域的坐标范围 [x_start, x_end, y_start, y_end]
     - [50, 75, 0, 200]
     - [125, 150, 0, 200]
-  lambda_l2: 0.9                     # L2 损失权重
-  lambda_mask: 0.1                    # 掩码区域损失权重
+  lambda_l2: 0.9                         # L2 损失权重
+  lambda_mask: 0.1                       # 掩码区域损失权重
 
 model:
   input_dim: 400
@@ -27,13 +66,13 @@ model:
   seq_len: 49                 # 明确指定7x7空间尺寸，支持CNN注意力
 
 attention_types:
-  - "relative"
+# - "relative"
 #  - "sparse"
 #  - "lsh"
 #  - "se"
 #  - "sk"
 #  - "cbam"
-#  - "bam"
+  - "bam"
 #  - "eca"
 #  - "danet"
 #  - "psa"

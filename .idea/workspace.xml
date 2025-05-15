@@ -5,21 +5,21 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="64e92687-6eb1-4d79-b85d-75d825f2466b" name="更改" comment="mend the attention issue and loss plot">
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD/svd_analysis_202500504_225712.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD/svd_analysis_202500507_10.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD/svd_analysis_202500508_10_planA.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD/svd_analysis_20250430_225712.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/zip.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/1.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/1.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cudatest.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main2.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/data/dataloader.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/data/dataloader.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/data/dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/data/dataset.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modify_multi_attention/utils/visualization.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/utils/visualization.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/multi-attention/dataset.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/multi-attention/multi-attention.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/multi-attention/view.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/utils/SVD4similarity.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/utils/SVD4similarity.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/utils/losses.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/utils/losses.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,8 +51,8 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/Pitohuie-AIversion/VIVTransformer&quot;,
-    &quot;accountId&quot;: &quot;f6978cf5-5524-451e-b8d6-be2d92c126aa&quot;
+    &quot;url&quot;: &quot;https://github.com/Pitohuie-AIversion/VIVTransformer.git&quot;,
+    &quot;accountId&quot;: &quot;2961af8d-867f-45a1-8c54-1247ca4a9311&quot;
   }
 }</component>
   <component name="ProblemsViewState">
@@ -97,24 +97,29 @@
     &quot;Python.multi-attentionnomodel.executor&quot;: &quot;Run&quot;,
     &quot;Python.multi-attentionnomodel1.executor&quot;: &quot;Run&quot;,
     &quot;Python.svd2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.svd_analysis_202500504_225712.executor&quot;: &quot;Run&quot;,
+    &quot;Python.svd_analysis_202500507_10.executor&quot;: &quot;Run&quot;,
+    &quot;Python.svd_analysis_202500508_10_planA.executor&quot;: &quot;Run&quot;,
+    &quot;Python.svd_analysis_20250430_225712.executor&quot;: &quot;Run&quot;,
     &quot;Python.svd_utils.executor&quot;: &quot;Run&quot;,
     &quot;Python.transformer.executor&quot;: &quot;Run&quot;,
     &quot;Python.view.executor&quot;: &quot;Run&quot;,
+    &quot;Python.zip.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;V1.1&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;V1.2&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;F:/Zhaoyang/VIVTransformer/modify_multi_attention/utils/SVD/attention_results&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/Zhaoyang/VIVTransformer_svd_analyse/modify_multi_attention/utils/SVD&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="F:\Zhaoyang\VIVTransformer_svd_analyse\modify_multi_attention\utils\SVD" />
       <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention\utils\SVD\attention_results" />
       <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention\utils" />
       <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention" />
       <recent name="F:\Zhaoyang\VIVTransformer\multi-attention\visualization_results" />
-      <recent name="F:\Zhaoyang\VIVTransformer\multi-attention" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="F:\Zhaoyang\VIVTransformer\modify_multi_attention\utils\SVD" />
@@ -124,121 +129,6 @@
     </key>
   </component>
   <component name="RunManager" selected="Python.modify_multi_attiontion_main">
-    <configuration name="SVD4similarity" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="1" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD4similarity.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="SVDeverypic" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="1" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVDeverypic.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="SVDfistaddweight" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="1" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD/SVDfistaddweight.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="SVDfistaddweight_loc" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="1" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD/SVDfistaddweight_loc.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="Svd Mode1 High Energy" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="1" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD/Svd Mode1 High Energy.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <configuration name="main_test" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="1" />
       <option name="ENV_FILES" value="" />
@@ -354,25 +244,135 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="svd_analysis_202500504_225712" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD/svd_analysis_202500504_225712.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="svd_analysis_202500507_10" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD/svd_analysis_202500507_10.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="svd_analysis_202500508_10_planA" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD/svd_analysis_202500508_10_planA.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="svd_analysis_20250430_225712" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/utils/SVD/svd_analysis_20250430_225712.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="zip" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/zip.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <list>
-      <item itemvalue="Python.SVD4similarity" />
-      <item itemvalue="Python.SVDeverypic" />
-      <item itemvalue="Python.SVDfistaddweight" />
-      <item itemvalue="Python.SVDfistaddweight_loc" />
-      <item itemvalue="Python.Svd Mode1 High Energy" />
       <item itemvalue="Python.main_test" />
       <item itemvalue="Python.modify_multi_attention" />
       <item itemvalue="Python.modify_multi_attiontion_main" />
       <item itemvalue="Python.multi-attention" />
       <item itemvalue="Python.multi-attentionnomodel1" />
+      <item itemvalue="Python.svd_analysis_202500508_10_planA" />
+      <item itemvalue="Python.svd_analysis_202500507_10" />
+      <item itemvalue="Python.zip" />
+      <item itemvalue="Python.svd_analysis_202500504_225712" />
+      <item itemvalue="Python.svd_analysis_20250430_225712" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.Svd Mode1 High Energy" />
-        <item itemvalue="Python.SVDfistaddweight_loc" />
-        <item itemvalue="Python.SVDfistaddweight" />
-        <item itemvalue="Python.SVDeverypic" />
-        <item itemvalue="Python.SVD4similarity" />
+        <item itemvalue="Python.svd_analysis_202500508_10_planA" />
+        <item itemvalue="Python.svd_analysis_202500507_10" />
+        <item itemvalue="Python.zip" />
+        <item itemvalue="Python.svd_analysis_202500504_225712" />
+        <item itemvalue="Python.svd_analysis_20250430_225712" />
       </list>
     </recent_temporary>
   </component>
@@ -450,6 +450,11 @@
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/modify_multi_attention/mymodels/components/attention.py</url>
           <option name="timeStamp" value="2" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/modify_multi_attention/utils/SVD/svd_analysis_20250430_225712.py</url>
+          <line>86</line>
+          <option name="timeStamp" value="3" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

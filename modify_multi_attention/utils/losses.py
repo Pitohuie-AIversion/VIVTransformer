@@ -1,85 +1,9 @@
 import torch
 import torch.nn as nn
-
-class WeightedMSELoss(nn.Module):
-    def __init__(self):
-        super(WeightedMSELoss, self).__init__()
-
-    def forward(self, pred, target):
-        # 计算均方误差损失
-        mse_loss = (pred - target) ** 2
-
-        # 计算差异图（可以是绝对误差或平方误差）
-        difference_map = torch.abs(pred - target)  # 这里使用绝对误差作为示例
-
-        # 用差异图加权损失
-        weighted_loss = mse_loss * difference_map
-
-        # 返回加权后的损失（平均损失）
-        return weighted_loss.mean()
-
-
-# utils/losses.py
-import torch
-import torch.nn as nn
-
-
-class CustomLoss(nn.Module):
-    def __init__(self, lambda_l2=1.0, lambda_poly=0.1, p=2, q=3):
-        """
-        :param lambda_l2: L2 损失的权重
-        :param lambda_poly: 多项式损失的权重
-        :param p: 差异项的平方惩罚（多项式的部分）
-        :param q: 差异项的立方惩罚（多项式的部分）
-        """
-        super(CustomLoss, self).__init__()
-        self.lambda_l2 = lambda_l2  # L2 损失的权重
-        self.lambda_poly = lambda_poly  # 多项式损失的权重
-        self.p = p  # 多项式平方惩罚
-        self.q = q  # 多项式立方惩罚
-
-    def forward(self, pred, target):
-        """
-        :param pred: 模型的预测值
-        :param target: 真实值
-        :return: 计算的损失值
-        """
-        # 计算标准的L2损失（均方误差损失）
-        l2_loss = torch.mean((pred - target) ** 2)
-
-        # 计算差异项
-        difference = pred - target
-
-        # 计算加和项：例如差异的平方 + 差异的立方
-        poly_loss = torch.sum(torch.pow(torch.abs(difference), self.p) + torch.pow(torch.abs(difference), self.q))
-
-        # 最终损失是L2损失和加和项的加权和
-        total_loss = self.lambda_l2 * l2_loss + self.lambda_poly * poly_loss
-
-        return total_loss
-# utils/losses.py
-import torch
-import torch.nn as nn
-
-class CustomLossWithMask(nn.Module):
-    def __init__(self, lambda_l2=1.0, lambda_mask=0.1):
-        super(CustomLossWithMask, self).__init__()
-        self.lambda_l2 = lambda_l2
-        self.lambda_mask = lambda_mask
-
-    def forward(self, pred, target, mask):
-        # 计算 L2 损失
-        l2_loss = torch.mean((pred - target) ** 2)
-
-        # 计算加权损失
-        weighted_loss = torch.mean((pred - target) ** 2 * mask)
-
-        # 最终损失：L2 损失和加权损失的加权和
-        total_loss = self.lambda_l2 * l2_loss + self.lambda_mask * weighted_loss
-        return total_loss
-
+import torch.nn.functional as F
 
 class StandardMSELoss(nn.Module):
+    """标准均方误差损失"""
     def __init__(self):
         super(StandardMSELoss, self).__init__()
         self.mse = nn.MSELoss()
@@ -87,16 +11,99 @@ class StandardMSELoss(nn.Module):
     def forward(self, pred, target):
         return self.mse(pred, target)
 
+
+class CustomLoss(nn.Module):
+    """
+    复合多项式损失：
+      L = λ_l2 * MSE + λ_poly * (|diff|^p + |diff|^q).sum()
+    """
+    def __init__(self, lambda_l2=1.0, lambda_poly=0.1, p=2, q=3):
+        super(CustomLoss, self).__init__()
+        self.lambda_l2   = lambda_l2
+        self.lambda_poly = lambda_poly
+        self.p = p
+        self.q = q
+
+    def forward(self, pred, target):
+        diff = pred - target
+        l2_loss   = torch.mean(diff ** 2)
+        poly_loss = torch.sum(torch.abs(diff)**self.p + torch.abs(diff)**self.q)
+        return self.lambda_l2 * l2_loss + self.lambda_poly * poly_loss
+
+
+class CustomLossWithMask(nn.Module):
+    """
+    单一二值掩码加权 MSE：
+      L = λ_l2 * MSE_global + λ_mask * mean((pred - target)^2 * mask)
+    """
+    def __init__(self, lambda_l2=1.0, lambda_mask=0.1):
+        super(CustomLossWithMask, self).__init__()
+        self.lambda_l2   = lambda_l2
+        self.lambda_mask = lambda_mask
+
+    def forward(self, pred, target, mask):
+        l2_loss   = torch.mean((pred - target) ** 2)
+        mask_loss = torch.mean((pred - target) ** 2 * mask)
+        return self.lambda_l2 * l2_loss + self.lambda_mask * mask_loss
+
+
+class WeightedMSELoss(nn.Module):
+    """
+    差异图加权 MSE：
+      L = mean((pred - target)^2 * |pred - target|)
+    """
+    def __init__(self):
+        super(WeightedMSELoss, self).__init__()
+
+    def forward(self, pred, target):
+        mse_map        = (pred - target) ** 2
+        difference_map = torch.abs(pred - target)
+        weighted_map   = mse_map * difference_map
+        return weighted_map.mean()
+
+
 class SimpleLossWithMask(nn.Module):
-        def __init__(self):
-            super(SimpleLossWithMask, self).__init__()
+    """
+    简易二值掩码 MSE：
+      L = mean((pred - target)^2 * mask)
+    """
+    def __init__(self):
+        super(SimpleLossWithMask, self).__init__()
 
-        def forward(self, pred, target, mask):
-            # 计算标准的 L2 损失
-            mse_loss = (pred - target) ** 2
+    def forward(self, pred, target, mask):
+        return torch.mean((pred - target) ** 2 * mask)
 
-            # 应用掩码来加权损失
-            weighted_loss = mse_loss * mask
 
-            # 返回加权后的损失（对每个样本求平均）
-            return weighted_loss.mean()
+class MultiModeWeightedMSELoss(nn.Module):
+    """
+    多模态加权 MSE Loss：
+      L = MSE_global
+        + sum_i (λ_i * mean((pred - target)^2 * weight_maps[:, i, :]))
+    要求：
+      - pred, target: Tensor(shape=[batch, output_dim])
+      - weight_maps: Tensor(shape=[batch, num_modes, output_dim])
+      - lambdas: list of float, len = num_modes
+    """
+    def __init__(self, lambdas):
+        super(MultiModeWeightedMSELoss, self).__init__()
+        self.lambdas = lambdas
+
+    def forward(self, pred, target, masks, weight_maps):
+        # 全局 MSE
+        loss_global = F.mse_loss(pred, target)
+
+        # 计算每元素平方误差并扩展到 [batch, 1, output_dim]
+        diff_sq = (pred - target) ** 2
+        diff_sq = diff_sq.unsqueeze(1)  # (batch, 1, output_dim)
+
+        # 加权：按每个模态的权重图相乘
+        # weight_maps: (batch, num_modes, output_dim)
+        weighted = diff_sq * weight_maps  # (batch, num_modes, output_dim)
+
+        # 对 output_dim、batch 两次求平均，得到每个模态的平均误差
+        mode_means = weighted.mean(dim=2).mean(dim=0)  # (num_modes,)
+
+        # 按 lambdas 加权求和
+        loss_modes = sum(l * m for l, m in zip(self.lambdas, mode_means))
+
+        return loss_global + loss_modes

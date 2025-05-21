@@ -22,10 +22,10 @@ class PressureDataset(Dataset):
         self.output_dim = self.pressures[0, 0].numel()
         self.mask_regions = self.cfg['training'].get('mask_regions', [])
 
-        # 新增SVD主模态mask参数
-        self.mask_type = self.cfg['training'].get('mask_type', 'svd')
-        # 直接写死用于测试的掩码文件路径
-        self.svd_mask_path = r"F:\Zhaoyang\VIVTransformer_svd_analyse_new_route\attention_results\bam\svd_results1\mode1\Re_0_time_3.50_train_epoch_107_sample_0_difference_matrix.pt"
+        # 新增：读取SVD主模态掩码相关配置
+        self.mask_type = self.cfg['training'].get('mask_type', 'region')   # "region" 或 "svd"
+        self.svd_mask_dir = self.cfg['training'].get('svd_mask_dir', None)
+        self.svd_mask_mode = self.cfg['training'].get('svd_mask_mode', 1)
 
     def __len__(self):
         return self.num_samples
@@ -47,15 +47,20 @@ class PressureDataset(Dataset):
                     if index < self.output_dim:
                         region_mask[index] = 1.0
 
-        # ==== SVD主模态mask（单一mask全样本） ====
-        if self.mask_type == 'svd' and self.svd_mask_path is not None:
-            if os.path.exists(self.svd_mask_path):
-                svd_mask = torch.load(self.svd_mask_path).float().flatten()
+        # ==== SVD主模态掩码自动融合 ====
+        if self.mask_type == 'svd' and self.svd_mask_dir is not None:
+            mask_dir = os.path.join(self.svd_mask_dir, f"mode{self.svd_mask_mode}")
+            # 文件命名务必与你SVD批量保存一致！
+            mask_name = f"Re_{reynolds_idx}_time_{time_step:.2f}_train_epoch_0_sample_{time_step_idx}_difference_matrix.pt"
+            mask_path = os.path.join(mask_dir, mask_name)
+            if os.path.exists(mask_path):
+                svd_mask = torch.load(mask_path).float().flatten()
+                # 确保维度一致
                 if svd_mask.shape[0] != self.output_dim:
                     svd_mask = svd_mask.view(-1)
                 mask = svd_mask
             else:
-                mask = torch.ones(self.output_dim)
+                mask = torch.ones(self.output_dim)  # 若未找到则不加权
         else:
             mask = region_mask
 

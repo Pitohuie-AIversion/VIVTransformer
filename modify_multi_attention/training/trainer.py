@@ -47,14 +47,19 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                 true_pressure = out_pressure[0].cpu().detach().numpy().reshape(200, 200)
                 pred_pressure = model_out[0].cpu().detach().numpy().reshape(200, 200)
 
+                rp = reynolds_idxs[0].item()
+                ...
                 plot_comparison_figure(
                     input_pressure, true_pressure, pred_pressure,
-                    reynolds_number=rp, time_step=ts,
+                    reynolds_number=rp,
+                    time_step=ts,
                     epoch=epoch, idx=i, attention_type=attention_type, mode='train'
                 )
+
                 plot_difference_figure(
                     true_pressure, pred_pressure,
-                    reynolds_number=rp, time_step=ts,
+                    reynolds_number=rp,  # 必须有这行！
+                    time_step=ts,
                     epoch=epoch, idx=i, attention_type=attention_type, mode='train'
                 )
 
@@ -118,7 +123,7 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
         log_file.write("Batch, Test Loss\n")
 
     with torch.no_grad():
-        for idx, (in_press, out_pressure, time_steps, mask) in enumerate(test_loader):  # 解包为4个元素
+        for idx, (in_press, out_pressure, time_steps, mask, reynolds_idxs) in enumerate(test_loader): # 解包为5个元素
             in_press, out_pressure, time_steps, mask = (
                 in_press.to(device), out_pressure.to(device), time_steps.to(device), mask.to(device)
             )
@@ -138,10 +143,13 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
                 predicted_pressure = model_out[0].view(200, 200).cpu().numpy()
 
                 # 对比图
+                rp = reynolds_idxs[0].item()
+                ...
                 plot_comparison_figure(
                     input_pressure=input_pressure,
                     true_pressure=true_pressure,
                     predicted_pressure=predicted_pressure,
+                    reynolds_number=rp,
                     time_step=time_steps[0].item(),
                     epoch=0,
                     idx=idx,
@@ -154,6 +162,7 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
                 plot_difference_figure(
                     true_pressure=true_pressure,
                     predicted_pressure=predicted_pressure,
+                    reynolds_number=rp,  # 必须有这行！
                     time_step=time_steps[0].item(),
                     epoch=0,
                     idx=idx,

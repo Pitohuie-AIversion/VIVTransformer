@@ -1,7 +1,7 @@
 data:
-  path: "X:/2025/Graduation_project/simulation_results/merged_all_pressures_separated_normalized.pt"
-  batch_size: 512
-  num_workers: 4  # 设置数据加载的进程数
+  path: "F:/Zhaoyang/merged_all_pressures_separated_normalized.pt"
+  batch_size: 8
+  num_workers: 0  # 设置数据加载的进程数
 training:
   epochs: 100
   learning_rate: 0.0001
@@ -16,7 +16,14 @@ training:
   lambda_l2: 0.9                     # L2 损失权重
   lambda_mask: 0.1                    # 掩码区域损失权重
 
+  svd_main_mode_enabled: true    # 开启主模态loss
+  lambda_base: 1.0               # 基础loss权重
+  lambda_main: 0.1               # SVD主模态loss权重
+  main_mode: mse                 # SVD主模态loss类型(mse, l1, energy)
+
 model:
+  output_h: 200
+  output_w: 200
   input_dim: 400
   output_dim: 40000
   d_model: 512
@@ -62,5 +69,10 @@ device: "cuda"
 visualization:
   enabled: true        # 打开可视化
   interval: 1          # 每个epoch都保存
-  max_samples: 9999    # 保存每个epoch下所有batch的可视化
+  max_samples: 5    # 保存每个epoch下所有batch的可视化
   save_format: "npy"   # 选择保存格式 ("npy" 或 "csv")
+
+
+  do_svd_visualization: true
+  svd_vis_num: 5
+

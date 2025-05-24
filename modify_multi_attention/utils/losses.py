@@ -1,4 +1,5 @@
 import torch
+
 import torch.nn as nn
 
 class WeightedMSELoss(nn.Module):
@@ -100,3 +101,68 @@ class SimpleLossWithMask(nn.Module):
 
             # 返回加权后的损失（对每个样本求平均）
             return weighted_loss.mean()
+# utils/losses.py
+
+import torch
+import torch.nn as nn
+
+class SVDMainModeLoss(nn.Module):
+
+    def __init__(self, h=200, w=200, mode='mse', lambda_main=1.0):
+        super().__init__()
+        self.h = h
+        self.w = w
+        self.mode = mode
+        self.lambda_main = lambda_main
+
+    def _extract_main_mode(self, tensor2d):
+        U, S, Vh = torch.linalg.svd(tensor2d, full_matrices=False)
+        main_mode = S[0] * torch.ger(U[:, 0], Vh[0, :])
+        return main_mode, U[:, 0], Vh[0, :], S[0]
+
+    def forward(self, pred, target):
+        B = pred.shape[0]
+        pred = pred.view(B, self.h, self.w)
+        target = target.view(B, self.h, self.w)
+        loss_sum = 0.0
+
+        for i in range(B):
+            pred_main, u_pred, v_pred, s_pred = self._extract_main_mode(pred[i])
+            tgt_main, u_tgt, v_tgt, s_tgt = self._extract_main_mode(target[i])
+            if self.mode == 'mse':
+                loss = torch.mean((pred_main - tgt_main) ** 2)
+            elif self.mode == 'l1':
+                loss = torch.mean(torch.abs(pred_main - tgt_main))
+            elif self.mode == 'energy':
+                loss = (s_pred - s_tgt).abs()
+            elif self.mode == 'cos':
+                cos_loss = 1 - torch.abs(torch.dot(u_pred, u_tgt) / (u_pred.norm() * u_tgt.norm()))
+                cos_loss += 1 - torch.abs(torch.dot(v_pred, v_tgt) / (v_pred.norm() * v_tgt.norm()))
+                loss = cos_loss / 2
+            else:
+                raise ValueError("Unknown main mode loss type")
+            loss_sum += loss
+            if torch.isnan(loss_sum):
+                print(f"[NaN in main mode loss] pred:{pred[i].max()}, tgt:{target[i].max()}")
+
+            # print(f"[Batch SVDMainModeLoss] {loss_sum / B}")
+
+        return self.lambda_main * loss_sum / B
+
+
+class TotalLossWithSVD(nn.Module):
+    """
+    总loss = (lambda_base * 基础loss + lambda_main * SVD主模态loss) / (lambda_base + lambda_main)
+    """
+    def __init__(self, base_loss, svd_loss, lambda_base=1.0, lambda_main=0.1):
+        super().__init__()
+        self.base_loss = base_loss
+        self.svd_loss = svd_loss
+        self.lambda_base = lambda_base
+        self.lambda_main = lambda_main
+
+    def forward(self, pred, target, mask):
+        loss0 = self.base_loss(pred, target, mask)
+        loss1 = self.svd_loss(pred, target)
+        total = self.lambda_base * loss0 + self.lambda_main * loss1
+        return total / (self.lambda_base + self.lambda_main)

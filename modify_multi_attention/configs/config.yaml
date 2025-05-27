@@ -1,9 +1,9 @@
 data:
   path: "F:/Zhaoyang/merged_all_pressures_separated_normalized.pt"
-  batch_size: 512
-  num_workers: 4  # 设置数据加载的进程数
+  batch_size: 2
+  num_workers: 1  # 设置数据加载的进程数
 training:
-  epochs: 1
+  epochs: 100
   learning_rate: 0.0001
   early_stop_patience: 500
 
@@ -14,6 +14,11 @@ training:
   mask_enabled: true
   mask_type: "svd"             # 可选"region"或"svd"
   svd_mask_dir: "attention_results/bam/svd_results1"
+  svd_mask_paths:
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse_new_route/attention_results/bam/svd_results1/mode_all/mode1Re_0_time_3.50_train_epoch_107_sample_0_difference_matrix.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse_new_route/attention_results/bam/svd_results1/mode_all/mode2Re_0_time_3.50_train_epoch_107_sample_0_difference_matrix.pt"
+    - "F:/Zhaoyang/VIVTransformer_svd_analyse_new_route/attention_results/bam/svd_results1/mode_all/mode3Re_0_time_3.50_train_epoch_107_sample_0_difference_matrix.pt"
+  svd_mask_weights: [ 0.5, 0.3, 0.2 ]  # 对应三个掩码的加权权重
   svd_mask_mode: 1             # 使用第几个主模态，int类型
 
   mask_regions:                       # 多个感兴趣区域的坐标范围 [x_start, x_end, y_start, y_end]
@@ -68,5 +73,5 @@ device: "cuda"
 visualization:
   enabled: true        # 打开可视化
   interval: 100          # 每个epoch都保存
-  max_samples: 9999    # 保存每个epoch下所有batch的可视化
+  max_samples: 20    # 保存每个epoch下所有batch的可视化
   save_format: "npy"   # 选择保存格式 ("npy" 或 "csv")

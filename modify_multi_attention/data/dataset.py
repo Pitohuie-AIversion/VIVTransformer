@@ -22,10 +22,13 @@ class PressureDataset(Dataset):
         self.output_dim = self.pressures[0, 0].numel()
         self.mask_regions = self.cfg['training'].get('mask_regions', [])
 
-        # 新增SVD主模态mask参数
+        # 新增：自动读取yaml中的掩码路径和权重
         self.mask_type = self.cfg['training'].get('mask_type', 'svd')
-        # 直接写死用于测试的掩码文件路径
-        self.svd_mask_path = r"F:\Zhaoyang\VIVTransformer_svd_analyse_new_route\attention_results\bam\svd_results1\mode1\Re_0_time_3.50_train_epoch_107_sample_0_difference_matrix.pt"
+        self.svd_mask_paths = self.cfg['training'].get('svd_mask_paths', [])
+        self.svd_mask_weights = self.cfg['training'].get('svd_mask_weights', [])
+        if not self.svd_mask_weights or len(self.svd_mask_weights) != len(self.svd_mask_paths):
+            # 默认等权
+            self.svd_mask_weights = [1.0 / len(self.svd_mask_paths)] * len(self.svd_mask_paths)
 
     def __len__(self):
         return self.num_samples
@@ -47,13 +50,19 @@ class PressureDataset(Dataset):
                     if index < self.output_dim:
                         region_mask[index] = 1.0
 
-        # ==== SVD主模态mask（单一mask全样本） ====
-        if self.mask_type == 'svd' and self.svd_mask_path is not None:
-            if os.path.exists(self.svd_mask_path):
-                svd_mask = torch.load(self.svd_mask_path).float().flatten()
-                if svd_mask.shape[0] != self.output_dim:
-                    svd_mask = svd_mask.view(-1)
-                mask = svd_mask
+        # ==== 自动化多掩码加权融合 ====
+        if self.mask_type == 'svd' and self.svd_mask_paths:
+            mask_sum = torch.zeros(self.output_dim)
+            mask_found = False
+            for path, weight in zip(self.svd_mask_paths, self.svd_mask_weights):
+                if os.path.exists(path):
+                    svd_mask = torch.load(path).float().flatten()
+                    if svd_mask.shape[0] != self.output_dim:
+                        svd_mask = svd_mask.view(-1)
+                    mask_sum += svd_mask * weight
+                    mask_found = True
+            if mask_found and mask_sum.max() > 0:
+                mask = mask_sum / mask_sum.max()
             else:
                 mask = torch.ones(self.output_dim)
         else:

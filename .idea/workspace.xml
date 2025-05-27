@@ -7,19 +7,8 @@
     <list default="true" id="64e92687-6eb1-4d79-b85d-75d825f2466b" name="更改" comment="mend the attention issue and loss plot">
       <change beforePath="$PROJECT_DIR$/.idea/1.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/1.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cudatest.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main2.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modify_multi_attention/data/dataloader.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/data/dataloader.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/data/dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/data/dataset.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modify_multi_attention/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/modify_multi_attention/utils/visualization.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/utils/visualization.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/multi-attention/dataset.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/multi-attention/multi-attention.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/multi-attention/view.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,7 +27,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="master" />
+        <entry key="$PROJECT_DIR$" value="V1.5" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -51,8 +40,8 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/Pitohuie-AIversion/VIVTransformer&quot;,
-    &quot;accountId&quot;: &quot;f6978cf5-5524-451e-b8d6-be2d92c126aa&quot;
+    &quot;url&quot;: &quot;https://github.com/Pitohuie-AIversion/VIVTransformer.git&quot;,
+    &quot;accountId&quot;: &quot;2961af8d-867f-45a1-8c54-1247ca4a9311&quot;
   }
 }</component>
   <component name="ProblemsViewState">
@@ -102,10 +91,10 @@
     &quot;Python.view.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;V1.1&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;V1.51&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;F:/Zhaoyang/VIVTransformer/modify_multi_attention/utils/SVD/attention_results&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
   }
 }</component>
   <component name="RecentsManager">
@@ -355,16 +344,16 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.SVD4similarity" />
-      <item itemvalue="Python.SVDeverypic" />
-      <item itemvalue="Python.SVDfistaddweight" />
-      <item itemvalue="Python.SVDfistaddweight_loc" />
-      <item itemvalue="Python.Svd Mode1 High Energy" />
       <item itemvalue="Python.main_test" />
       <item itemvalue="Python.modify_multi_attention" />
       <item itemvalue="Python.modify_multi_attiontion_main" />
       <item itemvalue="Python.multi-attention" />
       <item itemvalue="Python.multi-attentionnomodel1" />
+      <item itemvalue="Python.SVD4similarity" />
+      <item itemvalue="Python.SVDeverypic" />
+      <item itemvalue="Python.SVDfistaddweight" />
+      <item itemvalue="Python.SVDfistaddweight_loc" />
+      <item itemvalue="Python.Svd Mode1 High Energy" />
     </list>
     <recent_temporary>
       <list>
@@ -379,7 +368,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-348a24fa61fa-5312c7369657-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-251.23774.444" />
+        <option value="bundled-python-sdk-dfff61a61320-9cdd278e9d02-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-251.25410.159" />
       </set>
     </attachedChunks>
   </component>
@@ -450,6 +439,16 @@
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/modify_multi_attention/mymodels/components/attention.py</url>
           <option name="timeStamp" value="2" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/modify_multi_attention/training/trainer.py</url>
+          <line>34</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/modify_multi_attention/data/dataset.py</url>
+          <line>6</line>
+          <option name="timeStamp" value="5" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

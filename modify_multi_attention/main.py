@@ -39,32 +39,23 @@ from utils.losses import CustomLossWithMask, StandardMSELoss, SimpleLossWithMask
 from utils.mask_utils import generate_box_mask
 # main.py 相关片段
 from utils.losses import CustomLossWithMask, StandardMSELoss, SVDMainModeLoss, TotalLossWithSVD
+from utils.losses import SVDTop3ModesLoss  # 保证能正确import
 
 def get_loss_function(cfg):
-    base_loss = None
-    if cfg['training']['loss_function'] == 'custom_masked':
-        base_loss = CustomLossWithMask(
+    loss_name = cfg['training']['loss_function']
+    if loss_name == 'mse':
+        return StandardMSELoss()
+    elif loss_name == 'custom_masked':
+        return CustomLossWithMask(
             lambda_l2=cfg['training'].get('lambda_l2', 1.0),
             lambda_mask=cfg['training'].get('lambda_mask', 0.1)
         )
-    else:
-        base_loss = StandardMSELoss()
-
-    # 判断是否开启 SVD主模态loss
-    if cfg['training'].get('svd_main_mode_enabled', False):
-        svd_loss = SVDMainModeLoss(
-            h=cfg['model'].get('output_h', 200),
-            w=cfg['model'].get('output_w', 200),
-            mode=cfg['training'].get('main_mode', 'mse')
-        )
-        return TotalLossWithSVD(
-            base_loss,
-            svd_loss,
-            lambda_base=cfg['training'].get('lambda_base', 1.0),
-            lambda_main=cfg['training'].get('lambda_main', 0.1)
+    elif loss_name == 'svd_top3':
+        return SVDTop3ModesLoss(
+            lambda_main=cfg['training'].get('lambda_main', 1.0)
         )
     else:
-        return base_loss
+        raise ValueError(f"未知损失函数类型: {loss_name}")
 
 def main():
     with open('modify_multi_attention/configs/config.yaml', 'r', encoding="utf-8") as f:

@@ -8,7 +8,9 @@ training:
   early_stop_patience: 500
 
   # ✅ 新增：损失函数选择和区域加权控制
-  loss_function: custom_masked        # 可选 "mse" 或 "custom_masked"
+  loss_function: svd_top3    # 损失函数类型，和上述代码一致
+  lambda_main: 1.0           # 主模态loss加权系数（可调）
+#  loss_function: custom_masked        # 可选 "mse" 或 "custom_masked"
   mask_enabled: false                  # 是否启用掩码区域控制
   mask_regions:                       # 多个感兴趣区域的坐标范围 [x_start, x_end, y_start, y_end]
     - [50, 75, 0, 200]
@@ -16,9 +18,9 @@ training:
   lambda_l2: 0.9                     # L2 损失权重
   lambda_mask: 0.1                    # 掩码区域损失权重
 
-  svd_main_mode_enabled: true    # 开启主模态loss
+  svd_main_mode_enabled: false    # 开启主模态loss
   lambda_base: 1.0               # 基础loss权重
-  lambda_main: 0.1               # SVD主模态loss权重
+#  lambda_main: 0.1               # SVD主模态loss权重
   main_mode: mse                 # SVD主模态loss类型(mse, l1, energy)
 
 model:
@@ -34,8 +36,8 @@ model:
   seq_len: 49                 # 明确指定7x7空间尺寸，支持CNN注意力
 
 attention_types:
-  - "relative"
-#  - "sparse"
+#  - "relative"
+  - "sparse"
 #  - "lsh"
 #  - "se"
 #  - "sk"
@@ -67,12 +69,12 @@ attention_types:
 device: "cuda"
 
 visualization:
-  enabled: true        # 打开可视化
+  enabled: false        # 打开可视化
   interval: 1          # 每个epoch都保存
   max_samples: 5    # 保存每个epoch下所有batch的可视化
   save_format: "npy"   # 选择保存格式 ("npy" 或 "csv")
 
 
-  do_svd_visualization: true
+  do_svd_visualization: false
   svd_vis_num: 5
 

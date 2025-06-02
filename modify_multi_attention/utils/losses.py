@@ -166,3 +166,26 @@ class TotalLossWithSVD(nn.Module):
         loss1 = self.svd_loss(pred, target)
         total = self.lambda_base * loss0 + self.lambda_main * loss1
         return total / (self.lambda_base + self.lambda_main)
+import torch
+import torch.nn as nn
+
+class SVDTop3ModesLoss(nn.Module):
+    def __init__(self, lambda_main=1.0):
+        super().__init__()
+        self.lambda_main = lambda_main
+
+    def forward(self, pred, target, *args, **kwargs):  # 保留mask等多余参数兼容旧代码
+        # pred, target: [B, T, H, W]
+        diff = pred - target
+        b, t, h, w = diff.shape
+        total_main_energy = 0.0
+        for bi in range(b):
+            for ti in range(t):
+                mat = diff[bi, ti]
+                U, S, Vh = torch.linalg.svd(mat, full_matrices=False)
+                top3_energy = (S[:3] ** 2).sum()
+                total_main_energy += top3_energy
+        main_modes_loss = total_main_energy / (b * t)
+        mse_loss = diff.pow(2).mean()
+        total_loss = mse_loss + self.lambda_main * main_modes_loss
+        return total_loss

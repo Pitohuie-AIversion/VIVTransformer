@@ -10,6 +10,21 @@ import yaml
 import numpy as np
 import gc
 
+def unpack_batch(batch):
+    """
+    保证兼容所有 collate_fn 返回的 batch（2、4、5元组等）
+    """
+    if batch is None:
+        return (None,)*5
+    if len(batch) == 5:
+        return batch
+    elif len(batch) == 4:
+        return (*batch, None)
+    elif len(batch) == 2:
+        return (*batch, None, None, None)
+    else:
+        raise ValueError(f"Batch 不支持长度 {len(batch)}: {type(batch)}")
+
 def train_model(model, train_loader, valid_loader, test_loader, criterion, optimizer, num_epochs=100, device='cuda',
                 early_stop_patience=10, attention_type='default',
                 config_path='modify_multi_attention/configs/config.yaml',
@@ -38,32 +53,35 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         n_train_batch = 0
 
         for i, batch in enumerate(train_loader):
-            if batch is None:
+            in_press, out_pressure, time_steps, mask, reynolds_idxs = unpack_batch(batch)
+            if in_press is None or out_pressure is None:
                 continue
-            in_press, out_pressure, time_steps, mask, reynolds_idxs = batch
             in_press, out_pressure, time_steps, mask = (
                 in_press.to(device), out_pressure.to(device), time_steps.to(device), mask.to(device)
             )
             optimizer.zero_grad()
             model_out = model(in_press, time_steps)
 
-            if isinstance(criterion, tuple):
-                base_loss, svd_loss = criterion
-                try:
+            # 新loss支持多参数的自动判定
+            try:
+                if isinstance(criterion, tuple):
+                    base_loss, svd_loss = criterion
                     loss_value = base_loss(model_out, out_pressure, mask)
                     loss_main = svd_loss(model_out, out_pressure)
                     total_loss = loss_value + loss_main
                     total_train_main_mode_loss += loss_main.item()
-                except Exception as e:
-                    print(f"[Batch {i}] Exception in loss: {e}")
-                    continue
-            else:
-                try:
-                    total_loss = loss_value = criterion(model_out, out_pressure, mask)
+                else:
+                    try:
+                        # 先尝试(pred, target, mask)
+                        total_loss = loss_value = criterion(model_out, out_pressure, mask)
+                    except TypeError:
+                        # 如果loss只接受两个参数（新SVD主模态loss等）
+                        total_loss = loss_value = criterion(model_out, out_pressure)
                     loss_main = torch.tensor(0.0)
-                except Exception as e:
-                    print(f"[Batch {i}] Exception in loss: {e}")
-                    continue
+            except Exception as e:
+                print(f"[Batch {i}] Exception in loss: {e}")
+                continue
+
             total_train_loss += loss_value.item()
             n_train_batch += 1
 
@@ -72,7 +90,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
 
             # 可视化部分
             if cfg["visualization"]["enabled"] and (epoch + 1) % cfg["visualization"]["interval"] == 0 and i < cfg["visualization"]["max_samples"]:
-                rp = reynolds_idxs[0].item()
+                rp = reynolds_idxs[0].item() if reynolds_idxs is not None else 0
                 ts = time_steps[0].item()
                 input_pressure = in_press[0].cpu().detach().numpy().reshape(20, 20)
                 true_pressure = out_pressure[0].cpu().detach().numpy().reshape(200, 200)
@@ -115,24 +133,31 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         n_valid_batch = 0
         with torch.no_grad():
             for batch in valid_loader:
-                if batch is None:
+                in_press, out_pressure, time_steps, mask, reynolds_idxs = unpack_batch(batch)
+                if in_press is None or out_pressure is None:
                     continue
-                in_press, out_pressure, time_steps, mask, reynolds_idxs = batch
                 in_press, out_pressure, time_steps, mask = (
                     in_press.to(device), out_pressure.to(device), time_steps.to(device), mask.to(device)
                 )
-                model_out = model(in_press, time_steps)
-                if isinstance(criterion, tuple):
-                    base_loss, svd_loss = criterion
-                    loss_value = base_loss(model_out, out_pressure, mask)
-                    loss_main = svd_loss(model_out, out_pressure)
-                    total_valid_main_mode_loss += loss_main.item()
-                else:
-                    loss_value = criterion(model_out, out_pressure, mask)
-                    loss_main = torch.tensor(0.0)
+                try:
+                    if isinstance(criterion, tuple):
+                        base_loss, svd_loss = criterion
+                        loss_value = base_loss(model_out, out_pressure, mask)
+                        loss_main = svd_loss(model_out, out_pressure)
+                        total_valid_main_mode_loss += loss_main.item()
+                    else:
+                        try:
+                            loss_value = criterion(model_out, out_pressure, mask)
+                        except TypeError:
+                            loss_value = criterion(model_out, out_pressure)
+                        loss_main = torch.tensor(0.0)
+                except Exception as e:
+                    print(f"[Valid] Exception in loss: {e}")
+                    continue
+
                 total_valid_loss += loss_value.item()
                 n_valid_batch += 1
-                del in_press, out_pressure, time_steps, mask, model_out
+                del in_press, out_pressure, time_steps, mask  # model_out
                 torch.cuda.empty_cache()
         avg_valid_loss = total_valid_loss / (n_valid_batch if n_valid_batch else 1)
         valid_loss_history.append(avg_valid_loss)
@@ -145,24 +170,31 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         n_test_batch = 0
         with torch.no_grad():
             for batch in test_loader:
-                if batch is None:
+                in_press, out_pressure, time_steps, mask, reynolds_idxs = unpack_batch(batch)
+                if in_press is None or out_pressure is None:
                     continue
-                in_press, out_pressure, time_steps, mask, reynolds_idxs = batch
                 in_press, out_pressure, time_steps, mask = (
                     in_press.to(device), out_pressure.to(device), time_steps.to(device), mask.to(device)
                 )
-                model_out = model(in_press, time_steps)
-                if isinstance(criterion, tuple):
-                    base_loss, svd_loss = criterion
-                    loss_value = base_loss(model_out, out_pressure, mask)
-                    loss_main = svd_loss(model_out, out_pressure)
-                    total_test_main_mode_loss += loss_main.item()
-                else:
-                    loss_value = criterion(model_out, out_pressure, mask)
-                    loss_main = torch.tensor(0.0)
+                try:
+                    if isinstance(criterion, tuple):
+                        base_loss, svd_loss = criterion
+                        loss_value = base_loss(model_out, out_pressure, mask)
+                        loss_main = svd_loss(model_out, out_pressure)
+                        total_test_main_mode_loss += loss_main.item()
+                    else:
+                        try:
+                            loss_value = criterion(model_out, out_pressure, mask)
+                        except TypeError:
+                            loss_value = criterion(model_out, out_pressure)
+                        loss_main = torch.tensor(0.0)
+                except Exception as e:
+                    print(f"[Test] Exception in loss: {e}")
+                    continue
+
                 total_test_loss += loss_value.item()
                 n_test_batch += 1
-                del in_press, out_pressure, time_steps, mask, model_out
+                del in_press, out_pressure, time_steps, mask
                 torch.cuda.empty_cache()
         avg_test_loss = total_test_loss / (n_test_batch if n_test_batch else 1)
         test_loss_history.append(avg_test_loss)
@@ -202,7 +234,6 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
     os.makedirs(loss_log_dir, exist_ok=True)
     loss_log_path = os.path.join(loss_log_dir, "test_loss_log.txt")
 
-    # SVD分解可视化参数
     do_svd_vis = cfg["visualization"].get("do_svd_visualization", True)
     svd_vis_num = cfg["visualization"].get("svd_vis_num", 5)
     h, w = cfg["model"].get("output_h", 200), cfg["model"].get("output_w", 200)
@@ -213,14 +244,22 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
 
     with torch.no_grad():
         for idx, batch in enumerate(test_loader):
-            if batch is None:
+            in_press, out_pressure, time_steps, mask, reynolds_idxs = unpack_batch(batch)
+            if in_press is None or out_pressure is None:
                 continue
-            in_press, out_pressure, time_steps, mask, *_ = batch
             in_press, out_pressure, time_steps, mask = (
                 in_press.to(device), out_pressure.to(device), time_steps.to(device), mask.to(device)
             )
-            model_out = model(in_press, time_steps)
-            loss_value = criterion(model_out, out_pressure, mask)
+            model_out = model(in_press, time_steps)  # 🔔 必须加上这句
+            try:
+                try:
+                    loss_value = criterion(model_out, out_pressure, mask)
+                except TypeError:
+                    loss_value = criterion(model_out, out_pressure)
+            except Exception as e:
+                print(f"[TestModel] Exception in loss: {e}")
+                continue
+
             total_test_loss += loss_value.item()
             n_test_batch += 1
 
@@ -239,7 +278,7 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
                 input_pressure = in_press[0].view(20, 20).cpu().numpy()
                 true_pressure = out_pressure[0].view(200, 200).cpu().numpy()
                 predicted_pressure = model_out[0].view(200, 200).cpu().numpy()
-                rp = 0
+                rp = reynolds_idxs[0].item() if reynolds_idxs is not None else 0
                 ts = time_steps[0].item() if time_steps.dim() > 0 else 0
                 plot_comparison_figure(
                     input_pressure, true_pressure, predicted_pressure, rp, ts, 0, idx, attention_type, parent_dir, "test"
@@ -256,7 +295,7 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
     with open(loss_log_path, 'a') as log_file:
         log_file.write(f"Average Test Loss: {avg_test_loss:.6f}\n")
 
-    # SVD分解可视化
+    # SVD分解可视化（不变）
     if do_svd_vis and len(pred_list) > 0:
         svd_vis_dir = os.path.join(parent_dir, attention_type, "svd_visualization")
         os.makedirs(svd_vis_dir, exist_ok=True)

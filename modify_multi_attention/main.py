@@ -4,12 +4,12 @@ from data.dataloader import get_loaders
 from mymodels.transformer import TransformerFlowReconstructionModel
 from training.trainer import train_model, test_model
 from utils.visualization import plot_losses
-import os
-import matplotlib.pyplot as plt  # 明确导入matplotlib
-import matplotlib
-matplotlib.use('Agg')  # 使用非交互模式，防止弹窗
-
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+# import os
+# import matplotlib.pyplot as plt  # 明确导入matplotlib
+# import matplotlib
+# matplotlib.use('Agg')  # 使用非交互模式，防止弹窗
+#
+# os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 # ATTENTION_TYPES = [
 #     # "external", "self", "simplified_self", "muse", "ufo", "aft", "vip", "halo",
@@ -18,15 +18,20 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 #     "residual", "s2", "crossformer", "moa", "dat", "parnet", "mobilevit", "mobilevitv2"
 # ]
 
-import os
-import yaml
 import torch
+import yaml
+import os
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
+
 from modify_multi_attention.data.dataloader import get_loaders
 from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
 from modify_multi_attention.training.trainer import train_model, test_model
 from modify_multi_attention.utils.visualization import plot_losses
+from modify_multi_attention.utils.loss import TotalLossWithSVD  # 注意导入路径根据你存放实际路径调整
 
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 def main():
     # 读取配置文件
@@ -41,10 +46,17 @@ def main():
     vis_enabled = cfg["visualization"]["enabled"]
     parent_dir = "attention_results"
     os.makedirs(parent_dir, exist_ok=True)
-
     failed_attention_types = []  # 记录失败的注意力机制
 
     train_loader, valid_loader, test_loader = get_loaders(cfg["data"]["path"], cfg["data"]["batch_size"])
+
+    # ========== 新增：读取 loss 配置 ==========
+    loss_cfg = cfg.get("loss", {})
+    # 默认参数可以按需调整
+    base_weight = loss_cfg.get("base_weight", 0.5)
+    svd_weights = loss_cfg.get("svd_weights", [0.3, 0.15, 0.05])
+    topk = loss_cfg.get("topk", 3)
+    # ==========================================
 
     for attn_type in ATTENTION_TYPES:
         print(f"\n=========== 当前测试注意力机制: {attn_type} ===========")
@@ -60,7 +72,14 @@ def main():
                 attention_type=attn_type
             ).to(device)
 
-            criterion = torch.nn.MSELoss()
+            # ========== 替换为多模态加权loss ==========
+            criterion = TotalLossWithSVD(
+                base_weight=base_weight,
+                svd_weights=svd_weights,
+                topk=topk
+            )
+            # =======================================
+
             optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
 
             # 训练模型
@@ -115,7 +134,6 @@ def main():
         print("\n".join(failed_attention_types))
     else:
         print("\n🎉 所有注意力机制均运行成功！")
-
 
 if __name__ == "__main__":
     main()

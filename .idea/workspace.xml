@@ -5,17 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="64e92687-6eb1-4d79-b85d-75d825f2466b" name="更改" comment="mend the attention issue and loss plot">
-      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/loss.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/multiloss-plot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cudatest.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main2.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/multi-attention/dataset.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/multi-attention/multi-attention.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/multi-attention/view.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/training/trainer.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,7 +29,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="V1.0" />
+        <entry key="$PROJECT_DIR$" value="V1.0svd" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -85,11 +80,12 @@
     "Python.multi-attention.executor": "Run",
     "Python.multi-attentionnomodel.executor": "Run",
     "Python.multi-attentionnomodel1.executor": "Run",
+    "Python.multiloss-plot.executor": "Run",
     "Python.transformer.executor": "Run",
     "Python.view.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "V1.0svd",
+    "git-widget-placeholder": "V1.0svd__loss__config",
     "ignore.virus.scanning.warn.message": "true",
     "last_opened_file_path": "F:/Zhaoyang/VIVTransformer/modify_multi_attention/utils",
     "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
@@ -315,6 +311,29 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="multiloss-plot" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="1" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="F:\ProgramData\anaconda3" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/multiloss-plot.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="Python 测试 (multi-attention.py 内)" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="1" />
       <option name="ENV_FILES" value="" />
@@ -336,6 +355,7 @@
       <item itemvalue="Python.modify_multi_attiontion_main" />
       <item itemvalue="Python.multi-attention" />
       <item itemvalue="Python.multi-attentionnomodel1" />
+      <item itemvalue="Python.multiloss-plot" />
       <item itemvalue="Python.main" />
       <item itemvalue="Python.attention_test" />
       <item itemvalue="Python.cudatest" />
@@ -343,6 +363,7 @@
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.multiloss-plot" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python.attention_test" />
         <item itemvalue="Python 测试.Python 测试 (multi-attention.py 内)" />
@@ -374,7 +395,15 @@
       <option name="project" value="LOCAL" />
       <updated>1742214517668</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="mend the attention issue and loss plot">
+      <option name="closed" value="true" />
+      <created>1749108707923</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1749108707923</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -390,7 +419,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="upload 1" />
-    <option name="LAST_COMMIT_MESSAGE" value="upload 1" />
+    <MESSAGE value="mend the attention issue and loss plot" />
+    <option name="LAST_COMMIT_MESSAGE" value="mend the attention issue and loss plot" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

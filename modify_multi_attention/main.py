@@ -17,8 +17,9 @@ from utils.visualization import plot_losses
 #     "outlook", "vip", "coatnet", "halo", "polarized", "cot",
 #     "residual", "s2", "crossformer", "moa", "dat", "parnet", "mobilevit", "mobilevitv2"
 # ]
-
 import torch
+import numpy as np
+import random
 import yaml
 import os
 import matplotlib.pyplot as plt
@@ -29,112 +30,124 @@ from modify_multi_attention.data.dataloader import get_loaders
 from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
 from modify_multi_attention.training.trainer import train_model, test_model
 from modify_multi_attention.utils.visualization import plot_losses
-from modify_multi_attention.utils.loss import TotalLossWithSVD  # 注意导入路径根据你存放实际路径调整
+from modify_multi_attention.utils.loss import TotalLossWithSVD  # 路径按实际项目结构调整
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
+def set_seed(seed, deterministic=False):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    if deterministic:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+def set_cuda_memory_limit(fraction, device_idx=0):
+    torch.cuda.set_per_process_memory_fraction(fraction, device=device_idx)
+
 def main():
-    # 读取配置文件
     with open('modify_multi_attention/configs/config.yaml', 'r', encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
+    set_seed(cfg.get("seed", 42), cfg.get("deterministic", False))
+    if "max_memory_fraction" in cfg:
+        device_idx = int(str(cfg["device"]).split(":")[-1])
+        set_cuda_memory_limit(cfg["max_memory_fraction"], device_idx)
     device = torch.device(cfg["device"])
     print(f"Using device: {device}")
+    print(f"Available GPUs: {torch.cuda.device_count()}")
 
-    # 读取 YAML 配置
     ATTENTION_TYPES = cfg["attention_types"]
     vis_enabled = cfg["visualization"]["enabled"]
     parent_dir = "attention_results"
     os.makedirs(parent_dir, exist_ok=True)
-    failed_attention_types = []  # 记录失败的注意力机制
+    failed_attention_types = []
 
     train_loader, valid_loader, test_loader = get_loaders(cfg["data"]["path"], cfg["data"]["batch_size"])
 
-    # ========== 新增：读取 loss 配置 ==========
-    loss_cfg = cfg.get("loss", {})
-    # 默认参数可以按需调整
-    base_weight = loss_cfg.get("base_weight", 0.5)
-    svd_weights = loss_cfg.get("svd_weights", [0.3, 0.15, 0.05])
-    topk = loss_cfg.get("topk", 3)
-    # ==========================================
+    # 遍历loss_configs
+    for loss_idx, loss_cfg in enumerate(cfg["loss_configs"]):
+        base_weight = loss_cfg.get("base_weight", 0.5)
+        svd_weights = loss_cfg.get("svd_weights", [0.3, 0.15, 0.05])
+        topk = loss_cfg.get("topk", 3)
+        loss_config_id = f"loss_config_{loss_idx}"
 
-    for attn_type in ATTENTION_TYPES:
-        print(f"\n=========== 当前测试注意力机制: {attn_type} ===========")
+        print(f"\n===== 当前loss设置 [{loss_config_id}]: base_weight={base_weight}, svd_weights={svd_weights}, topk={topk} =====")
 
-        try:
-            model = TransformerFlowReconstructionModel(
-                input_dim=cfg["model"]["input_dim"],
-                output_dim=cfg["model"]["output_dim"],
-                num_heads=cfg["model"]["num_heads"],
-                num_layers=cfg["model"]["num_layers"],
-                d_model=cfg["model"]["d_model"],
-                max_time_steps=cfg["model"]["max_time_steps"],
-                attention_type=attn_type
-            ).to(device)
+        for attn_type in ATTENTION_TYPES:
+            print(f"\n=========== 当前测试注意力机制: {attn_type}（{loss_config_id}） ===========")
+            try:
+                # 最终只一层 attn_type
+                result_dir = os.path.join(parent_dir, loss_config_id, attn_type)
+                os.makedirs(result_dir, exist_ok=True)
 
-            # ========== 替换为多模态加权loss ==========
-            criterion = TotalLossWithSVD(
-                base_weight=base_weight,
-                svd_weights=svd_weights,
-                topk=topk
-            )
-            # =======================================
+                model = TransformerFlowReconstructionModel(
+                    input_dim=cfg["model"]["input_dim"],
+                    output_dim=cfg["model"]["output_dim"],
+                    num_heads=cfg["model"]["num_heads"],
+                    num_layers=cfg["model"]["num_layers"],
+                    d_model=cfg["model"]["d_model"],
+                    max_time_steps=cfg["model"]["max_time_steps"],
+                    attention_type=attn_type,
+                    seq_len=cfg["model"].get("seq_len", 49)
+                )
 
-            optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
+                if cfg.get("use_dataparallel", False) and torch.cuda.device_count() > 1:
+                    print(f"Using DataParallel on {torch.cuda.device_count()} GPUs!")
+                    model = torch.nn.DataParallel(model)
+                model = model.to(device)
 
-            # 训练模型
-            trained_model, train_loss, valid_loss, test_loss = train_model(
-                model, train_loader, valid_loader, test_loader,
-                criterion, optimizer, cfg["training"]["epochs"],
-                device, cfg["training"]["early_stop_patience"],
-                attention_type=attn_type
-            )
+                criterion = TotalLossWithSVD(
+                    base_weight=base_weight,
+                    svd_weights=svd_weights,
+                    topk=topk
+                )
 
-            # 创建存储路径
-            result_dir = os.path.join(parent_dir, attn_type)
-            os.makedirs(result_dir, exist_ok=True)
+                optimizer = torch.optim.Adam(model.parameters(), lr=cfg["training"]["learning_rate"])
 
-            # ✅ **保存训练好的最佳模型**
-            best_model_path = os.path.join(result_dir, f"best_model_{attn_type}.pt")
-            torch.save(trained_model.state_dict(), best_model_path)
+                trained_model, train_loss, valid_loss, test_loss = train_model(
+                    model, train_loader, valid_loader, test_loader,
+                    criterion, optimizer, cfg["training"]["epochs"],
+                    device, cfg["training"]["early_stop_patience"],
+                    attention_type=attn_type,
+                    result_dir=result_dir  # 只用这层！
+                )
 
-            # ✅ **绘制损失曲线**
-            if vis_enabled:
-                plot_losses(train_loss, valid_loss, test_loss)
-                loss_fig_path = os.path.join(result_dir, f"loss_curve_{attn_type}.png")
-                plt.savefig(loss_fig_path)
-                plt.close()
+                best_model_path = os.path.join(result_dir, f"best_model_{attn_type}.pt")
+                torch.save(trained_model.state_dict(), best_model_path)
 
-            # ✅ **测试模型**
-            final_test_loss = test_model(
-                trained_model, test_loader, criterion, device,
-                attention_type=attn_type,
-                parent_dir="attention_results"
-            )
+                if vis_enabled:
+                    plot_losses(train_loss, valid_loss, test_loss)
+                    loss_fig_path = os.path.join(result_dir, f"loss_curve_{attn_type}.png")
+                    plt.savefig(loss_fig_path)
+                    plt.close()
 
-            # ✅ **保存测试结果**
-            test_result_file = os.path.join(result_dir, f"test_result_{attn_type}.txt")
-            with open(test_result_file, 'w') as f:
-                f.write(f"Test Loss for {attn_type}: {final_test_loss}\n")
+                final_test_loss = test_model(
+                    trained_model, test_loader, criterion, device,
+                    attention_type=attn_type,
+                    parent_dir=result_dir  # 只用这层！
+                )
 
-            print(f"✅ {attn_type} 训练完成！")
+                test_result_file = os.path.join(result_dir, f"test_result_{attn_type}.txt")
+                with open(test_result_file, 'w') as f:
+                    f.write(f"Test Loss for {attn_type}: {final_test_loss}\n")
 
-        except Exception as e:
-            print(f"❌ 发生错误，跳过 {attn_type} 注意力机制")
-            print(f"⚠️ 错误详情: {str(e)}")
-            failed_attention_types.append(attn_type)
+                print(f"✅ {attn_type} ({loss_config_id}) 训练完成！")
 
-    # 记录失败的注意力机制
+            except Exception as e:
+                print(f"❌ 发生错误，跳过 {attn_type} ({loss_config_id})")
+                print(f"⚠️ 错误详情: {str(e)}")
+                failed_attention_types.append(f"{loss_config_id}::{attn_type}")
+
     if failed_attention_types:
         with open(os.path.join(parent_dir, "failed_attention_log.txt"), "w") as f:
-            for attn in failed_attention_types:
-                f.write(f"{attn}\n")
-
-        print(f"\n⚠️ 以下注意力机制训练失败，并已记录在 failed_attention_log.txt：")
+            for info in failed_attention_types:
+                f.write(f"{info}\n")
+        print(f"\n⚠️ 以下loss+注意力机制训练失败，并已记录在 failed_attention_log.txt：")
         print("\n".join(failed_attention_types))
     else:
-        print("\n🎉 所有注意力机制均运行成功！")
+        print("\n🎉 所有loss配置和注意力机制均运行成功！")
 
 if __name__ == "__main__":
     main()
-

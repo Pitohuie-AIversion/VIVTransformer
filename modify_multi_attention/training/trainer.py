@@ -4,13 +4,12 @@ import matplotlib.pyplot as plt
 import yaml
 from modify_multi_attention.utils.visualization import plot_comparison_figure
 from modify_multi_attention.utils.visualization import plot_difference_figure
-from modify_multi_attention.utils.visualization import plot_losses  # 导入plot_losses函数
-
+from modify_multi_attention.utils.visualization import plot_losses
 
 def train_model(model, train_loader, valid_loader, test_loader, criterion, optimizer, num_epochs=100, device='cuda',
                 early_stop_patience=10, attention_type='default',
-                config_path='modify_multi_attention/configs/config.yaml'):
-    # 读取 YAML 配置
+                config_path='modify_multi_attention/configs/config.yaml',
+                result_dir=None):    # 只用 result_dir
     with open(config_path, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f)
 
@@ -27,12 +26,20 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
     best_valid_loss = float('inf')
     patience_counter = 0
 
-    # 创建保存损失的日志文件
-    loss_log_dir = f"attention_results/{attention_type}/loss_logs"
-    os.makedirs(loss_log_dir, exist_ok=True)
-    loss_log_path = os.path.join(loss_log_dir, "loss_log.txt")
+    if result_dir is not None:
+        loss_log_dir = os.path.join(result_dir, "loss_logs")
+        os.makedirs(loss_log_dir, exist_ok=True)
+        loss_log_path = os.path.join(loss_log_dir, "loss_log.txt")
+        save_dir = result_dir
+    else:
+        loss_log_dir = f"attention_results/{attention_type}/loss_logs"
+        os.makedirs(loss_log_dir, exist_ok=True)
+        loss_log_path = os.path.join(loss_log_dir, "loss_log.txt")
+        save_dir = f"attention_results/{attention_type}"
+        os.makedirs(save_dir, exist_ok=True)
 
-    # 写入文件头
+    print(f"写入loss_log.txt到：{loss_log_path}")
+
     with open(loss_log_path, 'w') as log_file:
         log_file.write("Epoch, Train Loss, Valid Loss, Test Loss\n")
 
@@ -86,7 +93,6 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         avg_test_loss = total_test_loss / len(test_loader)
         test_loss_history.append(avg_test_loss)
 
-        # 打印损失信息并记录到文件
         print(
             f"🎯 Epoch [{epoch + 1}/{num_epochs}], Train Loss: {avg_train_loss:.6f}, Valid Loss: {avg_valid_loss:.6f}, Test Loss: {avg_test_loss:.6f}")
 
@@ -97,10 +103,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
             best_valid_loss = avg_valid_loss
             patience_counter = 0
 
-            save_dir = f"attention_results/{attention_type}"
-            os.makedirs(save_dir, exist_ok=True)
-
-            torch.save(model.state_dict(), f"{save_dir}/best_model_{attention_type}.pth")
+            torch.save(model.state_dict(), os.path.join(save_dir, f"best_model_{attention_type}.pt"))
             print("✅ 模型已保存 (Best Model Updated)")
 
         else:
@@ -111,13 +114,12 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
             print("⏹️ 触发 Early Stopping!")
             break
 
-        # ✅ **按照 YAML 配置可视化**
         if vis_enabled and (epoch + 1) % vis_interval == 0:
             model.eval()
             with torch.no_grad():
                 try:
                     sample_loader = iter(valid_loader)
-                    for idx in range(min(max_samples, len(valid_loader))):  # 控制可视化样本数量
+                    for idx in range(min(max_samples, len(valid_loader))):
                         sample_input, sample_output, sample_time_steps = next(sample_loader)
                         sample_input, sample_output, sample_time_steps = (
                             sample_input.to(device),
@@ -138,11 +140,10 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                             epoch=epoch + 1,
                             idx=idx,
                             attention_type=attention_type,
-                            parent_dir="attention_results",
+                            parent_dir=save_dir,
                             mode='validation'
                         )
 
-                        # 可视化差异图
                         plot_difference_figure(
                             true_pressure=true_pressure,
                             predicted_pressure=predicted_pressure,
@@ -150,27 +151,24 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                             epoch=epoch + 1,
                             idx=idx,
                             attention_type=attention_type,
-                            parent_dir="attention_results",
+                            parent_dir=save_dir,
                             mode='validation'
                         )
 
                 except StopIteration:
                     print("⚠️ 验证集数据不足，无法生成可视化结果。")
 
-        # 每个epoch结束时保存损失曲线
-        if (epoch + 1) % vis_interval == 0:  # 可选：设置可视化频率
-            save_dir = f"attention_results/{attention_type}/loss_plots"
-            os.makedirs(save_dir, exist_ok=True)
-            loss_fig_path = os.path.join(save_dir, f"loss_curve_epoch_{epoch + 1}.png")
+        if (epoch + 1) % vis_interval == 0:
+            plot_dir = os.path.join(save_dir, "loss_plots")
+            os.makedirs(plot_dir, exist_ok=True)
+            loss_fig_path = os.path.join(plot_dir, f"loss_curve_epoch_{epoch + 1}.png")
             plot_losses(train_loss_history, valid_loss_history, test_loss_history, save_path=loss_fig_path)
 
     plt.ioff()
     return model, train_loss_history, valid_loss_history, test_loss_history
 
-def test_model(model, test_loader, criterion, device='cuda', attention_type='default', parent_dir="attention_results",
+def test_model(model, test_loader, criterion, device='cuda', attention_type='default', parent_dir=None,
                config_path='modify_multi_attention/configs/config.yaml'):
-
-    # 读取 YAML 配置
     with open(config_path, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f)
 
@@ -181,12 +179,13 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
     model.to(device)
     total_test_loss = 0
 
-    # 创建保存测试损失的日志文件
-    loss_log_dir = f"attention_results/{attention_type}/loss_logs"
+    if parent_dir is not None:
+        loss_log_dir = os.path.join(parent_dir, "loss_logs")
+    else:
+        loss_log_dir = f"attention_results/{attention_type}/loss_logs"
     os.makedirs(loss_log_dir, exist_ok=True)
     loss_log_path = os.path.join(loss_log_dir, "test_loss_log.txt")
 
-    # 写入文件头
     with open(loss_log_path, 'w') as log_file:
         log_file.write("Batch, Test Loss\n")
 
@@ -200,7 +199,6 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
             loss_value = criterion(model_out, out_pressure)
             total_test_loss += loss_value.item()
 
-            # 记录每个批次的测试损失到日志文件
             with open(loss_log_path, 'a') as log_file:
                 log_file.write(f"{idx + 1}, {loss_value.item():.6f}\n")
 
@@ -209,7 +207,6 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
                 true_pressure = out_pressure[0].view(200, 200).cpu().numpy()
                 predicted_pressure = model_out[0].view(200, 200).cpu().numpy()
 
-                # 原有对比图
                 plot_comparison_figure(
                     input_pressure=input_pressure,
                     true_pressure=true_pressure,
@@ -218,11 +215,10 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
                     epoch=0,
                     idx=idx,
                     attention_type=attention_type,
-                    parent_dir=parent_dir,
+                    parent_dir=parent_dir if parent_dir is not None else f"attention_results/{attention_type}",
                     mode='test'
                 )
 
-                # 新增的差异图
                 plot_difference_figure(
                     true_pressure=true_pressure,
                     predicted_pressure=predicted_pressure,
@@ -230,14 +226,13 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
                     epoch=0,
                     idx=idx,
                     attention_type=attention_type,
-                    parent_dir=parent_dir,
+                    parent_dir=parent_dir if parent_dir is not None else f"attention_results/{attention_type}",
                     mode='test'
                 )
 
     avg_test_loss = total_test_loss / len(test_loader)
     print(f"🧪 测试完成，{attention_type} Test Loss: {avg_test_loss:.6f}")
 
-    # 记录测试损失（平均损失）到日志文件
     with open(loss_log_path, 'a') as log_file:
         log_file.write(f"Average Test Loss: {avg_test_loss:.6f}\n")
 

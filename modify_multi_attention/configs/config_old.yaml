@@ -1,0 +1,109 @@
+data:
+  path: "F:/Zhaoyang/merged_all_pressures_separated_normalized.pt"
+  batch_size: 616
+
+training:
+  epochs: 2000
+  learning_rate: 0.0001
+  early_stop_patience: 500
+
+#loss:
+#  base_weight: 0        # 主loss权重 (MSE全局损失)，支持0~1任意浮点
+#  svd_weights: [1, 5, 4]   # 分别为SVD主模态1、2、3的权重（可任意填0，全部加和后自动归一化）
+#  topk: 3                  # SVD主模态数量，建议3或根据需要调整
+loss_configs:
+#  # 1. 只用全局MSE
+#  - base_weight: 1
+#    svd_weights: [0, 0, 0]
+#    topk: 3
+#  # 2. 只用第1主模态
+#  - base_weight: 0
+#    svd_weights: [1, 0, 0]
+#    topk: 3
+#  # 3. 只用第2主模态
+#  - base_weight: 0
+#    svd_weights: [0, 1, 0]
+#    topk: 3
+#  # 4. 只用第3主模态
+#  - base_weight: 0
+#    svd_weights: [0, 0, 1]
+#    topk: 3
+#  # 5. 第1模态主导，2:1:1
+#  - base_weight: 0
+#    svd_weights: [2, 1, 1]
+#    topk: 3
+#  # 6. 第2模态主导，1:2:1
+#  - base_weight: 0
+#    svd_weights: [1, 2, 1]
+#    topk: 3
+#  # 7. 第3模态主导，1:1:2
+#  - base_weight: 0
+#    svd_weights: [1, 1, 2]
+#    topk: 3
+#  # 8. 主模态平均(1:1:1)
+#  - base_weight: 0
+#    svd_weights: [1, 1, 1]
+#    topk: 3
+#  # 9. 第1、2模态强，第3弱（2:2:1）
+#  - base_weight: 0
+#    svd_weights: [2, 2, 1]
+#    topk: 3
+#  # 10. 第2、3模态强，第1弱（1:2:2）
+#  - base_weight: 0
+#    svd_weights: [1, 2, 2]
+#    topk: 3
+  # 11. 第2、3模态强，第1弱（1:2:2）
+  - base_weight: 10
+    svd_weights: [ 1, 2, 2 ]
+    topk: 3
+model:
+  input_dim: 400
+  output_dim: 40000
+  d_model: 512
+  num_heads: 8
+  num_layers: 6
+  max_time_steps: 100
+  attention_type: "relative"  # 这里的默认类型可以随时更改
+  seq_len: 49  # 明确指定7x7空间尺寸，支持CNN注意力
+
+attention_types:
+#  - "relative"
+#  - "sparse"
+#  - "lsh"
+#  - "se"
+#  - "sk"
+#  - "cbam"
+#  - "bam"
+#  - "eca"
+#  - "danet"
+#  - "psa"
+#  - "shuffle"
+#  - "muse"
+  - "sge"
+#  - "a2"
+#  - "aft"
+#  - "outlook"
+#  - "vip"
+#  - "coatnet"
+#  - "halo"
+#  - "polarized"
+#  - "cot"
+#  - "residual"
+#  - "s2"
+#  - "crossformer"
+#  - "moa"
+#  - "dat"
+#  - "parnet"
+#  - "mobilevit"
+#  - "mobilevitv2"
+
+device: "cuda:0"              # 强烈建议明确指定主卡
+use_dataparallel: true        # 新增，双卡/多卡训练控制
+seed: 42                      # 新增，训练可重复性
+deterministic: true           # 新增，训练可重复性
+max_memory_fraction: 0.8      # 新增，每进程最大显存占用比例
+
+visualization:
+  enabled: true  # 是否启用可视化
+  interval: 100   # 每隔多少个 epoch 画一次图
+  max_samples: 5 # 最多可视化多少个样本

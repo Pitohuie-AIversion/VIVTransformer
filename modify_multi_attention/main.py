@@ -18,10 +18,11 @@ from utils.visualization import plot_losses
 #     "residual", "s2", "crossformer", "moa", "dat", "parnet", "mobilevit", "mobilevitv2"
 # ]
 import torch
-import numpy as np
-import random
 import yaml
 import os
+import sys
+import numpy as np
+import random
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
@@ -30,7 +31,7 @@ from modify_multi_attention.data.dataloader import get_loaders
 from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
 from modify_multi_attention.training.trainer import train_model, test_model
 from modify_multi_attention.utils.visualization import plot_losses
-from modify_multi_attention.utils.loss import TotalLossWithSVD  # 路径按实际项目结构调整
+from modify_multi_attention.utils.svd10_loss import TotalLossWithSVD
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -46,8 +47,19 @@ def set_seed(seed, deterministic=False):
 def set_cuda_memory_limit(fraction, device_idx=0):
     torch.cuda.set_per_process_memory_fraction(fraction, device=device_idx)
 
+def parse_loss_idx_from_argv():
+    for i, arg in enumerate(sys.argv):
+        if arg == "--loss_idx" and i+1 < len(sys.argv):
+            return int(sys.argv[i+1])
+    return None
+
 def main():
-    with open('modify_multi_attention/configs/config.yaml', 'r', encoding="utf-8") as f:
+    this_file = os.path.abspath(__file__)
+    project_root = os.path.dirname(os.path.dirname(this_file))
+    config_path = os.path.join(project_root, 'modify_multi_attention', 'configs', 'config.yaml')
+    print(f"加载配置文件: {config_path}")
+
+    with open(config_path, 'r', encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
     set_seed(cfg.get("seed", 42), cfg.get("deterministic", False))
@@ -58,27 +70,36 @@ def main():
     print(f"Using device: {device}")
     print(f"Available GPUs: {torch.cuda.device_count()}")
 
+    loss_idx = parse_loss_idx_from_argv()
+    if loss_idx is not None:
+        print(f"只运行 loss_config_{loss_idx}")
+        loss_configs = [cfg["loss_configs"][loss_idx]]
+        loss_config_ids = [f"loss_config_{loss_idx}"]
+    else:
+        loss_configs = cfg["loss_configs"]
+        loss_config_ids = [f"loss_config_{i}" for i in range(len(loss_configs))]
+
     ATTENTION_TYPES = cfg["attention_types"]
     vis_enabled = cfg["visualization"]["enabled"]
     parent_dir = "attention_results"
     os.makedirs(parent_dir, exist_ok=True)
     failed_attention_types = []
 
-    train_loader, valid_loader, test_loader = get_loaders(cfg["data"]["path"], cfg["data"]["batch_size"])
+    train_loader, valid_loader, test_loader = get_loaders(
+        cfg["data"]["path"],
+        cfg["data"]["batch_size"]
+    )
 
-    # 遍历loss_configs
-    for loss_idx, loss_cfg in enumerate(cfg["loss_configs"]):
+    for idx, (loss_cfg, loss_config_id) in enumerate(zip(loss_configs, loss_config_ids)):
         base_weight = loss_cfg.get("base_weight", 0.5)
-        svd_weights = loss_cfg.get("svd_weights", [0.3, 0.15, 0.05])
-        topk = loss_cfg.get("topk", 3)
-        loss_config_id = f"loss_config_{loss_idx}"
+        svd_weights = loss_cfg.get("svd_weights", None)
+        topk = loss_cfg.get("topk", 10)
 
         print(f"\n===== 当前loss设置 [{loss_config_id}]: base_weight={base_weight}, svd_weights={svd_weights}, topk={topk} =====")
 
         for attn_type in ATTENTION_TYPES:
             print(f"\n=========== 当前测试注意力机制: {attn_type}（{loss_config_id}） ===========")
             try:
-                # 最终只一层 attn_type
                 result_dir = os.path.join(parent_dir, loss_config_id, attn_type)
                 os.makedirs(result_dir, exist_ok=True)
 
@@ -111,7 +132,8 @@ def main():
                     criterion, optimizer, cfg["training"]["epochs"],
                     device, cfg["training"]["early_stop_patience"],
                     attention_type=attn_type,
-                    result_dir=result_dir  # 只用这层！
+                    result_dir=result_dir,
+                    cfg=cfg
                 )
 
                 best_model_path = os.path.join(result_dir, f"best_model_{attn_type}.pt")
@@ -126,7 +148,8 @@ def main():
                 final_test_loss = test_model(
                     trained_model, test_loader, criterion, device,
                     attention_type=attn_type,
-                    parent_dir=result_dir  # 只用这层！
+                    parent_dir=result_dir,
+                    cfg=cfg
                 )
 
                 test_result_file = os.path.join(result_dir, f"test_result_{attn_type}.txt")

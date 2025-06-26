@@ -4,9 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="64e92687-6eb1-4d79-b85d-75d825f2466b" name="更改" comment="mend the attention issue and loss plot">
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/multiloss-plot.py" afterDir="false" />
+    <list default="true" id="64e92687-6eb1-4d79-b85d-75d825f2466b" name="更改" comment="10 loss config">
+      <change afterPath="$PROJECT_DIR$/generate_loss_configs_topk10.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/configs/config_old.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/log.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/modify_multi_attention/utils/svd10_loss.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/configs/config.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/modify_multi_attention/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/modify_multi_attention/main.py" afterDir="false" />
@@ -20,8 +22,8 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Task" />
         <option value="Test" />
+        <option value="Task" />
         <option value="Python Script" />
       </list>
     </option>
@@ -72,6 +74,7 @@
     "Python.dataloader.executor": "Run",
     "Python.dataset.executor": "Run",
     "Python.export_to_onnx.executor": "Run",
+    "Python.generate_loss_configs_topk10.executor": "Run",
     "Python.main.executor": "Run",
     "Python.main2.executor": "Run",
     "Python.main_test.executor": "Run",
@@ -85,9 +88,10 @@
     "Python.view.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "SHELLCHECK.PATH": "C:\\Users\\Administrator\\AppData\\Roaming\\JetBrains\\PyCharmCE2025.1\\plugins\\Shell Script\\shellcheck.exe",
     "git-widget-placeholder": "V1.0svd__loss__config",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "F:/Zhaoyang/VIVTransformer/modify_multi_attention/utils",
+    "last_opened_file_path": "F:/Zhaoyang/VIVTransformer_svd0605/modify_multi_attention/configs",
     "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
 }]]></component>
@@ -151,7 +155,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="cudatest" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="generate_loss_configs_topk10" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="1" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -160,11 +164,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
+      <option name="SDK_NAME" value="F:\ProgramData\anaconda3" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/cudatest.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/generate_loss_configs_topk10.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -257,7 +262,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/modify_multi_attention/main.py" />
-      <option name="PARAMETERS" value="" />
+      <option name="PARAMETERS" value="--loss_idx 11" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -355,19 +360,19 @@
       <item itemvalue="Python.modify_multi_attiontion_main" />
       <item itemvalue="Python.multi-attention" />
       <item itemvalue="Python.multi-attentionnomodel1" />
-      <item itemvalue="Python.multiloss-plot" />
-      <item itemvalue="Python.main" />
+      <item itemvalue="Python.generate_loss_configs_topk10" />
       <item itemvalue="Python.attention_test" />
-      <item itemvalue="Python.cudatest" />
+      <item itemvalue="Python.main" />
+      <item itemvalue="Python.multiloss-plot" />
       <item itemvalue="Python 测试.Python 测试 (multi-attention.py 内)" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.generate_loss_configs_topk10" />
         <item itemvalue="Python.multiloss-plot" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python.attention_test" />
         <item itemvalue="Python 测试.Python 测试 (multi-attention.py 内)" />
-        <item itemvalue="Python.cudatest" />
       </list>
     </recent_temporary>
   </component>
@@ -403,7 +408,15 @@
       <option name="project" value="LOCAL" />
       <updated>1749108707923</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="10 loss config">
+      <option name="closed" value="true" />
+      <created>1749899045467</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1749899045467</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -420,7 +433,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="upload 1" />
     <MESSAGE value="mend the attention issue and loss plot" />
-    <option name="LAST_COMMIT_MESSAGE" value="mend the attention issue and loss plot" />
+    <MESSAGE value="10 loss config" />
+    <option name="LAST_COMMIT_MESSAGE" value="10 loss config" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

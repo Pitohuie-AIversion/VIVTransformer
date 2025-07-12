@@ -1,6 +1,7 @@
 import torch
 import yaml
 import os
+import argparse
 import matplotlib.pyplot as plt
 import matplotlib
 from modify_multi_attention.data.dataloader import get_loaders
@@ -12,9 +13,12 @@ matplotlib.use('Agg')
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 def main():
-    # === 动态路径 ===
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    yaml_path = os.path.join(current_dir, "configs", "config.yaml")
+    parser = argparse.ArgumentParser(description="Retest failed attention types")
+    parser.add_argument('-c', '--config', default=os.path.join(current_dir, "configs", "config.yaml"), help='Path to config file')
+    args = parser.parse_args()
+    yaml_path = args.config
+
     parent_dir = os.path.join(current_dir, "attention_results")
     os.makedirs(parent_dir, exist_ok=True)
     failed_log_path = os.path.join(parent_dir, "failed_attention_log.txt")

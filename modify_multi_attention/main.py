@@ -21,6 +21,7 @@ import torch
 import yaml
 import os
 import sys
+import argparse
 import numpy as np
 import random
 import matplotlib.pyplot as plt
@@ -56,7 +57,12 @@ def parse_loss_idx_from_argv():
 def main():
     this_file = os.path.abspath(__file__)
     project_root = os.path.dirname(os.path.dirname(this_file))
-    config_path = os.path.join(project_root, 'modify_multi_attention', 'configs', 'config.yaml')
+    parser = argparse.ArgumentParser(description="Train VIVTransformer")
+    parser.add_argument('-c', '--config', default=os.path.join(project_root, 'modify_multi_attention', 'configs', 'config.yaml'), help='Path to config file')
+    args, remaining = parser.parse_known_args()
+    sys.argv = [sys.argv[0]] + remaining
+
+    config_path = args.config
     print(f"加载配置文件: {config_path}")
 
     with open(config_path, 'r', encoding="utf-8") as f:

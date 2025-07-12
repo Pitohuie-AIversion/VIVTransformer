@@ -85,9 +85,22 @@ ATTENTION_MODULES = {
 }
 
 def get_attention_module(attention_type, d_model=512, num_heads=8, **kwargs):
+    """Return a configured attention module.
+
+    Parameters
+    ----------
+    attention_type : str
+        Key of the attention module to construct.
+    d_model : int, optional
+        Embedding dimension of the attention module.
+    num_heads : int, optional
+        Number of attention heads for modules that require it.
+    **kwargs : dict
+        Additional parameters. ``seq_len`` can be supplied to compute the
+        spatial dimension required by some CNN based attention mechanisms.
     """
-    根据 attention_type 返回对应的注意力模块，适配不同注意力模块的参数
-    """
+    seq_len = kwargs.get("seq_len", 49)
+    spatial_dim = int(seq_len ** 0.5)
     if attention_type not in ATTENTION_MODULES:
         raise ValueError(f"Unknown attention type: {attention_type}")
     if attention_type == "relative":

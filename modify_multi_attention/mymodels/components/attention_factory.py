@@ -141,7 +141,7 @@ def get_attention_module(attention_type, d_model=512, num_heads=8, **kwargs):
         return ATTENTION_MODULES[attention_type](d_model, 128, 128, True)
 
     elif attention_type in ["aft"]:
-        return ATTENTION_MODULES[attention_type](d_model=d_model, n=49)
+        return ATTENTION_MODULES[attention_type](d_model=d_model, n=seq_len)
 
     elif attention_type in ["outlook"]:
         return ATTENTION_MODULES[attention_type](dim=d_model)

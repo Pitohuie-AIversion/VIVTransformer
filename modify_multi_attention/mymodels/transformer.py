@@ -193,7 +193,6 @@ class CustomDecoderLayer(nn.Module):
         elif isinstance(self.multihead_attn, (OutlookAttention, WeightedPermuteMLP)):
             # 明确调整reshape顺序为 (B,H,W,C)
             tgt_reshaped = tgt.view(batch_size, spatial_dim, spatial_dim, d_model)
-            memory_reshaped = memory.view(batch_size, spatial_dim, spatial_dim, d_model)
             tgt2 = self.multihead_attn(tgt_reshaped)
             tgt2 = tgt2.view(batch_size, seq_len, d_model)
 
@@ -241,7 +240,7 @@ class TransformerFlowReconstructionModel(nn.Module):
         self.attention_type = attention_type
         self.seq_len = seq_len
 
-        self.embedding = nn.Linear(input_dim, seq_len * d_model) # ✅ 重点修改
+        self.embedding = nn.Linear(input_dim, seq_len * d_model)
         self.time_step_embedding = nn.Embedding(max_time_steps, d_model)
         self.positional_encoding = nn.Parameter(torch.zeros(1, d_model))
 

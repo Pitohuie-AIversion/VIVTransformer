@@ -1,32 +1,52 @@
-import os
-import shutil
+"""Utility to duplicate the repository without its ``.git`` folder."""
+
+from __future__ import annotations
+
 import argparse
+import shutil
+from pathlib import Path
+from typing import Iterable
 
 
-def copy_repo(src_dir: str, dest_dir: str) -> None:
-    """Copy repository content to a new directory without the .git folder."""
-    if not os.path.isdir(src_dir):
-        raise ValueError(f"Source directory '{src_dir}' does not exist")
-    if os.path.exists(dest_dir):
-        raise ValueError(f"Destination directory '{dest_dir}' already exists")
+def copy_repo(src: Path, dest: Path, ignore_dirs: Iterable[str] = (".git",)) -> None:
+    """Copy ``src`` to ``dest`` excluding any ``ignore_dirs``."""
+    if not src.is_dir():
+        raise ValueError(f"Source directory '{src}' does not exist")
+    if dest.exists():
+        raise ValueError(f"Destination directory '{dest}' already exists")
 
-    def ignore_git(dirpath, names):
-        return {'.git'} if '.git' in names else set()
+    def ignore_func(dirpath: str, names: list[str]) -> set[str]:
+        return {name for name in names if name in ignore_dirs}
 
-    shutil.copytree(src_dir, dest_dir, ignore=ignore_git)
-    print(f"Repository copied from {src_dir} to {dest_dir}")
+    shutil.copytree(src, dest, ignore=ignore_func)
+    print(f"Repository copied from {src} to {dest}")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Duplicate repository for optimisation")
-    parser.add_argument('destination', help="Path to the new copy of the repository")
-    parser.add_argument('--source', default=os.path.dirname(os.path.abspath(__file__)), help="Source repository directory (defaults to current repo root)")
+    parser.add_argument(
+        "destination",
+        type=Path,
+        help="Path to the new copy of the repository",
+    )
+    parser.add_argument(
+        "--source",
+        type=Path,
+        default=Path(__file__).resolve().parent,
+        help="Source repository directory (defaults to current repo root)",
+    )
+    parser.add_argument(
+        "--exclude",
+        nargs="*",
+        default=[".git"],
+        help="Directory names to exclude while copying",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    copy_repo(args.source, args.destination)
+    copy_repo(args.source, args.destination, args.exclude)
 
 
 if __name__ == '__main__':

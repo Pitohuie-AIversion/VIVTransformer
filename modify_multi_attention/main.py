@@ -1,38 +1,24 @@
+"""Train and evaluate the VIVTransformer with various attention mechanisms."""
+
+import argparse
+import os
+import sys
+import random
+from pathlib import Path
+
 import torch
 import yaml
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.use("Agg")
+
 from data.dataloader import get_loaders
 from mymodels.transformer import TransformerFlowReconstructionModel
 from training.trainer import train_model, test_model
 from utils.visualization import plot_losses
-# import os
-# import matplotlib.pyplot as plt  # 明确导入matplotlib
-# import matplotlib
-# matplotlib.use('Agg')  # 使用非交互模式，防止弹窗
-#
-# os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-
-# ATTENTION_TYPES = [
-#     # "external", "self", "simplified_self", "muse", "ufo", "aft", "vip", "halo",
-#     "se", "sk", "cbam", "bam", "eca", "danet", "psa", "shuffle", "muse", "sge", "a2", "aft",
-#     "outlook", "vip", "coatnet", "halo", "polarized", "cot",
-#     "residual", "s2", "crossformer", "moa", "dat", "parnet", "mobilevit", "mobilevitv2"
-# ]
-import torch
-import yaml
-import os
-import sys
-import argparse
-import numpy as np
-import random
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')
-
-from modify_multi_attention.data.dataloader import get_loaders
-from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
-from modify_multi_attention.training.trainer import train_model, test_model
-from modify_multi_attention.utils.visualization import plot_losses
-from modify_multi_attention.utils.svd10_loss import TotalLossWithSVD
+from utils.svd10_loss import TotalLossWithSVD
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -55,17 +41,23 @@ def parse_loss_idx_from_argv():
     return None
 
 def main():
-    this_file = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(this_file))
+    this_file = Path(__file__).resolve()
+    project_root = this_file.parent.parent
+
     parser = argparse.ArgumentParser(description="Train VIVTransformer")
-    parser.add_argument('-c', '--config', default=os.path.join(project_root, 'modify_multi_attention', 'configs', 'config.yaml'), help='Path to config file')
+    parser.add_argument(
+        "-c",
+        "--config",
+        default=str(project_root / "modify_multi_attention" / "configs" / "config.yaml"),
+        help="Path to config file",
+    )
     args, remaining = parser.parse_known_args()
     sys.argv = [sys.argv[0]] + remaining
 
-    config_path = args.config
+    config_path = Path(args.config)
     print(f"加载配置文件: {config_path}")
 
-    with open(config_path, 'r', encoding="utf-8") as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
     set_seed(cfg.get("seed", 42), cfg.get("deterministic", False))

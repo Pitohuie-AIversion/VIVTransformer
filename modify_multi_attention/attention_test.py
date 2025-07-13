@@ -7,7 +7,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib
 import torch
-import yaml
+
+from utils.config import load_config
 
 from modify_multi_attention.data.dataloader import get_loaders
 from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
@@ -27,10 +28,17 @@ def main():
         default=current_dir / "configs" / "config.yaml",
         help="Path to config file",
     )
+    parser.add_argument(
+        "-r",
+        "--results-dir",
+        type=Path,
+        default=current_dir / "attention_results",
+        help="Directory to save retest results",
+    )
     args = parser.parse_args()
-    yaml_path = args.config
+    config_path = args.config
 
-    parent_dir = current_dir / "attention_results"
+    parent_dir = args.results_dir
     parent_dir.mkdir(exist_ok=True)
     failed_log_path = parent_dir / "failed_attention_log.txt"
 
@@ -48,10 +56,9 @@ def main():
 
     # === 读取 config.yaml ===
     try:
-        with open(yaml_path, 'r', encoding="utf-8") as f:
-            cfg = yaml.safe_load(f)
+        cfg = load_config(config_path)
     except FileNotFoundError:
-        print(f"❌ 配置文件未找到: {yaml_path}")
+        print(f"❌ 配置文件未找到: {config_path}")
         return
 
     device = torch.device(cfg["device"])

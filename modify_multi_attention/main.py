@@ -1,4 +1,8 @@
-"""Train and evaluate the VIVTransformer with various attention mechanisms."""
+"""Train and evaluate the VIVTransformer with various attention mechanisms.
+
+This script loads configuration from a YAML file and allows overriding the
+location of the output results directory via command-line arguments.
+"""
 
 import argparse
 import os
@@ -7,7 +11,6 @@ import random
 from pathlib import Path
 
 import torch
-import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
@@ -19,6 +22,7 @@ from mymodels.transformer import TransformerFlowReconstructionModel
 from training.trainer import train_model, test_model
 from utils.visualization import plot_losses
 from utils.svd10_loss import TotalLossWithSVD
+from utils.config import load_config
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -51,14 +55,20 @@ def main():
         default=str(project_root / "modify_multi_attention" / "configs" / "config.yaml"),
         help="Path to config file",
     )
+    parser.add_argument(
+        "-r",
+        "--results-dir",
+        type=Path,
+        default=project_root / "attention_results",
+        help="Directory to save training results",
+    )
     args, remaining = parser.parse_known_args()
     sys.argv = [sys.argv[0]] + remaining
 
     config_path = Path(args.config)
     print(f"加载配置文件: {config_path}")
 
-    with open(config_path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
+    cfg = load_config(config_path)
 
     set_seed(cfg.get("seed", 42), cfg.get("deterministic", False))
     if "max_memory_fraction" in cfg:
@@ -79,8 +89,8 @@ def main():
 
     ATTENTION_TYPES = cfg["attention_types"]
     vis_enabled = cfg["visualization"]["enabled"]
-    parent_dir = "attention_results"
-    os.makedirs(parent_dir, exist_ok=True)
+    parent_dir = Path(args.results_dir)
+    parent_dir.mkdir(exist_ok=True)
     failed_attention_types = []
 
     train_loader, valid_loader, test_loader = get_loaders(
@@ -98,8 +108,8 @@ def main():
         for attn_type in ATTENTION_TYPES:
             print(f"\n=========== 当前测试注意力机制: {attn_type}（{loss_config_id}） ===========")
             try:
-                result_dir = os.path.join(parent_dir, loss_config_id, attn_type)
-                os.makedirs(result_dir, exist_ok=True)
+                result_dir = parent_dir / loss_config_id / attn_type
+                result_dir.mkdir(parents=True, exist_ok=True)
 
                 model = TransformerFlowReconstructionModel(
                     input_dim=cfg["model"]["input_dim"],
@@ -134,12 +144,12 @@ def main():
                     cfg=cfg
                 )
 
-                best_model_path = os.path.join(result_dir, f"best_model_{attn_type}.pt")
+                best_model_path = result_dir / f"best_model_{attn_type}.pt"
                 torch.save(trained_model.state_dict(), best_model_path)
 
                 if vis_enabled:
                     plot_losses(train_loss, valid_loss, test_loss)
-                    loss_fig_path = os.path.join(result_dir, f"loss_curve_{attn_type}.png")
+                    loss_fig_path = result_dir / f"loss_curve_{attn_type}.png"
                     plt.savefig(loss_fig_path)
                     plt.close()
 
@@ -150,8 +160,8 @@ def main():
                     cfg=cfg
                 )
 
-                test_result_file = os.path.join(result_dir, f"test_result_{attn_type}.txt")
-                with open(test_result_file, 'w') as f:
+                test_result_file = result_dir / f"test_result_{attn_type}.txt"
+                with open(test_result_file, "w") as f:
                     f.write(f"Test Loss for {attn_type}: {final_test_loss}\n")
 
                 print(f"✅ {attn_type} ({loss_config_id}) 训练完成！")
@@ -162,7 +172,7 @@ def main():
                 failed_attention_types.append(f"{loss_config_id}::{attn_type}")
 
     if failed_attention_types:
-        with open(os.path.join(parent_dir, "failed_attention_log.txt"), "w") as f:
+        with open(parent_dir / "failed_attention_log.txt", "w") as f:
             for info in failed_attention_types:
                 f.write(f"{info}\n")
         print(f"\n⚠️ 以下loss+注意力机制训练失败，并已记录在 failed_attention_log.txt：")

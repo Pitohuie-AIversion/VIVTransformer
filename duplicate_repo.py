@@ -5,15 +5,17 @@ from __future__ import annotations
 import argparse
 import shutil
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional
 
 
-def copy_repo(src: Path, dest: Path, ignore_dirs: Iterable[str] = (".git",)) -> None:
+def copy_repo(src: Path, dest: Path, ignore_dirs: Optional[Iterable[str]] = None) -> None:
     """Copy ``src`` to ``dest`` excluding any ``ignore_dirs``."""
     if not src.is_dir():
         raise ValueError(f"Source directory '{src}' does not exist")
     if dest.exists():
         raise ValueError(f"Destination directory '{dest}' already exists")
+
+    ignore_dirs = set(ignore_dirs or (".git",))
 
     def ignore_func(dirpath: str, names: list[str]) -> set[str]:
         return {name for name in names if name in ignore_dirs}

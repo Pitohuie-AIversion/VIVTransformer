@@ -1,37 +1,30 @@
+"""Train and evaluate the VIVTransformer with various attention mechanisms.
+
+This script loads configuration from a YAML file and allows overriding the
+location of the output results directory via command-line arguments.
+"""
+
+import argparse
+import os
+import sys
+import random
+from pathlib import Path
+import logging
+
 import torch
-import yaml
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.use("Agg")
+
 from data.dataloader import get_loaders
 from mymodels.transformer import TransformerFlowReconstructionModel
 from training.trainer import train_model, test_model
 from utils.visualization import plot_losses
-# import os
-# import matplotlib.pyplot as plt  # 明确导入matplotlib
-# import matplotlib
-# matplotlib.use('Agg')  # 使用非交互模式，防止弹窗
-#
-# os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-
-# ATTENTION_TYPES = [
-#     # "external", "self", "simplified_self", "muse", "ufo", "aft", "vip", "halo",
-#     "se", "sk", "cbam", "bam", "eca", "danet", "psa", "shuffle", "muse", "sge", "a2", "aft",
-#     "outlook", "vip", "coatnet", "halo", "polarized", "cot",
-#     "residual", "s2", "crossformer", "moa", "dat", "parnet", "mobilevit", "mobilevitv2"
-# ]
-import torch
-import yaml
-import os
-import sys
-import numpy as np
-import random
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')
-
-from modify_multi_attention.data.dataloader import get_loaders
-from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
-from modify_multi_attention.training.trainer import train_model, test_model
-from modify_multi_attention.utils.visualization import plot_losses
-from modify_multi_attention.utils.svd10_loss import TotalLossWithSVD
+from utils.svd10_loss import TotalLossWithSVD
+from utils.config import load_config
+from utils.logging_utils import setup_logging
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -54,25 +47,42 @@ def parse_loss_idx_from_argv():
     return None
 
 def main():
-    this_file = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(this_file))
-    config_path = os.path.join(project_root, 'modify_multi_attention', 'configs', 'config.yaml')
-    print(f"加载配置文件: {config_path}")
+    this_file = Path(__file__).resolve()
+    project_root = this_file.parent.parent
 
-    with open(config_path, 'r', encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
+    parser = argparse.ArgumentParser(description="Train VIVTransformer")
+    parser.add_argument(
+        "-c",
+        "--config",
+        default=str(project_root / "modify_multi_attention" / "configs" / "config.yaml"),
+        help="Path to config file",
+    )
+    parser.add_argument(
+        "-r",
+        "--results-dir",
+        type=Path,
+        default=project_root / "attention_results",
+        help="Directory to save training results",
+    )
+    args, remaining = parser.parse_known_args()
+    sys.argv = [sys.argv[0]] + remaining
+
+    config_path = Path(args.config)
+    log.info("加载配置文件: %s", config_path)
+
+    cfg = load_config(config_path)
 
     set_seed(cfg.get("seed", 42), cfg.get("deterministic", False))
     if "max_memory_fraction" in cfg:
         device_idx = int(str(cfg["device"]).split(":")[-1])
         set_cuda_memory_limit(cfg["max_memory_fraction"], device_idx)
     device = torch.device(cfg["device"])
-    print(f"Using device: {device}")
-    print(f"Available GPUs: {torch.cuda.device_count()}")
+    log.info("Using device: %s", device)
+    log.info("Available GPUs: %s", torch.cuda.device_count())
 
     loss_idx = parse_loss_idx_from_argv()
     if loss_idx is not None:
-        print(f"只运行 loss_config_{loss_idx}")
+        log.info("只运行 loss_config_%s", loss_idx)
         loss_configs = [cfg["loss_configs"][loss_idx]]
         loss_config_ids = [f"loss_config_{loss_idx}"]
     else:
@@ -81,8 +91,10 @@ def main():
 
     ATTENTION_TYPES = cfg["attention_types"]
     vis_enabled = cfg["visualization"]["enabled"]
-    parent_dir = "attention_results"
-    os.makedirs(parent_dir, exist_ok=True)
+    parent_dir = Path(args.results_dir)
+    parent_dir.mkdir(exist_ok=True)
+    setup_logging(parent_dir / "train.log")
+    log = logging.getLogger(__name__)
     failed_attention_types = []
 
     train_loader, valid_loader, test_loader = get_loaders(
@@ -95,13 +107,23 @@ def main():
         svd_weights = loss_cfg.get("svd_weights", None)
         topk = loss_cfg.get("topk", 10)
 
-        print(f"\n===== 当前loss设置 [{loss_config_id}]: base_weight={base_weight}, svd_weights={svd_weights}, topk={topk} =====")
+        log.info(
+            "===== 当前loss设置 [%s]: base_weight=%s, svd_weights=%s, topk=%s =====",
+            loss_config_id,
+            base_weight,
+            svd_weights,
+            topk,
+        )
 
         for attn_type in ATTENTION_TYPES:
-            print(f"\n=========== 当前测试注意力机制: {attn_type}（{loss_config_id}） ===========")
+            log.info(
+                "=========== 当前测试注意力机制: %s（%s） ===========",
+                attn_type,
+                loss_config_id,
+            )
             try:
-                result_dir = os.path.join(parent_dir, loss_config_id, attn_type)
-                os.makedirs(result_dir, exist_ok=True)
+                result_dir = parent_dir / loss_config_id / attn_type
+                result_dir.mkdir(parents=True, exist_ok=True)
 
                 model = TransformerFlowReconstructionModel(
                     input_dim=cfg["model"]["input_dim"],
@@ -115,7 +137,7 @@ def main():
                 )
 
                 if cfg.get("use_dataparallel", False) and torch.cuda.device_count() > 1:
-                    print(f"Using DataParallel on {torch.cuda.device_count()} GPUs!")
+                    log.info("Using DataParallel on %s GPUs!", torch.cuda.device_count())
                     model = torch.nn.DataParallel(model)
                 model = model.to(device)
 
@@ -136,12 +158,12 @@ def main():
                     cfg=cfg
                 )
 
-                best_model_path = os.path.join(result_dir, f"best_model_{attn_type}.pt")
+                best_model_path = result_dir / f"best_model_{attn_type}.pt"
                 torch.save(trained_model.state_dict(), best_model_path)
 
                 if vis_enabled:
                     plot_losses(train_loss, valid_loss, test_loss)
-                    loss_fig_path = os.path.join(result_dir, f"loss_curve_{attn_type}.png")
+                    loss_fig_path = result_dir / f"loss_curve_{attn_type}.png"
                     plt.savefig(loss_fig_path)
                     plt.close()
 
@@ -152,25 +174,26 @@ def main():
                     cfg=cfg
                 )
 
-                test_result_file = os.path.join(result_dir, f"test_result_{attn_type}.txt")
-                with open(test_result_file, 'w') as f:
+                test_result_file = result_dir / f"test_result_{attn_type}.txt"
+                with open(test_result_file, "w") as f:
                     f.write(f"Test Loss for {attn_type}: {final_test_loss}\n")
 
-                print(f"✅ {attn_type} ({loss_config_id}) 训练完成！")
+                log.info("✅ %s (%s) 训练完成！", attn_type, loss_config_id)
 
             except Exception as e:
-                print(f"❌ 发生错误，跳过 {attn_type} ({loss_config_id})")
-                print(f"⚠️ 错误详情: {str(e)}")
+                log.error("❌ 发生错误，跳过 %s (%s)", attn_type, loss_config_id)
+                log.exception("⚠️ 错误详情: %s", str(e))
                 failed_attention_types.append(f"{loss_config_id}::{attn_type}")
 
     if failed_attention_types:
-        with open(os.path.join(parent_dir, "failed_attention_log.txt"), "w") as f:
+        with open(parent_dir / "failed_attention_log.txt", "w") as f:
             for info in failed_attention_types:
                 f.write(f"{info}\n")
-        print(f"\n⚠️ 以下loss+注意力机制训练失败，并已记录在 failed_attention_log.txt：")
-        print("\n".join(failed_attention_types))
+        log.warning("\n⚠️ 以下loss+注意力机制训练失败，并已记录在 failed_attention_log.txt：")
+        for info in failed_attention_types:
+            log.warning(info)
     else:
-        print("\n🎉 所有loss配置和注意力机制均运行成功！")
+        log.info("\n🎉 所有loss配置和注意力机制均运行成功！")
 
 if __name__ == "__main__":
     main()

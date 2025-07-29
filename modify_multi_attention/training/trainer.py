@@ -11,7 +11,7 @@ from utils.visualization import plot_losses
 
 def train_model(model, train_loader, valid_loader, test_loader, criterion, optimizer, num_epochs=100, device='cuda',
                 early_stop_patience=10, attention_type='default',
-                result_dir=None, cfg=None, scheduler=None):   # cfg参数必传！
+                result_dir=None, cfg=None, scheduler=None, no_pretrained=False):   # cfg参数必传！
 
     # 标准 MSELoss（保证横向可比）
     import torch.nn as nn
@@ -71,23 +71,32 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
 
     # ========== 恢复断点 ==========
     start_epoch = 0
-    if os.path.exists(checkpoint_path):
+    if not no_pretrained and os.path.exists(checkpoint_path):
         print(f"检测到断点文件，自动恢复：{checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path, map_location=device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        train_loss_history = checkpoint.get('train_loss_history', [])
-        valid_loss_history = checkpoint.get('valid_loss_history', [])
-        test_loss_history  = checkpoint.get('test_loss_history', [])
-        best_valid_loss    = checkpoint.get('best_valid_loss', float('inf'))
-        best_metric        = checkpoint.get('best_metric', best_metric)
-        patience_counter   = checkpoint.get('patience_counter', 0)
-        best_model_state   = checkpoint.get('best_model_state', None)
-        start_epoch        = checkpoint.get('epoch', 0) + 1
-        print(f"已恢复到 epoch {start_epoch}，best_metric={best_metric}，patience_counter={patience_counter}")
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location=device)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            train_loss_history = checkpoint.get('train_loss_history', [])
+            valid_loss_history = checkpoint.get('valid_loss_history', [])
+            test_loss_history  = checkpoint.get('test_loss_history', [])
+            best_valid_loss    = checkpoint.get('best_valid_loss', float('inf'))
+            best_metric        = checkpoint.get('best_metric', best_metric)
+            patience_counter   = checkpoint.get('patience_counter', 0)
+            best_model_state   = checkpoint.get('best_model_state', None)
+            start_epoch        = checkpoint.get('epoch', 0) + 1
+            print(f"已恢复到 epoch {start_epoch}，best_metric={best_metric}，patience_counter={patience_counter}")
+        except RuntimeError as e:
+            print(f"⚠️ 加载预训练模型失败: {e}")
+            print("🔄 将从头开始训练...")
+    elif no_pretrained:
+        print("🆕 跳过预训练模型加载，从头开始训练")
     else:
-        with open(loss_log_path, 'w') as log_file:
-            log_file.write("Epoch, Train Loss, Valid Loss, Test Loss\n")
+        print("📝 未找到断点文件，从头开始训练")
+    
+    # 初始化损失日志文件
+    with open(loss_log_path, 'w') as log_file:
+        log_file.write("Epoch, Train Loss, Valid Loss, Test Loss\n")
 
     # ========== 主训练循环 ==========
     for epoch in range(start_epoch, num_epochs):

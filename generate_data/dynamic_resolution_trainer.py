@@ -8,6 +8,7 @@
 2. 实时生成训练数据，无需预先生成大文件
 3. 支持命令行参数和YAML配置文件
 4. 灵活的数据集生成和加载
+5. 支持多GPU训练 (DataParallel模式)
 
 作者: AI Assistant
 日期: 2025
@@ -389,13 +390,15 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description='动态分辨率训练器 - 支持灵活配置输入输出分辨率的PDE求解器训练',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-使用示例:
+        epilog="""使用示例:
   # 基本用法
   python dynamic_resolution_trainer.py --input_resolution 32 32 --output_resolution 128 128
   
   # 使用配置文件
   python dynamic_resolution_trainer.py --config my_config.yaml
+  
+  # 多GPU训练 (DataParallel)
+  python dynamic_resolution_trainer.py --input_resolution 32 32 --output_resolution 128 128 --use_dataparallel
   
   # 超分辨率重建
   python dynamic_resolution_trainer.py --input_resolution 16 16 --output_resolution 64 64 --attention_type cbam
@@ -451,6 +454,10 @@ def parse_arguments():
     other_group = parser.add_argument_group('其他配置')
     other_group.add_argument('--device', type=str, choices=['auto', 'cuda', 'cpu'],
                             help='设备选择: auto(自动), cuda(GPU), cpu(CPU)')
+    other_group.add_argument('--use_dataparallel', action='store_true',
+                            help='启用多GPU训练 (DataParallel模式)')
+    other_group.add_argument('--no_pretrained', action='store_true',
+                            help='不加载预训练模型，从头开始训练')
     other_group.add_argument('--seed', type=int,
                             help='随机种子 (默认: 42)')
     other_group.add_argument('--verbose', action='store_true',
@@ -495,6 +502,8 @@ def load_config_with_args(config_path, args):
             'attention_type': 'sge'
         },
         'device': 'auto',
+        'use_dataparallel': False,  # 启用多GPU训练 (DataParallel)
+        'no_pretrained': False,  # 不加载预训练模型，从头开始训练
         'seed': 42,
         'visualization': {
             'enabled': True,
@@ -505,6 +514,35 @@ def load_config_with_args(config_path, args):
             'level': 'INFO',
             'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             'file': './results/logs/dynamic_resolution_training.log'
+        },
+        'optimizer': {
+            'type': 'Adam',
+            'betas': [0.9, 0.999],
+            'eps': 1e-8,
+            'amsgrad': False
+        },
+        'scheduler': {
+            'enabled': True,
+            'type': 'cosine',
+            'T_max': 100,
+            'eta_min': 1e-6,
+            'step_size': 30,
+            'gamma': 0.1
+        },
+        'loss': {
+            'base_weight': 0.8,
+            'svd_weights': [0.05, 0.04, 0.03, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01],
+            'topk': 10,
+            'loss_type': 'mse_svd',
+            'svd_loss_enabled': True,
+            'normalize_svd_weights': True
+        },
+        'dataloader': {
+            'num_workers': 0,
+            'pin_memory': True,
+            'drop_last': False,
+            'persistent_workers': False,
+            'prefetch_factor': 2
         }
     }
     
@@ -559,6 +597,10 @@ def load_config_with_args(config_path, args):
         config['model']['attention_type'] = args.attention_type
     if args.device:
         config['device'] = args.device
+    if args.use_dataparallel:
+        config['use_dataparallel'] = True
+    if args.no_pretrained:
+        config['no_pretrained'] = True
     if args.seed:
         config['seed'] = args.seed
     if args.verbose:
@@ -726,6 +768,25 @@ def main():
         
         logger.info(f"模型参数数量: {sum(p.numel() for p in model.parameters())}")
         
+        # 多GPU支持 (DataParallel)
+        use_dataparallel = config.get('use_dataparallel', False)
+        if use_dataparallel and torch.cuda.is_available() and torch.cuda.device_count() > 1:
+            logger.info(f"🚀 启用多GPU训练: 检测到 {torch.cuda.device_count()} 张GPU")
+            model = torch.nn.DataParallel(model)
+            logger.info(f"   使用的GPU设备: {list(range(torch.cuda.device_count()))}")
+            
+            # 显示每个GPU的内存信息
+            for i in range(torch.cuda.device_count()):
+                gpu_memory = torch.cuda.get_device_properties(i).total_memory / 1024**3
+                logger.info(f"   GPU {i}: {torch.cuda.get_device_name(i)} ({gpu_memory:.1f}GB)")
+        elif use_dataparallel:
+            if not torch.cuda.is_available():
+                logger.warning("⚠️ CUDA不可用，无法启用多GPU训练")
+            elif torch.cuda.device_count() <= 1:
+                logger.warning(f"⚠️ 只检测到 {torch.cuda.device_count()} 张GPU，无法启用多GPU训练")
+        else:
+            logger.info(f"🖥️ 单GPU训练模式")
+        
         # 创建损失函数和优化器
         logger.info("=== 创建损失函数 ===")
         
@@ -837,7 +898,8 @@ def main():
             attention_type=config['model']['attention_type'],
             result_dir='./results',
             cfg=config,
-            scheduler=scheduler
+            scheduler=scheduler,
+            no_pretrained=config.get('no_pretrained', False)
         )
         
         # 测试模型

@@ -19,7 +19,7 @@ data:
   crop_mode: "center"
   
   # 批次大小
-  batch_size: 16
+  batch_size: 16                  # 多GPU训练建议增加到32或更大
   
   # 数据集分割比例
   train_ratio: 0.7
@@ -161,11 +161,42 @@ gradient:
 mixed_precision:
   enabled: false                  # 是否启用混合精度训练
   loss_scale: "dynamic"           # 损失缩放: 'dynamic' 或具体数值
+  
+  # 多GPU训练性能优化建议：
+  # enabled: true                  # 启用混合精度可提升1.5-2倍训练速度
+  # loss_scale: "dynamic"         # 动态损失缩放，减少30-50%显存使用
 
 # 设备配置
 device: "auto"                    # 设备类型: 'auto', 'cuda', 'cpu'
 use_dataparallel: false          # 是否使用数据并行
 max_memory_fraction: 0.8         # 最大显存占用比例
+
+# ===== 多GPU训练配置说明 (DataParallel方案) =====
+# 如果服务器有多张显卡，可以按以下方式配置：
+# 
+# 1. 启用多GPU训练：
+#    device: "cuda"                 # 设置为cuda
+#    use_dataparallel: true         # 启用数据并行
+#    max_memory_fraction: 0.8       # 控制显存使用
+# 
+# 2. 优化数据加载（见下方dataloader配置）：
+#    num_workers: 8                 # 增加工作进程数
+#    persistent_workers: true       # 保持工作进程持久化
+#    prefetch_factor: 4             # 增加预取因子
+# 
+# 3. 调整批次大小（见下方data配置）：
+#    batch_size: 32                 # 多GPU可以处理更大批次
+# 
+# 4. 在训练代码中添加以下逻辑（dynamic_resolution_trainer.py约720行）：
+#    if config.get('use_dataparallel', False) and torch.cuda.device_count() > 1:
+#        logger.info(f"🚀 启用DataParallel，使用 {torch.cuda.device_count()} 张GPU")
+#        model = torch.nn.DataParallel(model)
+#        logger.info(f"GPU设备列表: {list(range(torch.cuda.device_count()))}")
+#    model = model.to(device)
+# 
+# 5. 可选：启用混合精度训练提升性能（见下方mixed_precision配置）：
+#    enabled: true                  # 启用混合精度
+#    loss_scale: "dynamic"         # 动态损失缩放
 
 # 随机种子和确定性
 seed: 42
@@ -199,6 +230,11 @@ dataloader:
   pin_memory: true                # 是否将数据固定在内存中
   persistent_workers: false       # 是否保持工作进程持久化
   prefetch_factor: 2              # 预取因子
+  
+  # 多GPU训练优化建议：
+  # num_workers: 8                 # 双GPU建议增加到8
+  # persistent_workers: true       # 启用持久化工作进程
+  # prefetch_factor: 4             # 增加预取因子到4
 
 # 验证配置
 validation:

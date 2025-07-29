@@ -341,41 +341,14 @@ def get_dynamic_loaders(config: Dict[str, Any]):
     # 创建数据加载器
     batch_size = data_config['batch_size']
     
-    # 从配置中获取数据加载器参数
-    dataloader_config = config.get('dataloader', {})
-    num_workers = dataloader_config.get('num_workers', 0)
-    pin_memory = dataloader_config.get('pin_memory', True)
-    drop_last = dataloader_config.get('drop_last', False)
-    persistent_workers = dataloader_config.get('persistent_workers', False) and num_workers > 0
-    
-    logger.info(f"🔄 数据加载器配置: num_workers={num_workers}, pin_memory={pin_memory}, drop_last={drop_last}")
-    
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, 
-        batch_size=batch_size, 
-        shuffle=True, 
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=drop_last,
-        persistent_workers=persistent_workers
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=0
     )
     valid_loader = torch.utils.data.DataLoader(
-        valid_dataset, 
-        batch_size=batch_size, 
-        shuffle=False, 
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=False,
-        persistent_workers=persistent_workers
+        valid_dataset, batch_size=batch_size, shuffle=False, num_workers=0
     )
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, 
-        batch_size=batch_size, 
-        shuffle=False, 
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=False,
-        persistent_workers=persistent_workers
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=0
     )
     
     logger.info(f"数据集分割: 训练集={train_size}, 验证集={valid_size}, 测试集={test_size}")
@@ -748,79 +721,11 @@ def main():
             topk=topk
         )
         
-        # 从配置中获取优化器参数
-        optimizer_config = config['optimizer']
-        training_config = config['training']
-        
-        print(f"🔧 优化器配置: 类型={optimizer_config['type']}, 学习率={training_config['learning_rate']}, 权重衰减={training_config['weight_decay']}")
-        
-        # 根据配置创建优化器
-        if optimizer_config['type'].lower() == 'adam':
-            optimizer = torch.optim.Adam(
-                model.parameters(),
-                lr=training_config['learning_rate'],
-                weight_decay=training_config['weight_decay'],
-                betas=tuple(optimizer_config['betas']),
-                eps=float(optimizer_config['eps']),
-                amsgrad=bool(optimizer_config['amsgrad'])
-            )
-            print(f"   Adam参数: betas={optimizer_config['betas']}, eps={optimizer_config['eps']}, amsgrad={optimizer_config['amsgrad']}")
-        elif optimizer_config['type'].lower() == 'sgd':
-            optimizer = torch.optim.SGD(
-                model.parameters(),
-                lr=training_config['learning_rate'],
-                weight_decay=training_config['weight_decay'],
-                momentum=optimizer_config.get('momentum', 0.9)
-            )
-            print(f"   SGD参数: momentum={optimizer_config.get('momentum', 0.9)}")
-        elif optimizer_config['type'].lower() == 'adamw':
-            optimizer = torch.optim.AdamW(
-                model.parameters(),
-                lr=training_config['learning_rate'],
-                weight_decay=training_config['weight_decay'],
-                betas=tuple(optimizer_config['betas']),
-                eps=float(optimizer_config['eps']),
-                amsgrad=bool(optimizer_config['amsgrad'])
-            )
-            print(f"   AdamW参数: betas={optimizer_config['betas']}, eps={optimizer_config['eps']}, amsgrad={optimizer_config['amsgrad']}")
-        else:
-            print(f"⚠️  不支持的优化器类型: {optimizer_config['type']}，使用默认Adam")
-            optimizer = torch.optim.Adam(
-                model.parameters(),
-                lr=training_config['learning_rate'],
-                weight_decay=training_config['weight_decay']
-            )
-        
-        # 创建学习率调度器
-        scheduler_config = config['scheduler']
-        scheduler = None
-        
-        if scheduler_config['enabled']:
-            print(f"📈 学习率调度器配置: 类型={scheduler_config['type']}, 启用={scheduler_config['enabled']}")
-            
-            if scheduler_config['type'].lower() == 'cosine':
-                scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                    optimizer, 
-                    T_max=scheduler_config['T_max']
-                )
-                print(f"   Cosine参数: T_max={scheduler_config['T_max']}")
-            elif scheduler_config['type'].lower() == 'step':
-                scheduler = torch.optim.lr_scheduler.StepLR(
-                    optimizer,
-                    step_size=scheduler_config['step_size'],
-                    gamma=scheduler_config['gamma']
-                )
-                print(f"   Step参数: step_size={scheduler_config['step_size']}, gamma={scheduler_config['gamma']}")
-            elif scheduler_config['type'].lower() == 'exponential':
-                scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                    optimizer,
-                    gamma=scheduler_config['gamma']
-                )
-                print(f"   Exponential参数: gamma={scheduler_config['gamma']}")
-            else:
-                print(f"⚠️  不支持的调度器类型: {scheduler_config['type']}")
-        else:
-            print("📈 学习率调度器: 未启用")
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr=config['training']['learning_rate'],
+            weight_decay=config['training']['weight_decay']
+        )
         
         # 开始训练
         logger.info("=== 开始训练 ===")
@@ -836,8 +741,7 @@ def main():
             early_stop_patience=config['training']['patience'],
             attention_type=config['model']['attention_type'],
             result_dir='./results',
-            cfg=config,
-            scheduler=scheduler
+            cfg=config
         )
         
         # 测试模型

@@ -11,7 +11,7 @@ from utils.visualization import plot_losses
 
 def train_model(model, train_loader, valid_loader, test_loader, criterion, optimizer, num_epochs=100, device='cuda',
                 early_stop_patience=10, attention_type='default',
-                result_dir=None, cfg=None):   # cfg参数必传！
+                result_dir=None, cfg=None, scheduler=None):   # cfg参数必传！
 
     # 标准 MSELoss（保证横向可比）
     import torch.nn as nn
@@ -21,6 +21,17 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
     vis_enabled = cfg["visualization"]["enabled"]
     vis_interval = cfg["visualization"]["interval"]
     max_samples = cfg["visualization"]["max_samples"]
+    
+    # 早停配置参数
+    early_stopping_config = cfg.get("training", {})
+    enable_early_stopping = early_stopping_config.get("enable_early_stopping", True)
+    patience = early_stopping_config.get("patience", early_stop_patience)
+    min_delta = early_stopping_config.get("min_delta", 1e-6)
+    monitor = early_stopping_config.get("monitor", "val_loss")
+    mode = early_stopping_config.get("mode", "min")
+    restore_best_weights = early_stopping_config.get("restore_best_weights", True)
+    
+    print(f"📊 早停配置: 启用={enable_early_stopping}, 监控={monitor}, 模式={mode}, 耐心值={patience}")
 
     model.to(device)
 
@@ -28,8 +39,19 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
     valid_loss_history = []
     test_loss_history = []
 
-    best_valid_loss = float('inf')
+    # 早停相关变量
+    if mode == "min":
+        best_metric = float('inf')
+        is_better = lambda current, best: current < (best - min_delta)
+    else:  # mode == "max"
+        best_metric = float('-inf')
+        is_better = lambda current, best: current > (best + min_delta)
+    
     patience_counter = 0
+    best_model_state = None  # 用于保存最佳模型权重
+    
+    # 兼容旧版本
+    best_valid_loss = float('inf')
 
     if result_dir is not None:
         loss_log_dir = os.path.join(result_dir, "loss_logs")
@@ -58,9 +80,11 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         valid_loss_history = checkpoint.get('valid_loss_history', [])
         test_loss_history  = checkpoint.get('test_loss_history', [])
         best_valid_loss    = checkpoint.get('best_valid_loss', float('inf'))
+        best_metric        = checkpoint.get('best_metric', best_metric)
         patience_counter   = checkpoint.get('patience_counter', 0)
+        best_model_state   = checkpoint.get('best_model_state', None)
         start_epoch        = checkpoint.get('epoch', 0) + 1
-        print(f"已恢复到 epoch {start_epoch}，best_valid_loss={best_valid_loss}")
+        print(f"已恢复到 epoch {start_epoch}，best_metric={best_metric}，patience_counter={patience_counter}")
     else:
         with open(loss_log_path, 'w') as log_file:
             log_file.write("Epoch, Train Loss, Valid Loss, Test Loss\n")
@@ -131,6 +155,46 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         with open(loss_log_path, 'a') as log_file:
             log_file.write(f"{epoch + 1}, {avg_train_loss:.6f}, {avg_valid_loss:.6f}, {avg_test_loss:.6f}\n")
 
+        # ========== 早停逻辑 ==========
+        if enable_early_stopping:
+            # 根据监控指标选择当前值
+            if monitor == "train_loss":
+                current_metric = avg_train_loss
+            elif monitor == "val_loss":
+                current_metric = avg_valid_loss
+            elif monitor == "test_loss":
+                current_metric = avg_test_loss
+            else:
+                current_metric = avg_valid_loss  # 默认监控验证损失
+            
+            # 判断是否有改善
+            if is_better(current_metric, best_metric):
+                best_metric = current_metric
+                patience_counter = 0
+                # 保存最佳模型权重
+                if restore_best_weights:
+                    best_model_state = model.state_dict().copy()
+                torch.save(model.state_dict(), os.path.join(save_dir, f"best_model_{attention_type}.pt"))
+                print(f"✅ 模型已保存 (Best {monitor}: {current_metric:.6f})")
+            else:
+                patience_counter += 1
+                print(f"⚠️ 早停计数: {patience_counter}/{patience} (当前{monitor}: {current_metric:.6f}, 最佳: {best_metric:.6f})")
+            
+            # 检查是否触发早停
+            if patience_counter >= patience:
+                print("⏹️ 触发 Early Stopping!")
+                # 恢复最佳权重
+                if restore_best_weights and best_model_state is not None:
+                    model.load_state_dict(best_model_state)
+                    print("🔄 已恢复最佳模型权重")
+                break
+        else:
+            # 不启用早停时的传统逻辑
+            if avg_valid_loss < best_valid_loss:
+                best_valid_loss = avg_valid_loss
+                torch.save(model.state_dict(), os.path.join(save_dir, f"best_model_{attention_type}.pt"))
+                print("✅ 模型已保存 (Best Model Updated)")
+        
         # ========== 保存断点 ==========
         checkpoint = {
             'epoch': epoch,
@@ -140,23 +204,17 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
             'valid_loss_history': valid_loss_history,
             'test_loss_history': test_loss_history,
             'best_valid_loss': best_valid_loss,
-            'patience_counter': patience_counter
+            'best_metric': best_metric,
+            'patience_counter': patience_counter,
+            'best_model_state': best_model_state
         }
         torch.save(checkpoint, checkpoint_path)
-
-        # ========== 保存最优模型 ==========
-        if avg_valid_loss < best_valid_loss:
-            best_valid_loss = avg_valid_loss
-            patience_counter = 0
-            torch.save(model.state_dict(), os.path.join(save_dir, f"best_model_{attention_type}.pt"))
-            print("✅ 模型已保存 (Best Model Updated)")
-        else:
-            patience_counter += 1
-            print(f"⚠️ 早停计数: {patience_counter}/{early_stop_patience}")
-
-        if patience_counter >= early_stop_patience:
-            print("⏹️ 触发 Early Stopping!")
-            break
+        
+        # ========== 学习率调度器步进 ==========
+        if scheduler is not None:
+            scheduler.step()
+            current_lr = optimizer.param_groups[0]['lr']
+            print(f"📈 学习率调度器步进: 当前学习率={current_lr:.8f}")
 
         if vis_enabled and (epoch + 1) % vis_interval == 0:
             model.eval()

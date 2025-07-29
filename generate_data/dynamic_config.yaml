@@ -31,11 +31,63 @@ training:
   epochs: 10
   learning_rate: 0.001
   weight_decay: 0.0001
-  patience: 15
-  min_delta: 0.000001
+  
+  # 早停配置
+  enable_early_stopping: false  # 是否启用早停
+  patience: 15                 # 早停耐心值（验证损失不改善的epoch数）
+  min_delta: 0.000001         # 最小改善阈值
+  monitor: "val_loss"         # 监控指标: 'val_loss', 'train_loss', 'val_accuracy'
+  mode: "min"                 # 监控模式: 'min'(损失), 'max'(准确率)
+  restore_best_weights: true  # 是否恢复最佳权重
+  
   save_best_model: true
   model_save_path: "./results/models/dynamic_resolution_model.pth"
   log_interval: 10
+
+# 损失函数配置
+loss:
+  # 基础损失权重 (MSE全局损失)
+  base_weight: 0.8                # 主loss权重，支持0~1任意浮点
+  
+  # SVD损失权重配置
+  svd_weights: [0.05, 0.04, 0.03, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01]  # SVD各模态权重
+  
+  # SVD主模态数量
+  topk: 10                        # SVD主模态数量，建议3-10
+  
+  # 损失函数类型
+  loss_type: "mse_svd"            # 损失类型: 'mse', 'mse_svd', 'l1', 'huber'
+  
+  # SVD损失配置
+  svd_loss_enabled: true          # 是否启用SVD损失
+  normalize_svd_weights: true     # 是否归一化SVD权重
+
+# 多损失配置 (可选，用于批量实验)
+loss_configs:
+  # 基础配置 - 仅MSE损失
+  - base_weight: 1.0
+    svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    topk: 10
+    
+  # 平衡配置 - MSE + SVD
+  - base_weight: 0.7
+    svd_weights: [0.08, 0.06, 0.05, 0.04, 0.03, 0.02, 0.01, 0.01, 0.0, 0.0]
+    topk: 10
+    
+  # SVD主导配置
+  - base_weight: 0.3
+    svd_weights: [0.15, 0.12, 0.10, 0.08, 0.06, 0.05, 0.04, 0.03, 0.02, 0.02]
+    topk: 10
+    
+  # 前3模态配置
+  - base_weight: 0.6
+    svd_weights: [0.20, 0.15, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    topk: 3
+    
+  # 高频模态配置
+  - base_weight: 0.5
+    svd_weights: [0.02, 0.03, 0.05, 0.08, 0.10, 0.08, 0.06, 0.04, 0.02, 0.01]
+    topk: 10
 
 # 模型配置
 model:
@@ -44,9 +96,38 @@ model:
   d_model: 512
   num_heads: 8
   max_time_steps: 100
+  dropout: 0.1                     # Dropout率
+  dim_feedforward: 2048            # 前馈网络维度
   
   # 注意力机制类型: 'sge', 'cbam', 'eca', 'se', 'relative', 'external'
   attention_type: "sge"
+  
+  # 激活函数配置
+  activation: "relu"               # 激活函数: 'relu', 'gelu', 'swish', 'tanh', 'leaky_relu'
+  
+  # 权重初始化配置
+  weight_init:
+    method: "xavier_uniform"       # 初始化方法: 'xavier_uniform', 'xavier_normal', 'kaiming_uniform', 'kaiming_normal', 'normal'
+    gain: 1.0                      # 初始化增益
+    std: 0.02                      # 正态分布标准差（仅用于normal方法）
+  
+  # 归一化配置
+  normalization:
+    type: "layer_norm"             # 归一化类型: 'layer_norm', 'batch_norm', 'group_norm', 'instance_norm'
+    eps: 1e-5                      # 归一化epsilon
+    elementwise_affine: true       # 是否使用可学习的仿射变换
+  
+  # 位置编码配置
+  positional_encoding:
+    type: "learnable"              # 位置编码类型: 'learnable', 'sinusoidal', 'none'
+    max_len: 5000                  # 最大序列长度（仅用于sinusoidal）
+    dropout: 0.1                   # 位置编码dropout
+  
+  # 前馈网络配置
+  feedforward:
+    activation: "relu"             # 前馈网络激活函数
+    dropout: 0.1                   # 前馈网络dropout
+    bias: true                     # 是否使用偏置项
 
 # 日志配置
 logging:
@@ -55,17 +136,236 @@ logging:
   file: "./results/logs/dynamic_resolution_training.log"
   verbose: false  # 详细日志模式 (对应 --verbose 参数)
 
-# 设备配置: 'auto', 'cuda', 'cpu'
-device: "auto"
+# 优化器配置
+optimizer:
+  type: "adam"                     # 优化器类型: 'adam', 'sgd', 'adamw'
+  betas: [0.9, 0.999]             # Adam优化器的beta参数
+  eps: 1e-8                       # Adam优化器的epsilon参数
+  amsgrad: false                  # 是否使用AMSGrad变体
 
-# 随机种子
+# 学习率调度器配置
+scheduler:
+  enabled: false                  # 是否启用学习率调度器
+  type: "step"                    # 调度器类型: 'step', 'cosine', 'exponential'
+  step_size: 30                   # StepLR的步长
+  gamma: 0.1                      # 学习率衰减因子
+  T_max: 100                      # CosineAnnealingLR的最大迭代数
+
+# 梯度配置
+gradient:
+  clip_enabled: false             # 是否启用梯度裁剪
+  clip_value: 1.0                 # 梯度裁剪阈值
+  accumulation_steps: 1           # 梯度累积步数
+
+# 混合精度训练配置
+mixed_precision:
+  enabled: false                  # 是否启用混合精度训练
+  loss_scale: "dynamic"           # 损失缩放: 'dynamic' 或具体数值
+
+# 设备配置
+device: "auto"                    # 设备类型: 'auto', 'cuda', 'cpu'
+use_dataparallel: false          # 是否使用数据并行
+max_memory_fraction: 0.8         # 最大显存占用比例
+
+# 随机种子和确定性
 seed: 42
+deterministic: false             # 是否启用确定性训练（可能影响性能）
 
 # 可视化配置
 visualization:
-  enabled: true  # 启用可视化 (设为false对应 --no_visualization 参数)
-  interval: 10
-  max_samples: 5
+  enabled: true                   # 启用可视化 (设为false对应 --no_visualization 参数)
+  interval: 10                    # 可视化间隔
+  max_samples: 5                  # 最大可视化样本数
+  save_format: "png"              # 保存格式: 'png', 'jpg', 'svg'
+  dpi: 300                        # 图像分辨率
+
+# 检查点配置
+checkpoint:
+  enabled: true                   # 是否启用检查点保存
+  save_interval: 10               # 检查点保存间隔（epoch）
+  keep_last_n: 3                  # 保留最近N个检查点
+  auto_resume: true               # 是否自动恢复训练
+
+# 性能监控配置
+monitoring:
+  enabled: true                   # 是否启用性能监控
+  log_memory_usage: true          # 是否记录内存使用情况
+  log_gpu_usage: true             # 是否记录GPU使用情况
+  profile_enabled: false          # 是否启用性能分析
+
+# 数据加载配置
+dataloader:
+  num_workers: 4                  # 数据加载器工作进程数
+  pin_memory: true                # 是否将数据固定在内存中
+  persistent_workers: false       # 是否保持工作进程持久化
+  prefetch_factor: 2              # 预取因子
+
+# 验证配置
+validation:
+  enabled: true                   # 是否启用验证
+  interval: 1                     # 验证间隔（每N个epoch验证一次）
+  metrics: ["mse", "mae", "rmse", "psnr"]  # 验证指标
+  save_predictions: false         # 是否保存验证预测结果
+  max_samples_to_save: 10         # 最大保存样本数
+
+# 测试配置
+test:
+  enabled: true                   # 是否启用测试
+  metrics: ["mse", "mae", "rmse", "psnr", "ssim"]  # 测试指标
+  save_predictions: true          # 是否保存测试预测结果
+  save_visualizations: true       # 是否保存可视化结果
+  output_dir: "./results/test"    # 测试结果输出目录
+
+# 评估指标配置
+evaluation:
+  # 回归指标
+  regression_metrics:
+    mse: true                     # 均方误差
+    mae: true                     # 平均绝对误差
+    rmse: true                    # 均方根误差
+    r2_score: true                # R²决定系数
+  
+  # 图像质量指标
+  image_metrics:
+    psnr: true                    # 峰值信噪比
+    ssim: true                    # 结构相似性指数
+    lpips: false                  # 感知图像补丁相似性
+  
+  # 物理指标（针对流体力学）
+  physics_metrics:
+    energy_conservation: true     # 能量守恒误差
+    mass_conservation: true       # 质量守恒误差
+    vorticity_error: true         # 涡度误差
+
+# 数据增强配置
+data_augmentation:
+  enabled: false                  # 是否启用数据增强
+  
+  # 几何变换
+  geometric:
+    rotation: false               # 旋转增强
+    rotation_range: [-10, 10]     # 旋转角度范围（度）
+    flip_horizontal: false        # 水平翻转
+    flip_vertical: false          # 垂直翻转
+    scale: false                  # 缩放增强
+    scale_range: [0.9, 1.1]       # 缩放范围
+  
+  # 噪声增强
+  noise:
+    gaussian_noise: false         # 高斯噪声
+    noise_std: 0.01              # 噪声标准差
+    salt_pepper: false           # 椒盐噪声
+    noise_ratio: 0.01            # 噪声比例
+  
+  # 物理增强（针对流体力学）
+  physics:
+    reynolds_perturbation: false  # 雷诺数扰动
+    boundary_condition_noise: false  # 边界条件噪声
+    initial_condition_noise: false   # 初始条件噪声
+
+# 分布式训练配置
+distributed:
+  enabled: false                 # 是否启用分布式训练
+  backend: "nccl"                # 分布式后端: 'nccl', 'gloo', 'mpi'
+  world_size: 1                  # 总进程数
+  rank: 0                        # 当前进程排名
+  local_rank: 0                  # 本地进程排名
+  master_addr: "localhost"       # 主节点地址
+  master_port: "12355"           # 主节点端口
+  find_unused_parameters: false  # 是否查找未使用的参数
+
+# 模型压缩配置
+model_compression:
+  # 量化配置
+  quantization:
+    enabled: false               # 是否启用量化
+    method: "dynamic"            # 量化方法: 'dynamic', 'static', 'qat'
+    backend: "fbgemm"            # 量化后端: 'fbgemm', 'qnnpack'
+    dtype: "qint8"               # 量化数据类型
+  
+  # 剪枝配置
+  pruning:
+    enabled: false               # 是否启用剪枝
+    method: "magnitude"          # 剪枝方法: 'magnitude', 'structured', 'unstructured'
+    sparsity: 0.5                # 稀疏度
+    structured: false            # 是否结构化剪枝
+  
+  # 知识蒸馏配置
+  knowledge_distillation:
+    enabled: false               # 是否启用知识蒸馏
+    teacher_model_path: null     # 教师模型路径
+    temperature: 4.0             # 蒸馏温度
+    alpha: 0.7                   # 蒸馏损失权重
+
+# 超参数调优配置
+hyperparameter_tuning:
+  enabled: false                 # 是否启用超参数调优
+  method: "grid_search"          # 调优方法: 'grid_search', 'random_search', 'bayesian'
+  max_trials: 50                 # 最大试验次数
+  
+  # 搜索空间定义
+  search_space:
+    learning_rate: [0.0001, 0.001, 0.01]  # 学习率搜索空间
+    batch_size: [8, 16, 32]               # 批次大小搜索空间
+    num_layers: [2, 4, 6, 8]              # 层数搜索空间
+    d_model: [256, 512, 1024]             # 模型维度搜索空间
+    num_heads: [4, 8, 16]                 # 注意力头数搜索空间
+  
+  # 早停配置（用于超参数调优）
+  early_stopping:
+    patience: 10
+    min_delta: 0.001
+
+# 交叉验证配置
+cross_validation:
+  enabled: false                 # 是否启用交叉验证
+  k_folds: 5                     # K折数量
+  stratified: false              # 是否分层抽样
+  shuffle: true                  # 是否打乱数据
+  random_state: 42               # 随机种子
+
+# 模型集成配置
+model_ensemble:
+  enabled: false                 # 是否启用模型集成
+  methods: ["voting", "stacking"] # 集成方法
+  models: []                     # 集成模型列表
+  weights: []                    # 模型权重
+
+# 迁移学习配置
+transfer_learning:
+  enabled: false                 # 是否启用迁移学习
+  pretrained_model_path: null    # 预训练模型路径
+  freeze_layers: []              # 冻结层列表
+  fine_tune_layers: []           # 微调层列表
+  learning_rate_multiplier: 0.1  # 微调学习率倍数
+
+# 联邦学习配置
+federated_learning:
+  enabled: false                 # 是否启用联邦学习
+  num_clients: 10                # 客户端数量
+  rounds: 100                    # 联邦轮数
+  client_fraction: 0.1           # 每轮参与的客户端比例
+  local_epochs: 5                # 本地训练轮数
+
+# 预设分辨率配置示例
+resolution_presets:
+  # 低分辨率快速训练
+  low_res:
+    input_resolution: [16, 16]
+    output_resolution: [64, 64]
+    batch_size: 32
+  
+  # 中等分辨率平衡训练
+  medium_res:
+    input_resolution: [32, 32]
+    output_resolution: [128, 128]
+    batch_size: 16
+  
+  # 高分辨率精细训练
+  high_res:
+    input_resolution: [64, 64]
+    output_resolution: [256, 256]
+    batch_size: 8
 
 # ===== 预设配置示例 =====
 # 以下是一些常用的分辨率配置示例，可以直接复制使用

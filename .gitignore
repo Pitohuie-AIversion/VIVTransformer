@@ -1,5 +1,7 @@
 # Ignore PDEBench directory
 PDEBench/
+others/
+
 
 # Ignore IDE configuration files
 .idea/

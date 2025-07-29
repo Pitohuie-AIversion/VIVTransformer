@@ -29,11 +29,11 @@ from typing import Tuple, Optional, Dict, Any
 sys.path.append(str(Path(__file__).parent.parent / 'modify_multi_attention'))
 sys.path.append(str(Path(__file__).parent))
 
-from mymodels.transformer import TransformerFlowReconstructionModel
-from training.trainer import train_model, test_model
-from utils.visualization import plot_losses
-from utils.svd10_loss import TotalLossWithSVD
-from utils.logging_utils import setup_logging
+from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
+from modify_multi_attention.training.trainer import train_model, test_model
+from modify_multi_attention.utils.visualization import plot_losses
+from modify_multi_attention.utils.svd10_loss import TotalLossWithSVD
+from modify_multi_attention.utils.logging_utils import setup_logging
 
 # 设置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

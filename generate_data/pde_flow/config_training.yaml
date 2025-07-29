@@ -1,0 +1,76 @@
+# PDEBench训练配置文件
+# 支持软编码，所有参数都有默认值，可以通过此文件或命令行参数覆盖
+
+# 数据配置
+data:
+  path: "spatial_crop_32x32_demo.npz"  # 数据文件路径
+  batch_size: 16                        # 批次大小
+  dataset_type: "processed_pdebench"     # 数据集类型
+  max_samples: null                      # 最大样本数，null表示使用全部
+  train_ratio: 0.6                       # 训练集比例
+  valid_ratio: 0.2                       # 验证集比例
+  test_ratio: 0.2                        # 测试集比例
+
+# 训练配置
+training:
+  epochs: 100                            # 训练轮数
+  learning_rate: 0.001                   # 学习率
+  weight_decay: 0.0001                   # 权重衰减
+  patience: 15                           # 早停耐心值
+  min_delta: 0.000001                    # 最小改进阈值
+  save_best_model: true                  # 是否保存最佳模型
+  model_save_path: "./models/best_model_processed_pdebench.pth"
+  log_interval: 10                       # 日志记录间隔
+
+# 模型配置
+model:
+  input_dim: 1024                        # 输入维度 (32x32 = 1024)
+  output_dim: 16384                      # 输出维度 (128x128 = 16384，原始数据尺寸)
+  num_layers: 4                          # Transformer层数
+  d_model: 512                           # 模型隐藏维度
+  num_heads: 8                           # 注意力头数
+  max_time_steps: 100                    # 最大时间步数
+  seq_len: 32                            # 序列长度 (sqrt(1024) = 32)
+  dropout: 0.1                           # Dropout率
+
+# 注意力机制配置
+attention:
+  type: "sge"                            # 注意力类型
+  available_types:                       # 可用的注意力类型
+    - "sge"          # Spatial Group Enhance
+    - "cbam"         # Convolutional Block Attention Module
+    - "eca"          # Efficient Channel Attention
+    - "se"           # Squeeze-and-Excitation
+    - "relative"     # Relative Position Attention
+    - "external"     # External Attention
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/training_processed_pdebench.log"
+
+# 设备配置
+device: "auto"                           # 设备类型: auto/cuda/cpu
+
+# 随机种子
+seed: 42
+
+# 可视化配置
+visualization:
+  enabled: true                          # 是否启用可视化
+  interval: 10                           # 可视化间隔
+  max_samples: 5                         # 最大可视化样本数
+
+# 示例使用方法:
+# 1. 使用默认配置:
+#    python train_with_processed_data.py
+#
+# 2. 使用配置文件:
+#    python train_with_processed_data.py --config config_training.yaml
+#
+# 3. 配置文件 + 命令行覆盖:
+#    python train_with_processed_data.py --config config_training.yaml --epochs 200 --batch_size 32
+#
+# 4. 仅命令行参数:
+#    python train_with_processed_data.py --epochs 50 --attention_type cbam --learning_rate 0.0005

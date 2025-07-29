@@ -1,6 +1,10 @@
 import os
 import matplotlib.pyplot as plt
 
+# 设置matplotlib支持中文显示
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
+
 # 两个目录和它们的label
 dirs = [
     ("attention_results", "A"),
@@ -47,4 +51,10 @@ plt.yscale("log", base=10)
 plt.legend()
 plt.grid(True, which="both", ls="--", linewidth=0.5)
 plt.tight_layout()
+
+# 保存高分辨率图像
+save_path = "multiloss_comparison_high_res.png"
+plt.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white')
+print(f"高分辨率图像已保存到: {save_path}")
+
 plt.show()

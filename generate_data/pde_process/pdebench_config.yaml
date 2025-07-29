@@ -1,0 +1,182 @@
+# PDEBench数据处理配置文件
+# 用于定义不同的数据截取和处理参数
+
+# 基本配置
+basic:
+  # 数据路径
+  pdebench_root: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/PDEBench/pdebench/data_download"
+  
+  # 数据截取配置
+  max_samples: 1000          # 最大样本数量
+  start_time_idx: 0          # 开始时间索引
+  end_time_idx: null         # 结束时间索引，null表示到最后
+  time_step_interval: 1      # 时间步间隔
+  
+  # 空间处理配置
+  spatial_crop: null         # 空间裁剪，格式: [[x_start, x_end], [y_start, y_end]]
+  spatial_downsample: 1      # 空间下采样因子
+  
+  # 输出配置
+  output_file: "pdebench_processed_data.pt"
+  normalize_data: true       # 是否归一化数据
+  flatten_spatial: true      # 是否将空间维度展平
+  
+  # 序列配置
+  sequence_length: 1         # 输入序列长度
+
+# 快速测试配置
+quick_test:
+  pdebench_root: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/PDEBench/pdebench/data_download"
+  max_samples: 10
+  start_time_idx: 0
+  end_time_idx: 20
+  time_step_interval: 2
+  spatial_crop: null
+  spatial_downsample: 1
+  output_file: "quick_test_data.pt"
+  normalize_data: true
+  flatten_spatial: true
+  sequence_length: 3
+
+# 高分辨率配置（保持空间结构）
+high_resolution:
+  pdebench_root: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/PDEBench/pdebench/data_download"
+  max_samples: 200
+  start_time_idx: 0
+  end_time_idx: 100
+  time_step_interval: 1
+  spatial_crop: null
+  spatial_downsample: 1
+  output_file: "high_res_data.pt"
+  normalize_data: true
+  flatten_spatial: false     # 保持空间维度
+  sequence_length: 5
+
+# 低分辨率配置（用于快速训练）
+low_resolution:
+  pdebench_root: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/PDEBench/pdebench/data_download"
+  max_samples: 500
+  start_time_idx: 0
+  end_time_idx: 50
+  time_step_interval: 2
+  spatial_crop: [[10, 50], [10, 50]]  # 裁剪中心区域
+  spatial_downsample: 4      # 4倍下采样
+  output_file: "low_res_data.pt"
+  normalize_data: true
+  flatten_spatial: true
+  sequence_length: 2
+
+# 时间序列配置（长序列预测）
+time_series:
+  pdebench_root: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/PDEBench/pdebench/data_download"
+  max_samples: 100
+  start_time_idx: 0
+  end_time_idx: 200
+  time_step_interval: 1
+  spatial_crop: null
+  spatial_downsample: 2
+  output_file: "time_series_data.pt"
+  normalize_data: true
+  flatten_spatial: true
+  sequence_length: 10        # 长序列
+
+# 多尺度配置（不同下采样率）
+multi_scale:
+  pdebench_root: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/PDEBench/pdebench/data_download"
+  max_samples: 300
+  start_time_idx: 0
+  end_time_idx: 80
+  time_step_interval: 1
+  spatial_crop: null
+  spatial_downsample: 2
+  output_file: "multi_scale_data.pt"
+  normalize_data: true
+  flatten_spatial: false
+  sequence_length: 4
+
+# 稀疏时间采样配置
+sparse_temporal:
+  pdebench_root: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/PDEBench/pdebench/data_download"
+  max_samples: 400
+  start_time_idx: 0
+  end_time_idx: 500
+  time_step_interval: 10     # 稀疏采样
+  spatial_crop: null
+  spatial_downsample: 1
+  output_file: "sparse_temporal_data.pt"
+  normalize_data: true
+  flatten_spatial: true
+  sequence_length: 5
+
+# 区域关注配置（裁剪特定区域）
+region_focus:
+  pdebench_root: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/PDEBench/pdebench/data_download"
+  max_samples: 250
+  start_time_idx: 0
+  end_time_idx: 60
+  time_step_interval: 1
+  spatial_crop: [[20, 80], [20, 80]]  # 关注中心区域
+  spatial_downsample: 1
+  output_file: "region_focus_data.pt"
+  normalize_data: true
+  flatten_spatial: false
+  sequence_length: 3
+
+# 支持的PDE类型
+supported_pdes:
+  darcy: "2D_DarcyFlow_beta0.1_Train.hdf5"
+  diff_sorp: "1D_diff-sorp_NA_NA.h5"
+  reacdiff_2d: "2D_diff-react_NA_NA.h5"
+  burgers: "1D_Burgers_Sols_Nu0.001.hdf5"
+  advection: "1D_Advection_Sols_beta0.1.hdf5"
+
+# 数据集描述
+dataset_info:
+  darcy:
+    description: "2D Darcy Flow - 多孔介质中的流体流动"
+    dimensions: "2D空间 + 时间"
+    typical_shape: "[time_steps, height, width]"
+    physics: "达西定律，描述多孔介质中的流体流动"
+    
+  diff_sorp:
+    description: "1D Diffusion-Sorption - 扩散吸附过程"
+    dimensions: "1D空间 + 时间"
+    typical_shape: "[time_steps, spatial_points]"
+    physics: "扩散方程与吸附项的耦合"
+    
+  reacdiff_2d:
+    description: "2D Reaction-Diffusion - 反应扩散系统"
+    dimensions: "2D空间 + 时间"
+    typical_shape: "[time_steps, height, width, species]"
+    physics: "反应扩散方程，描述化学反应与扩散的耦合"
+    
+  burgers:
+    description: "1D Burgers Equation - 伯格斯方程"
+    dimensions: "1D空间 + 时间"
+    typical_shape: "[time_steps, spatial_points]"
+    physics: "非线性偏微分方程，结合对流和扩散"
+    
+  advection:
+    description: "1D Advection Equation - 对流方程"
+    dimensions: "1D空间 + 时间"
+    typical_shape: "[time_steps, spatial_points]"
+    physics: "线性对流方程，描述物质的传输"
+
+# 使用建议
+usage_recommendations:
+  quick_prototyping: "quick_test"
+  high_quality_training: "high_resolution"
+  fast_training: "low_resolution"
+  sequence_prediction: "time_series"
+  multi_resolution_analysis: "multi_scale"
+  long_term_dynamics: "sparse_temporal"
+  local_phenomena: "region_focus"
+
+# 性能优化建议
+performance_tips:
+  - "使用适当的max_samples限制内存使用"
+  - "spatial_downsample可以显著减少计算量"
+  - "flatten_spatial=true适合全连接层和Transformer"
+  - "flatten_spatial=false适合CNN和保持空间结构的模型"
+  - "较大的time_step_interval可以减少时间相关性，适合长期预测"
+  - "spatial_crop可以关注感兴趣的区域，减少噪声"

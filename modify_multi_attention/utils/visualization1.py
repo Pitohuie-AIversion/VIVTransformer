@@ -2,6 +2,10 @@ import os
 import torch
 import matplotlib.pyplot as plt
 import yaml
+
+# 设置matplotlib支持中文显示
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
 from modify_multi_attention.utils.visualization import plot_comparison_figure
 from modify_multi_attention.utils.visualization import plot_difference_figure
 from modify_multi_attention.utils.visualization import plot_losses  # 导入plot_losses函数
@@ -110,9 +114,43 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                         )
                         predictions = model(sample_input, sample_time_steps)
 
-                        input_pressure = sample_input[0].view(20, 20).cpu().numpy()
-                        true_pressure = sample_output[0].view(200, 200).cpu().numpy()
-                        predicted_pressure = predictions[0].view(200, 200).cpu().numpy()
+                        # 动态计算形状，支持不同尺寸的数据
+                        input_size = sample_input[0].numel()
+                        output_size = sample_output[0].numel()
+                        
+                        # 计算输入数据的最佳形状（尽量接近正方形）
+                        input_dim = int(input_size ** 0.5)
+                        if input_dim * input_dim == input_size:
+                            input_shape = (input_dim, input_dim)
+                        else:
+                            # 寻找最接近的因子对
+                            factors = []
+                            for i in range(1, int(input_size ** 0.5) + 1):
+                                if input_size % i == 0:
+                                    factors.append((i, input_size // i))
+                            if factors:
+                                input_shape = min(factors, key=lambda x: abs(x[0] - x[1]))
+                            else:
+                                input_shape = (1, input_size)
+                        
+                        # 计算输出数据的最佳形状
+                        output_dim = int(output_size ** 0.5)
+                        if output_dim * output_dim == output_size:
+                            output_shape = (output_dim, output_dim)
+                        else:
+                            # 寻找最接近的因子对
+                            factors = []
+                            for i in range(1, int(output_size ** 0.5) + 1):
+                                if output_size % i == 0:
+                                    factors.append((i, output_size // i))
+                            if factors:
+                                output_shape = min(factors, key=lambda x: abs(x[0] - x[1]))
+                            else:
+                                output_shape = (1, output_size)
+                        
+                        input_pressure = sample_input[0].view(*input_shape).cpu().numpy()
+                        true_pressure = sample_output[0].view(*output_shape).cpu().numpy()
+                        predicted_pressure = predictions[0].view(*output_shape).cpu().numpy()
 
                         plot_comparison_figure(
                             input_pressure=input_pressure,

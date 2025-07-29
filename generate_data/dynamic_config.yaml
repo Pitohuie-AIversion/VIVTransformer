@@ -1,0 +1,87 @@
+# 动态分辨率训练配置文件
+# 支持灵活配置输入输出分辨率，无需预生成大文件
+
+# 数据配置
+data:
+  # 原始数据文件路径
+  path: "X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\PDEBench\\pdebench\\data_download\\2D_DarcyFlow_beta0.1_Train.hdf5"
+  
+  # 输入分辨率 [height, width]
+  input_resolution: [32, 32]    # 32x32 = 1024维
+  
+  # 输出分辨率 [height, width]
+  output_resolution: [128, 128] # 128x128 = 16384维
+  
+  # 样本数量
+  num_samples: 100
+  
+  # 裁剪模式: 'center'(中心), 'random'(随机), 'corner'(左上角)
+  crop_mode: "center"
+  
+  # 批次大小
+  batch_size: 16
+  
+  # 数据集分割比例
+  train_ratio: 0.7
+  valid_ratio: 0.15
+  test_ratio: 0.15
+
+# 训练配置
+training:
+  epochs: 10
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  patience: 15
+  min_delta: 0.000001
+  save_best_model: true
+  model_save_path: "./results/models/dynamic_resolution_model.pth"
+  log_interval: 10
+
+# 模型配置
+model:
+  # 注意：input_dim, output_dim, seq_len 会根据分辨率自动计算
+  num_layers: 4
+  d_model: 512
+  num_heads: 8
+  max_time_steps: 100
+  
+  # 注意力机制类型: 'sge', 'cbam', 'eca', 'se', 'relative', 'external'
+  attention_type: "sge"
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./results/logs/dynamic_resolution_training.log"
+  verbose: false  # 详细日志模式 (对应 --verbose 参数)
+
+# 设备配置: 'auto', 'cuda', 'cpu'
+device: "auto"
+
+# 随机种子
+seed: 42
+
+# 可视化配置
+visualization:
+  enabled: true  # 启用可视化 (设为false对应 --no_visualization 参数)
+  interval: 10
+  max_samples: 5
+
+# ===== 预设配置示例 =====
+# 以下是一些常用的分辨率配置示例，可以直接复制使用
+
+# 示例1: 低分辨率输入，高分辨率输出（超分辨率重建）
+# input_resolution: [16, 16]    # 16x16 = 256维
+# output_resolution: [64, 64]   # 64x64 = 4096维
+
+# 示例2: 中等分辨率输入输出
+# input_resolution: [64, 64]    # 64x64 = 4096维
+# output_resolution: [64, 64]   # 64x64 = 4096维
+
+# 示例3: 高分辨率输入，低分辨率输出（降采样）
+# input_resolution: [128, 128]  # 128x128 = 16384维
+# output_resolution: [32, 32]   # 32x32 = 1024维
+
+# 示例4: 非正方形分辨率
+# input_resolution: [32, 64]    # 32x64 = 2048维
+# output_resolution: [64, 128]  # 64x128 = 8192维

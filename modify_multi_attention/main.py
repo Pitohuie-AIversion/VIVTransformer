@@ -18,6 +18,10 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+# 设置matplotlib支持中文显示
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
+
 from data.dataloader import get_loaders
 from mymodels.transformer import TransformerFlowReconstructionModel
 from training.trainer import train_model, test_model
@@ -68,6 +72,13 @@ def main():
     sys.argv = [sys.argv[0]] + remaining
 
     config_path = Path(args.config)
+    
+    # 先设置日志，再使用log
+    parent_dir = Path(args.results_dir)
+    parent_dir.mkdir(exist_ok=True)
+    setup_logging(parent_dir / "train.log")
+    log = logging.getLogger(__name__)
+    
     log.info("加载配置文件: %s", config_path)
 
     cfg = load_config(config_path)
@@ -91,15 +102,17 @@ def main():
 
     ATTENTION_TYPES = cfg["attention_types"]
     vis_enabled = cfg["visualization"]["enabled"]
-    parent_dir = Path(args.results_dir)
-    parent_dir.mkdir(exist_ok=True)
-    setup_logging(parent_dir / "train.log")
-    log = logging.getLogger(__name__)
     failed_attention_types = []
 
+    # 获取数据集配置参数
+    dataset_type = cfg["data"].get("dataset_type", "auto")
+    max_samples = cfg["data"].get("max_samples", None)
+    
     train_loader, valid_loader, test_loader = get_loaders(
-        cfg["data"]["path"],
-        cfg["data"]["batch_size"]
+        cfg["data"]["path"], 
+        cfg["data"]["batch_size"],
+        dataset_type=dataset_type,
+        max_samples=max_samples
     )
 
     for idx, (loss_cfg, loss_config_id) in enumerate(zip(loss_configs, loss_config_ids)):
@@ -133,7 +146,7 @@ def main():
                     d_model=cfg["model"]["d_model"],
                     max_time_steps=cfg["model"]["max_time_steps"],
                     attention_type=attn_type,
-                    seq_len=cfg["model"].get("seq_len", 49)
+                    seq_len=cfg["model"].get("seq_len", 32)  # 默认使用32而不是49
                 )
 
                 if cfg.get("use_dataparallel", False) and torch.cuda.device_count() > 1:

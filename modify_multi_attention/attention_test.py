@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 import matplotlib
 import torch
 
+# 设置matplotlib支持中文显示
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
+
 from utils.config import load_config
 
 from modify_multi_attention.data.dataloader import get_loaders

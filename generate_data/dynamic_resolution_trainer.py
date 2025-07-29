@@ -1,0 +1,769 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+动态分辨率训练器
+
+功能:
+1. 根据配置文件动态设置输入输出分辨率
+2. 实时生成训练数据，无需预先生成大文件
+3. 支持命令行参数和YAML配置文件
+4. 灵活的数据集生成和加载
+
+作者: AI Assistant
+日期: 2025
+"""
+
+import os
+import sys
+import torch
+import numpy as np
+import h5py
+import yaml
+import argparse
+import logging
+from pathlib import Path
+from typing import Tuple, Optional, Dict, Any
+
+# 添加路径
+sys.path.append(str(Path(__file__).parent.parent / 'modify_multi_attention'))
+sys.path.append(str(Path(__file__).parent))
+
+from mymodels.transformer import TransformerFlowReconstructionModel
+from training.trainer import train_model, test_model
+from utils.visualization import plot_losses
+from utils.svd10_loss import TotalLossWithSVD
+from utils.logging_utils import setup_logging
+
+# 设置日志
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+class DynamicResolutionDataset(torch.utils.data.Dataset):
+    """
+    动态分辨率数据集类
+    根据配置实时生成不同分辨率的输入输出数据
+    """
+    
+    def __init__(self, 
+                 data_path: str,
+                 input_resolution: Tuple[int, int],
+                 output_resolution: Tuple[int, int],
+                 num_samples: int = 100,
+                 crop_mode: str = 'center'):
+        """
+        初始化动态分辨率数据集
+        
+        Args:
+            data_path: 原始数据文件路径
+            input_resolution: 输入分辨率 (height, width)
+            output_resolution: 输出分辨率 (height, width)
+            num_samples: 样本数量
+            crop_mode: 裁剪模式 ('center', 'random', 'corner')
+        """
+        self.data_path = Path(data_path)
+        self.input_resolution = input_resolution
+        self.output_resolution = output_resolution
+        self.num_samples = num_samples
+        self.crop_mode = crop_mode
+        
+        # 计算维度
+        self.input_dim = input_resolution[0] * input_resolution[1]
+        self.output_dim = output_resolution[0] * output_resolution[1]
+        
+        # 加载原始数据
+        self.original_data = self._load_original_data()
+        
+        logger.info(f"动态数据集初始化完成:")
+        logger.info(f"  输入分辨率: {input_resolution} -> {self.input_dim}维")
+        logger.info(f"  输出分辨率: {output_resolution} -> {self.output_dim}维")
+        logger.info(f"  样本数量: {num_samples}")
+        logger.info(f"  裁剪模式: {crop_mode}")
+    
+    def _load_original_data(self) -> np.ndarray:
+        """加载原始数据"""
+        logger.info(f"加载原始数据: {self.data_path}")
+        
+        with h5py.File(self.data_path, 'r') as f:
+            if 'tensor' in f:
+                tensor_data = f['tensor']
+                logger.info(f"原始数据形状: {tensor_data.shape}")
+                
+                # 读取指定数量的样本
+                actual_samples = min(self.num_samples, tensor_data.shape[0])
+                data = np.array(tensor_data[:actual_samples], dtype=np.float32)
+                
+                # 如果数据是4D，移除通道维度
+                if len(data.shape) == 4 and data.shape[1] == 1:
+                    data = data.squeeze(1)
+                    logger.info(f"移除通道维度后形状: {data.shape}")
+                
+                return data
+            else:
+                raise ValueError("数据文件中未找到'tensor'键")
+    
+    def _crop_data(self, data: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
+        """裁剪数据到目标尺寸"""
+        _, orig_h, orig_w = data.shape
+        target_h, target_w = target_size
+        
+        if target_h > orig_h or target_w > orig_w:
+            raise ValueError(f"目标尺寸 {target_size} 大于原始尺寸 ({orig_h}, {orig_w})")
+        
+        if self.crop_mode == 'center':
+            # 中心裁剪
+            start_h = (orig_h - target_h) // 2
+            start_w = (orig_w - target_w) // 2
+        elif self.crop_mode == 'corner':
+            # 左上角裁剪
+            start_h = 0
+            start_w = 0
+        elif self.crop_mode == 'random':
+            # 随机裁剪
+            start_h = np.random.randint(0, orig_h - target_h + 1)
+            start_w = np.random.randint(0, orig_w - target_w + 1)
+        else:
+            raise ValueError(f"不支持的裁剪模式: {self.crop_mode}")
+        
+        end_h = start_h + target_h
+        end_w = start_w + target_w
+        
+        return data[:, start_h:end_h, start_w:end_w]
+    
+    def _resize_data(self, data: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
+        """调整数据尺寸（简单的最近邻插值）"""
+        from scipy.ndimage import zoom
+        
+        _, orig_h, orig_w = data.shape
+        target_h, target_w = target_size
+        
+        zoom_h = target_h / orig_h
+        zoom_w = target_w / orig_w
+        
+        resized_data = np.zeros((data.shape[0], target_h, target_w))
+        for i in range(data.shape[0]):
+            resized_data[i] = zoom(data[i], (zoom_h, zoom_w), order=1)
+        
+        return resized_data
+    
+    def __len__(self):
+        return len(self.original_data)
+    
+    def __getitem__(self, idx):
+        # 获取原始样本
+        original_sample = self.original_data[idx:idx+1]  # 保持3D形状
+        
+        # 生成输入数据（裁剪到输入分辨率）
+        if self.input_resolution == self.original_data.shape[1:]:
+            input_data = original_sample[0]
+        else:
+            input_cropped = self._crop_data(original_sample, self.input_resolution)
+            input_data = input_cropped[0]
+        
+        # 生成输出数据
+        if self.output_resolution == self.original_data.shape[1:]:
+            output_data = original_sample[0]
+        elif self.output_resolution[0] <= self.original_data.shape[1] and self.output_resolution[1] <= self.original_data.shape[2]:
+            # 输出分辨率小于等于原始分辨率，使用裁剪
+            output_cropped = self._crop_data(original_sample, self.output_resolution)
+            output_data = output_cropped[0]
+        else:
+            # 输出分辨率大于原始分辨率，使用插值
+            output_resized = self._resize_data(original_sample, self.output_resolution)
+            output_data = output_resized[0]
+        
+        # 展平为1D
+        input_flat = input_data.flatten()
+        output_flat = output_data.flatten()
+        
+        return (
+            torch.FloatTensor(input_flat),
+            torch.FloatTensor(output_flat),
+            torch.tensor(idx, dtype=torch.float32)
+        )
+    
+    def get_data_statistics(self):
+        """获取数据统计信息"""
+        sample_input, sample_output, _ = self[0]
+        return {
+            'num_samples': len(self),
+            'input_shape': self.input_resolution,
+            'output_shape': self.output_resolution,
+            'input_dim': self.input_dim,
+            'output_dim': self.output_dim,
+            'input_range': (sample_input.min().item(), sample_input.max().item()),
+            'output_range': (sample_output.min().item(), sample_output.max().item())
+        }
+
+def create_dynamic_config(args=None):
+    """
+    创建动态配置
+    
+    Args:
+        args: 命令行参数
+    
+    Returns:
+        dict: 配置字典
+    """
+    # 默认配置
+    default_config = {
+        'data': {
+            'path': r"X:\2025\Graduation_project\Pdebench_input_Transformer\VIVTransformer-1\PDEBench\pdebench\data_download\2D_DarcyFlow_beta0.1_Train.hdf5",
+            'input_resolution': [32, 32],  # 输入分辨率
+            'output_resolution': [128, 128],  # 输出分辨率
+            'num_samples': 100,
+            'crop_mode': 'center',  # 'center', 'random', 'corner'
+            'batch_size': 16,
+            'train_ratio': 0.7,
+            'valid_ratio': 0.15,
+            'test_ratio': 0.15
+        },
+        'training': {
+            'epochs': 10,
+            'learning_rate': 0.001,
+            'weight_decay': 1e-4,
+            'patience': 15,
+            'min_delta': 1e-6,
+            'save_best_model': True,
+            'model_save_path': './results/models/dynamic_resolution_model.pth',
+            'log_interval': 10
+        },
+        'model': {
+            'num_layers': 4,
+            'd_model': 512,
+            'num_heads': 8,
+            'max_time_steps': 100,
+            'attention_type': 'sge'
+        },
+        'logging': {
+            'level': 'INFO',
+            'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            'file': './results/logs/dynamic_resolution_training.log'
+        },
+        'device': 'auto',
+        'seed': 42,
+        'visualization': {
+            'enabled': True,
+            'interval': 10,
+            'max_samples': 5
+        }
+    }
+    
+    # 如果有命令行参数，更新配置
+    if args:
+        if args.input_resolution:
+            default_config['data']['input_resolution'] = args.input_resolution
+        if args.output_resolution:
+            default_config['data']['output_resolution'] = args.output_resolution
+        if args.batch_size:
+            default_config['data']['batch_size'] = args.batch_size
+        if args.epochs:
+            default_config['training']['epochs'] = args.epochs
+        if args.learning_rate:
+            default_config['training']['learning_rate'] = args.learning_rate
+        if args.num_samples:
+            default_config['data']['num_samples'] = args.num_samples
+        if args.attention_type:
+            default_config['model']['attention_type'] = args.attention_type
+        if args.crop_mode:
+            default_config['data']['crop_mode'] = args.crop_mode
+    
+    # 计算输入输出维度
+    input_h, input_w = default_config['data']['input_resolution']
+    output_h, output_w = default_config['data']['output_resolution']
+    
+    default_config['model']['input_dim'] = input_h * input_w
+    default_config['model']['output_dim'] = output_h * output_w
+    default_config['model']['seq_len'] = int(np.sqrt(input_h * input_w))  # 近似序列长度
+    
+    return default_config
+
+def load_config_from_yaml(config_path: str) -> Dict[str, Any]:
+    """
+    从YAML文件加载配置
+    
+    Args:
+        config_path: 配置文件路径
+    
+    Returns:
+        dict: 配置字典
+    """
+    logger.info(f"从YAML文件加载配置: {config_path}")
+    
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    
+    # 计算输入输出维度
+    if 'data' in config:
+        if 'input_resolution' in config['data'] and 'output_resolution' in config['data']:
+            input_h, input_w = config['data']['input_resolution']
+            output_h, output_w = config['data']['output_resolution']
+            
+            if 'model' not in config:
+                config['model'] = {}
+            
+            config['model']['input_dim'] = input_h * input_w
+            config['model']['output_dim'] = output_h * output_w
+            config['model']['seq_len'] = int(np.sqrt(input_h * input_w))
+    
+    return config
+
+def get_dynamic_loaders(config: Dict[str, Any]):
+    """
+    获取动态数据加载器
+    
+    Args:
+        config: 配置字典
+    
+    Returns:
+        tuple: (train_loader, valid_loader, test_loader, dataset)
+    """
+    data_config = config['data']
+    
+    # 创建动态数据集
+    dataset = DynamicResolutionDataset(
+        data_path=data_config['path'],
+        input_resolution=tuple(data_config['input_resolution']),
+        output_resolution=tuple(data_config['output_resolution']),
+        num_samples=data_config['num_samples'],
+        crop_mode=data_config.get('crop_mode', 'center')
+    )
+    
+    # 数据集分割
+    total_size = len(dataset)
+    train_size = int(total_size * data_config['train_ratio'])
+    valid_size = int(total_size * data_config['valid_ratio'])
+    test_size = total_size - train_size - valid_size
+    
+    train_dataset, valid_dataset, test_dataset = torch.utils.data.random_split(
+        dataset, [train_size, valid_size, test_size]
+    )
+    
+    # 创建数据加载器
+    batch_size = data_config['batch_size']
+    
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=0
+    )
+    valid_loader = torch.utils.data.DataLoader(
+        valid_dataset, batch_size=batch_size, shuffle=False, num_workers=0
+    )
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=0
+    )
+    
+    logger.info(f"数据集分割: 训练集={train_size}, 验证集={valid_size}, 测试集={test_size}")
+    
+    return train_loader, valid_loader, test_loader, dataset
+
+def parse_arguments():
+    """
+    解析命令行参数
+    """
+    parser = argparse.ArgumentParser(
+        description='动态分辨率训练器 - 支持灵活配置输入输出分辨率的PDE求解器训练',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用示例:
+  # 基本用法
+  python dynamic_resolution_trainer.py --input_resolution 32 32 --output_resolution 128 128
+  
+  # 使用配置文件
+  python dynamic_resolution_trainer.py --config my_config.yaml
+  
+  # 超分辨率重建
+  python dynamic_resolution_trainer.py --input_resolution 16 16 --output_resolution 64 64 --attention_type cbam
+  
+  # 快速测试
+  python dynamic_resolution_trainer.py --input_resolution 32 32 --output_resolution 64 64 --epochs 2 --num_samples 20
+        """
+    )
+    
+    # 配置文件
+    parser.add_argument('--config', type=str, default=None,
+                       help='YAML配置文件路径')
+    
+    # 数据参数
+    data_group = parser.add_argument_group('数据配置')
+    data_group.add_argument('--data_path', type=str,
+                           help='数据文件路径 (覆盖配置文件中的设置)')
+    data_group.add_argument('--input_resolution', type=int, nargs=2, metavar=('H', 'W'),
+                           help='输入分辨率 [height width], 例如: --input_resolution 32 32')
+    data_group.add_argument('--output_resolution', type=int, nargs=2, metavar=('H', 'W'),
+                           help='输出分辨率 [height width], 例如: --output_resolution 128 128')
+    data_group.add_argument('--num_samples', type=int,
+                           help='样本数量 (默认: 100)')
+    data_group.add_argument('--crop_mode', type=str, choices=['center', 'random', 'corner'],
+                           help='裁剪模式: center(中心), random(随机), corner(左上角)')
+    data_group.add_argument('--batch_size', type=int,
+                           help='批次大小 (默认: 16)')
+    
+    # 训练参数
+    train_group = parser.add_argument_group('训练配置')
+    train_group.add_argument('--epochs', type=int,
+                            help='训练轮数 (默认: 10)')
+    train_group.add_argument('--learning_rate', type=float,
+                            help='学习率 (默认: 0.001)')
+    train_group.add_argument('--weight_decay', type=float,
+                            help='权重衰减 (默认: 0.0001)')
+    train_group.add_argument('--patience', type=int,
+                            help='早停耐心值 (默认: 15)')
+    
+    # 模型参数
+    model_group = parser.add_argument_group('模型配置')
+    model_group.add_argument('--num_layers', type=int,
+                            help='Transformer层数 (默认: 4)')
+    model_group.add_argument('--d_model', type=int,
+                            help='模型维度 (默认: 512)')
+    model_group.add_argument('--num_heads', type=int,
+                            help='注意力头数 (默认: 8)')
+    model_group.add_argument('--attention_type', type=str,
+                            choices=['sge', 'cbam', 'eca', 'se', 'relative', 'external'],
+                            help='注意力机制类型 (默认: sge)')
+    
+    # 其他参数
+    other_group = parser.add_argument_group('其他配置')
+    other_group.add_argument('--device', type=str, choices=['auto', 'cuda', 'cpu'],
+                            help='设备选择: auto(自动), cuda(GPU), cpu(CPU)')
+    other_group.add_argument('--seed', type=int,
+                            help='随机种子 (默认: 42)')
+    other_group.add_argument('--verbose', action='store_true',
+                            help='显示详细日志')
+    other_group.add_argument('--no_visualization', action='store_true',
+                            help='禁用可视化')
+    
+    return parser.parse_args()
+
+def load_config_with_args(config_path, args):
+    """
+    加载配置文件并与命令行参数合并
+    """
+    # 默认配置
+    default_config = {
+        'data': {
+            'path': 'X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\PDEBench\\pdebench\\data_download\\2D_DarcyFlow_beta0.1_Train.hdf5',
+            'input_resolution': [32, 32],
+            'output_resolution': [128, 128],
+            'num_samples': 100,
+            'crop_mode': 'center',
+            'batch_size': 16,
+            'train_ratio': 0.7,
+            'valid_ratio': 0.15,
+            'test_ratio': 0.15
+        },
+        'training': {
+            'epochs': 10,
+            'learning_rate': 0.001,
+            'weight_decay': 1e-4,
+            'patience': 15,
+            'min_delta': 1e-6,
+            'save_best_model': True,
+            'model_save_path': './results/models/dynamic_resolution_model.pth',
+            'log_interval': 10
+        },
+        'model': {
+            'num_layers': 4,
+            'd_model': 512,
+            'num_heads': 8,
+            'max_time_steps': 100,
+            'attention_type': 'sge'
+        },
+        'device': 'auto',
+        'seed': 42,
+        'visualization': {
+            'enabled': True,
+            'interval': 10,
+            'max_samples': 5
+        },
+        'logging': {
+            'level': 'INFO',
+            'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            'file': './results/logs/dynamic_resolution_training.log'
+        }
+    }
+    
+    # 如果有配置文件，使用配置文件
+    config = default_config.copy()
+    if config_path and os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                yaml_config = yaml.safe_load(f)
+                if yaml_config:
+                    # 深度合并配置
+                    for key, value in yaml_config.items():
+                        if isinstance(value, dict) and key in config:
+                            config[key].update(value)
+                        else:
+                            config[key] = value
+            print(f"✅ 成功加载配置文件: {config_path}")
+        except Exception as e:
+            print(f"⚠️ 加载配置文件失败: {e}，使用默认配置")
+    else:
+        if config_path:
+            print(f"⚠️ 配置文件不存在: {config_path}，使用默认配置")
+    
+    # 命令行参数覆盖配置文件
+    if args.data_path:
+        config['data']['path'] = args.data_path
+    if args.input_resolution:
+        config['data']['input_resolution'] = args.input_resolution
+    if args.output_resolution:
+        config['data']['output_resolution'] = args.output_resolution
+    if args.num_samples:
+        config['data']['num_samples'] = args.num_samples
+    if args.crop_mode:
+        config['data']['crop_mode'] = args.crop_mode
+    if args.batch_size:
+        config['data']['batch_size'] = args.batch_size
+    if args.epochs:
+        config['training']['epochs'] = args.epochs
+    if args.learning_rate:
+        config['training']['learning_rate'] = args.learning_rate
+    if args.weight_decay:
+        config['training']['weight_decay'] = args.weight_decay
+    if args.patience:
+        config['training']['patience'] = args.patience
+    if args.num_layers:
+        config['model']['num_layers'] = args.num_layers
+    if args.d_model:
+        config['model']['d_model'] = args.d_model
+    if args.num_heads:
+        config['model']['num_heads'] = args.num_heads
+    if args.attention_type:
+        config['model']['attention_type'] = args.attention_type
+    if args.device:
+        config['device'] = args.device
+    if args.seed:
+        config['seed'] = args.seed
+    if args.verbose:
+        config['logging']['level'] = 'DEBUG'
+    if args.no_visualization:
+        config['visualization']['enabled'] = False
+    
+    # 重新计算输入输出维度
+    input_h, input_w = config['data']['input_resolution']
+    output_h, output_w = config['data']['output_resolution']
+    config['model']['input_dim'] = input_h * input_w
+    config['model']['output_dim'] = output_h * output_w
+    config['model']['seq_len'] = int(np.sqrt(input_h * input_w))
+    
+    return config
+
+def setup_enhanced_logging(config):
+    """
+    设置增强的日志系统
+    """
+    # 创建日志目录
+    log_config = config.get('logging', {})
+    log_file = log_config.get('file', './logs/dynamic_resolution_training.log')
+    log_dir = os.path.dirname(log_file)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+    
+    # 设置日志级别
+    log_level = getattr(logging, log_config.get('level', 'INFO').upper())
+    log_format = log_config.get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    
+    # 清除现有的处理器
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    
+    # 配置日志
+    logging.basicConfig(
+        level=log_level,
+        format=log_format,
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler(log_file, encoding='utf-8')
+        ]
+    )
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"📝 日志系统已初始化，日志文件: {log_file}")
+    return logger
+
+def validate_config(config):
+    """
+    验证配置的有效性
+    """
+    errors = []
+    
+    # 验证数据路径
+    data_path = config['data']['path']
+    if not os.path.exists(data_path):
+        errors.append(f"数据文件不存在: {data_path}")
+    
+    # 验证分辨率
+    input_res = config['data']['input_resolution']
+    output_res = config['data']['output_resolution']
+    
+    if len(input_res) != 2 or any(x <= 0 for x in input_res):
+        errors.append(f"输入分辨率无效: {input_res}")
+    
+    if len(output_res) != 2 or any(x <= 0 for x in output_res):
+        errors.append(f"输出分辨率无效: {output_res}")
+    
+    # 验证训练参数
+    if config['training']['epochs'] <= 0:
+        errors.append(f"训练轮数必须大于0: {config['training']['epochs']}")
+    
+    if config['training']['learning_rate'] <= 0:
+        errors.append(f"学习率必须大于0: {config['training']['learning_rate']}")
+    
+    if config['data']['batch_size'] <= 0:
+        errors.append(f"批次大小必须大于0: {config['data']['batch_size']}")
+    
+    # 验证模型参数
+    if config['model']['num_heads'] <= 0:
+        errors.append(f"注意力头数必须大于0: {config['model']['num_heads']}")
+    
+    if config['model']['d_model'] % config['model']['num_heads'] != 0:
+        errors.append(f"模型维度({config['model']['d_model']})必须能被注意力头数({config['model']['num_heads']})整除")
+    
+    return errors
+
+def main():
+    """
+    主函数
+    """
+    # 解析命令行参数
+    args = parse_arguments()
+    
+    try:
+        # 加载和合并配置
+        config = load_config_with_args(args.config, args)
+        
+        # 设置增强的日志系统
+        logger = setup_enhanced_logging(config)
+        
+        # 验证配置
+        config_errors = validate_config(config)
+        if config_errors:
+            logger.error("❌ 配置验证失败:")
+            for error in config_errors:
+                logger.error(f"  - {error}")
+            return
+        
+        logger.info("✅ 配置验证通过")
+        
+        # 显示配置信息
+        logger.info("=== 配置信息 ===")
+        logger.info(f"输入分辨率: {config['data']['input_resolution']} -> {config['model']['input_dim']}维")
+        logger.info(f"输出分辨率: {config['data']['output_resolution']} -> {config['model']['output_dim']}维")
+        logger.info(f"样本数量: {config['data']['num_samples']}")
+        logger.info(f"批次大小: {config['data']['batch_size']}")
+        logger.info(f"训练轮数: {config['training']['epochs']}")
+        logger.info(f"注意力机制: {config['model']['attention_type']}")
+        
+        # 设置随机种子
+        if config.get('seed'):
+            torch.manual_seed(config['seed'])
+            np.random.seed(config['seed'])
+            logger.info(f"🎲 设置随机种子: {config['seed']}")
+        
+        # 设置设备
+        if config['device'] == 'auto':
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            device = torch.device(config['device'])
+        logger.info(f"🖥️ 使用设备: {device}")
+        
+        # 创建结果目录和模型保存目录
+        results_dir = Path('./results')
+        results_dir.mkdir(exist_ok=True)
+        model_save_path = config['training']['model_save_path']
+        model_dir = os.path.dirname(model_save_path)
+        if model_dir:
+            os.makedirs(model_dir, exist_ok=True)
+            logger.info(f"📁 模型保存目录: {model_dir}")
+        
+        # 创建数据加载器
+        logger.info("=== 创建数据加载器 ===")
+        train_loader, valid_loader, test_loader, dataset = get_dynamic_loaders(config)
+        
+        # 显示数据统计
+        stats = dataset.get_data_statistics()
+        logger.info(f"数据统计: {stats}")
+        
+        # 创建模型
+        logger.info("=== 创建模型 ===")
+        model = TransformerFlowReconstructionModel(
+            input_dim=config['model']['input_dim'],
+            output_dim=config['model']['output_dim'],
+            num_heads=config['model']['num_heads'],
+            num_layers=config['model']['num_layers'],
+            d_model=config['model']['d_model'],
+            max_time_steps=config['model']['max_time_steps'],
+            attention_type=config['model']['attention_type'],
+            seq_len=config['model']['seq_len']
+        ).to(device)
+        
+        logger.info(f"模型参数数量: {sum(p.numel() for p in model.parameters())}")
+        
+        # 创建损失函数和优化器
+        criterion = TotalLossWithSVD()
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr=config['training']['learning_rate'],
+            weight_decay=config['training']['weight_decay']
+        )
+        
+        # 开始训练
+        logger.info("=== 开始训练 ===")
+        model, train_losses, valid_losses, test_losses = train_model(
+            model=model,
+            train_loader=train_loader,
+            valid_loader=valid_loader,
+            test_loader=test_loader,
+            criterion=criterion,
+            optimizer=optimizer,
+            num_epochs=config['training']['epochs'],
+            device=device,
+            early_stop_patience=config['training']['patience'],
+            attention_type=config['model']['attention_type'],
+            result_dir='./results',
+            cfg=config
+        )
+        
+        # 测试模型
+        logger.info("=== 开始测试 ===")
+        test_loss = test_model(
+            model=model,
+            test_loader=test_loader,
+            criterion=criterion,
+            device=device,
+            attention_type=config['model']['attention_type'],
+            parent_dir='./results',
+            cfg=config
+        )
+        
+        logger.info(f"最终测试损失: {test_loss:.6f}")
+        
+        # 可视化损失
+        if config['visualization']['enabled']:
+            loss_plot_path = results_dir / 'dynamic_resolution_losses.png'
+            plot_losses(train_losses, valid_losses, test_losses, save_path=str(loss_plot_path))
+        
+        logger.info("🎉 === 训练完成 ===")
+        
+        # 保存最终配置
+        config_save_path = results_dir / 'final_config.yaml'
+        with open(config_save_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+        logger.info(f"💾 最终配置已保存: {config_save_path}")
+        
+    except KeyboardInterrupt:
+        logger.warning("⚠️ 训练被用户中断")
+    except FileNotFoundError as e:
+        logger.error(f"❌ 文件未找到: {str(e)}")
+        logger.error("请检查数据文件路径是否正确")
+    except torch.cuda.OutOfMemoryError as e:
+        logger.error(f"❌ GPU内存不足: {str(e)}")
+        logger.error("建议减小batch_size或使用CPU训练")
+    except Exception as e:
+        logger.error(f"❌ 训练过程中出错: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        logger.error("详细错误信息请查看上方的堆栈跟踪")
+
+if __name__ == "__main__":
+    main()

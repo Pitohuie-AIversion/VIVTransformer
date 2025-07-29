@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import copy
-from modify_multi_attention.mymodels.components.attention_factory import get_attention_module  # 动态获取注意力模块
+from .components.attention_factory import get_attention_module  # 动态获取注意力模块
 
 # 统一导入所有可用的注意力机制
 from fightingcv_attention.attention.ExternalAttention import ExternalAttention
@@ -65,7 +65,26 @@ class CustomEncoderLayer(nn.Module):
 
     def forward(self, src):
         batch_size, seq_len, d_model = src.shape
+        
+        # 动态计算spatial_dim，支持非完全平方数
         spatial_dim = int(seq_len ** 0.5)
+        
+        # 如果不是完全平方数，尝试找到最接近的因子分解
+        if spatial_dim * spatial_dim != seq_len:
+            # 寻找最接近的因子对
+            factors = []
+            for i in range(1, int(seq_len ** 0.5) + 1):
+                if seq_len % i == 0:
+                    factors.append((i, seq_len // i))
+            
+            if factors:
+                # 选择最接近正方形的因子对
+                spatial_dim_h, spatial_dim_w = min(factors, key=lambda x: abs(x[0] - x[1]))
+            else:
+                # 如果是质数，使用1xseq_len的形状
+                spatial_dim_h, spatial_dim_w = 1, seq_len
+        else:
+            spatial_dim_h = spatial_dim_w = spatial_dim
 
         # ---- Self-Attention 适配 ----
         if isinstance(self.self_attn, ExternalAttention):
@@ -78,10 +97,8 @@ class CustomEncoderLayer(nn.Module):
                                          SequentialPolarizedSelfAttention, SequentialPolarizedSelfAttention,
                                          OutlookAttention, WeightedPermuteMLP, CoAtNet,
                                          HaloAttention, DoubleAttention, ParNetAttention, )):
-            # CNN类注意力机制
-            if spatial_dim * spatial_dim != seq_len:
-                raise ValueError("Sequence length cannot form square spatial dimensions for CNN attention.")
-            src_reshaped = src.transpose(1, 2).contiguous().view(batch_size, d_model, spatial_dim, spatial_dim)
+            # CNN类注意力机制，使用动态计算的空间维度
+            src_reshaped = src.transpose(1, 2).contiguous().view(batch_size, d_model, spatial_dim_h, spatial_dim_w)
             src2 = self.self_attn(src_reshaped)
             src2 = src2.view(batch_size, d_model, seq_len).transpose(1, 2)
 
@@ -136,7 +153,26 @@ class CustomDecoderLayer(nn.Module):
 
     def forward(self, tgt, memory):
         batch_size, seq_len, d_model = tgt.shape
+        
+        # 动态计算spatial_dim，支持非完全平方数
         spatial_dim = int(seq_len ** 0.5)
+        
+        # 如果不是完全平方数，尝试找到最接近的因子分解
+        if spatial_dim * spatial_dim != seq_len:
+            # 寻找最接近的因子对
+            factors = []
+            for i in range(1, int(seq_len ** 0.5) + 1):
+                if seq_len % i == 0:
+                    factors.append((i, seq_len // i))
+            
+            if factors:
+                # 选择最接近正方形的因子对
+                spatial_dim_h, spatial_dim_w = min(factors, key=lambda x: abs(x[0] - x[1]))
+            else:
+                # 如果是质数，使用1xseq_len的形状
+                spatial_dim_h, spatial_dim_w = 1, seq_len
+        else:
+            spatial_dim_h = spatial_dim_w = spatial_dim
 
         # ---- Self-Attention 适配 ----
         if isinstance(self.self_attn, ExternalAttention):
@@ -149,8 +185,8 @@ class CustomDecoderLayer(nn.Module):
                                          SequentialPolarizedSelfAttention, SequentialPolarizedSelfAttention,
                                          OutlookAttention, WeightedPermuteMLP, CoAtNet,
                                          HaloAttention, DoubleAttention, ParNetAttention, )):
-            # CNN类注意力机制
-            tgt_reshaped = tgt.transpose(1, 2).contiguous().view(batch_size, d_model, spatial_dim, spatial_dim)
+            # CNN类注意力机制，使用动态计算的空间维度
+            tgt_reshaped = tgt.transpose(1, 2).contiguous().view(batch_size, d_model, spatial_dim_h, spatial_dim_w)
             tgt2 = self.self_attn(tgt_reshaped)
             tgt2 = tgt2.view(batch_size, d_model, seq_len).transpose(1, 2)
 
@@ -173,10 +209,8 @@ class CustomDecoderLayer(nn.Module):
                                             SequentialPolarizedSelfAttention, SequentialPolarizedSelfAttention,
                                             OutlookAttention, WeightedPermuteMLP, CoAtNet,
                                             HaloAttention, DoubleAttention, ParNetAttention)):
-            # CNN类注意力机制需要reshape到4维
-            if spatial_dim * spatial_dim != seq_len:
-                raise ValueError("Sequence length cannot form square spatial dimensions for CNN attention.")
-            tgt_reshaped = tgt.transpose(1, 2).contiguous().view(batch_size, d_model, spatial_dim, spatial_dim)
+            # CNN类注意力机制，使用动态计算的空间维度
+            tgt_reshaped = tgt.transpose(1, 2).contiguous().view(batch_size, d_model, spatial_dim_h, spatial_dim_w)
             tgt2 = self.multihead_attn(tgt_reshaped)
             tgt2 = tgt2.view(batch_size, d_model, seq_len).transpose(1, 2)
 
@@ -227,7 +261,7 @@ class CustomDecoder(nn.Module):
 
 class TransformerFlowReconstructionModel(nn.Module):
     def __init__(self, input_dim, output_dim, num_heads=8, num_layers=6,
-                 d_model=512, max_time_steps=100, attention_type="relative", seq_len=49):
+                 d_model=512, max_time_steps=100, attention_type="relative", seq_len=32):
         super().__init__()
 
         self.attention_type = attention_type
@@ -250,12 +284,11 @@ class TransformerFlowReconstructionModel(nn.Module):
         batch_size = x_in_pressures_flat.size(0)
         x_time_steps = x_time_steps.long()
 
-        # 修改embedding输出维度明确匹配seq_len=49和d_model=512
-        seq_len = 49
+        # 使用初始化时设置的seq_len
         x_embedded = self.embedding(x_in_pressures_flat)  # [batch_size, seq_len * d_model]
 
         # reshape 为 [batch_size, seq_len, d_model]
-        x_embedded = x_embedded.view(batch_size, seq_len, -1)
+        x_embedded = x_embedded.view(batch_size, self.seq_len, -1)
 
         # 加上时间步和位置编码
         x_embedded = x_embedded + self.time_step_embedding(x_time_steps).unsqueeze(1) + self.positional_encoding

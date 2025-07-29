@@ -1,6 +1,10 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+
+# 设置matplotlib支持中文显示
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
 def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, time_step, epoch, attention_type, idx, parent_dir="attention_results", mode="test"):
     # 创建对应注意力机制的子文件夹
     result_dir = os.path.join(parent_dir, attention_type, "visualization_results")
@@ -27,7 +31,7 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
 
     # 保存图片到对应文件夹
     save_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.png")
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
 
 
@@ -47,7 +51,7 @@ def plot_losses(train_loss, valid_loss, test_loss, save_path=None):
     plt.legend()
 
     if save_path:
-        plt.savefig(save_path)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white')
         print(f"Loss曲线已保存到: {save_path}")
     else:
         plt.show()
@@ -72,5 +76,5 @@ def plot_difference_figure(true_pressure, predicted_pressure, time_step, epoch, 
 
     # 保存图片到对应文件夹
     save_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}_difference.png")
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()

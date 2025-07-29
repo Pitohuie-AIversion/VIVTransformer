@@ -1,5 +1,5 @@
 ﻿"""鍔ㄦ€佺淮搴﹀弬鏁板伐鍏锋ā鍧?
-璇ユā鍧楁彁渚涗簡浠庨厤缃枃浠跺姩鎬佽鍙栧拰璁剧疆鏁版嵁缁村害鍙傛暟鐨勫伐鍏峰嚱鏁帮紝
+璇ユā鍧楁彁渚涗简浠庨厤缃枃浠跺姩鎬佽鍙栧拰璁剧疆鏁版嵁缁村害鍙傛暟鐨勫伐鍏峰嚱鏁帮紝
 閬垮厤鍦ㄤ唬鐮佷腑纭紪鐮佺淮搴﹀€硷紝鎻愰珮浠ｇ爜鐨勭伒娲绘€у拰鍙淮鎶ゆ€с€?"""
 
 import yaml
@@ -183,13 +183,13 @@ def create_dimension_summary(config: Dict[str, Any]) -> str:
   - input_dim: {config['model']['input_dim']}
   - output_dim: {config['model']['output_dim']}
   
-缁村害鍖归厤鐘舵€? {'鉁?鍖归厤' if validate_model_dimensions(config) else '鉂?涓嶅尮閰?}
+维度匹配状态: {'✅ 匹配' if validate_model_dimensions(config) else '❌ 不匹配'}
 ========================
 """
         return summary
         
     except Exception as e:
-        return f"鐢熸垚缁村害鎽樿澶辫触: {e}"
+        return f"生成维度摘要失败: {e}"
 
 # 绀轰緥鐢ㄦ硶
 if __name__ == "__main__":

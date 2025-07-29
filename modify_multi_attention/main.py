@@ -84,11 +84,12 @@ def main():
 
     cfg = load_config(config_path)
     
-    # 楠岃瘉鍜岃嚜鍔ㄤ慨姝ｆ暟鎹淮搴﹂厤缃?    log.info("楠岃瘉鏁版嵁缁村害閰嶇疆...")
+    # 验证和自动修正数据维度配置
+    log.info("验证数据维度配置...")
     if not validate_model_dimensions(cfg):
-        log.warning("妫€娴嬪埌缁村害閰嶇疆涓嶅尮閰嶏紝鑷姩淇涓?..")
+        log.warning("检测到维度配置不匹配，自动修正中...")
         cfg = auto_update_model_dimensions(cfg)
-        log.info("缁村害閰嶇疆宸茶嚜鍔ㄤ慨姝?)
+        log.info("维度配置已自动修正")
     
     # 鎵撳嵃缁村害鎽樿淇℃伅
     log.info("\n%s", create_dimension_summary(cfg))
@@ -237,22 +238,22 @@ def main():
                 with open(test_result_file, "w") as f:
                     f.write(f"Test Loss for {attn_type}: {final_test_loss}\n")
 
-                log.info("鉁?%s (%s) 璁粌瀹屾垚锛?, attn_type, loss_config_id)
+                log.info("✅ %s (%s) 训练完成！", attn_type, loss_config_id)
 
             except Exception as e:
-                log.error("鉂?鍙戠敓閿欒锛岃烦杩?%s (%s)", attn_type, loss_config_id)
-                log.exception("鈿狅笍 閿欒璇︽儏: %s", str(e))
+                log.error("❌ 发生错误，跳过 %s (%s)", attn_type, loss_config_id)
+                log.exception("⚠️ 错误详情: %s", str(e))
                 failed_attention_types.append(f"{loss_config_id}::{attn_type}")
 
     if failed_attention_types:
         with open(parent_dir / "failed_attention_log.txt", "w") as f:
             for info in failed_attention_types:
                 f.write(f"{info}\n")
-        log.warning("\n鈿狅笍 浠ヤ笅loss+娉ㄦ剰鍔涙満鍒惰缁冨け璐ワ紝骞跺凡璁板綍鍦?failed_attention_log.txt锛?)
+        log.warning("\n⚠️ 以下loss+注意力机制训练失败，并已记录在 failed_attention_log.txt：")
         for info in failed_attention_types:
             log.warning(info)
     else:
-        log.info("\n馃帀 鎵€鏈塴oss閰嶇疆鍜屾敞鎰忓姏鏈哄埗鍧囪繍琛屾垚鍔燂紒")
+        log.info("\n🎉 所有loss配置和注意力机制均运行成功！")
 
 if __name__ == "__main__":
     main()

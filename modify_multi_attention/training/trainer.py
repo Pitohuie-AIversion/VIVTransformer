@@ -194,7 +194,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                         )
 
                 except StopIteration:
-                    print("鈿狅笍 楠岃瘉闆嗘暟鎹笉瓒筹紝鏃犳硶鐢熸垚鍙鍖栫粨鏋溿€?)
+                    print("⚠️ 验证集数据不足，无法生成可视化结果。")
 
         if (epoch + 1) % vis_interval == 0:
             plot_dir = os.path.join(save_dir, "loss_plots")
@@ -274,7 +274,7 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
                 )
 
     avg_test_loss = total_test_loss / len(test_loader)
-    print(f"馃И 娴嬭瘯瀹屾垚锛寋attention_type} Test Loss: {avg_test_loss:.6f}")
+    print(f"🎉 测试完成！{attention_type} Test Loss: {avg_test_loss:.6f}")
 
     with open(loss_log_path, 'a') as log_file:
         log_file.write(f"Average Test Loss: {avg_test_loss:.6f}\n")

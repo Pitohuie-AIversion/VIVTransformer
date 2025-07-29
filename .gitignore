@@ -1,0 +1,59 @@
+# Ignore PDEBench directory
+PDEBench/
+
+# Ignore IDE configuration files
+.idea/
+
+# Ignore large files and data
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.mat
+*.csv
+*.json
+*.txt
+*.log
+*.out
+
+# Model files
+*.pth
+*.pt
+*.ckpt
+*.pb
+*.onnx
+*.tflite
+*.model
+
+# Dataset and cache directories
+data/
+dataset/
+datasets/
+cache/
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+
+# Compressed files
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z

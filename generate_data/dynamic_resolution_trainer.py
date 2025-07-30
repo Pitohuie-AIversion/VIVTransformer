@@ -736,6 +736,18 @@ def main():
             device = torch.device(config['device'])
         logger.info(f"🖥️ 使用设备: {device}")
         
+        # 设置GPU显存限制
+        if device.type == 'cuda' and torch.cuda.is_available():
+            max_memory_fraction = config.get('max_memory_fraction', 0.8)
+            if 0 < max_memory_fraction <= 1.0:
+                # 为所有可用的GPU设置显存限制
+                gpu_count = torch.cuda.device_count()
+                for i in range(gpu_count):
+                    torch.cuda.set_per_process_memory_fraction(max_memory_fraction, device=i)
+                logger.info(f"💾 设置GPU显存限制: {max_memory_fraction*100:.1f}% (应用于 {gpu_count} 张GPU)")
+            else:
+                logger.warning(f"⚠️ 无效的max_memory_fraction值: {max_memory_fraction}，应在(0,1]范围内")
+        
         # 创建结果目录和模型保存目录
         results_dir = Path('./results')
         results_dir.mkdir(exist_ok=True)

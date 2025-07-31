@@ -171,7 +171,7 @@ mixed_precision:
 
 # 设备配置
 device: "auto"                    # 设备类型: 'auto', 'cuda', 'cpu'
-use_dataparallel: false          # 是否使用数据并行
+use_dataparallel: true           # 是否使用数据并行
 max_memory_fraction: 0.8         # 最大显存占用比例
 
 # ===== 多GPU训练配置说明 (DataParallel方案) =====

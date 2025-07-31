@@ -33,7 +33,10 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
     
     print(f"📊 早停配置: 启用={enable_early_stopping}, 监控={monitor}, 模式={mode}, 耐心值={patience}")
 
-    model.to(device)
+    # 只有在模型不是DataParallel时才移动到device
+    # DataParallel模型已经在主程序中正确设置了设备
+    if not isinstance(model, torch.nn.DataParallel):
+        model.to(device)
 
     train_loss_history = []
     valid_loss_history = []

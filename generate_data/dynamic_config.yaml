@@ -18,6 +18,9 @@ data:
   # 裁剪模式: 'center'(中心), 'random'(随机), 'corner'(左上角)
   crop_mode: "center"
   
+  # 数据归一化配置
+  normalize_data: true            # 是否对数据进行归一化到[0,1]范围
+  
   # 批次大小
   batch_size: 16                  # 多GPU训练建议增加到32或更大
   

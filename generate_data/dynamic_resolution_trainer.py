@@ -29,6 +29,9 @@ from typing import Tuple, Optional, Dict, Any
 sys.path.append(str(Path(__file__).parent.parent / 'modify_multi_attention'))
 sys.path.append(str(Path(__file__).parent))
 
+# 导入归一化功能
+from pde_process.pdebench_data_processor import PDEBenchProcessor, PDEBenchConfig
+
 from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
 from modify_multi_attention.training.trainer import train_model, test_model
 from modify_multi_attention.utils.visualization import plot_losses
@@ -50,7 +53,8 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
                  input_resolution: Tuple[int, int],
                  output_resolution: Tuple[int, int],
                  num_samples: int = 100,
-                 crop_mode: str = 'center'):
+                 crop_mode: str = 'center',
+                 normalize_data: bool = True):
         """
         初始化动态分辨率数据集
         
@@ -60,12 +64,20 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
             output_resolution: 输出分辨率 (height, width)
             num_samples: 样本数量
             crop_mode: 裁剪模式 ('center', 'random', 'corner')
+            normalize_data: 是否对数据进行归一化
         """
         self.data_path = Path(data_path)
         self.input_resolution = input_resolution
         self.output_resolution = output_resolution
         self.num_samples = num_samples
         self.crop_mode = crop_mode
+        self.normalize_data = normalize_data
+        
+        # 归一化相关属性
+        self.input_min = None
+        self.input_max = None
+        self.output_min = None
+        self.output_max = None
         
         # 计算维度
         self.input_dim = input_resolution[0] * input_resolution[1]
@@ -74,11 +86,16 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         # 加载原始数据
         self.original_data = self._load_original_data()
         
+        # 如果启用归一化，计算归一化参数
+        if self.normalize_data:
+            self._compute_normalization_params()
+        
         logger.info(f"动态数据集初始化完成:")
         logger.info(f"  输入分辨率: {input_resolution} -> {self.input_dim}维")
         logger.info(f"  输出分辨率: {output_resolution} -> {self.output_dim}维")
         logger.info(f"  样本数量: {num_samples}")
         logger.info(f"  裁剪模式: {crop_mode}")
+        logger.info(f"  数据归一化: {normalize_data}")
     
     def _load_original_data(self) -> np.ndarray:
         """加载原始数据"""
@@ -146,6 +163,61 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         
         return resized_data
     
+    def _compute_normalization_params(self):
+        """计算归一化参数"""
+        logger.info("计算归一化参数...")
+        
+        # 计算输入数据的归一化参数
+        input_samples = []
+        output_samples = []
+        
+        # 采样部分数据来计算统计信息
+        sample_size = min(10, len(self.original_data))
+        for i in range(sample_size):
+            original_sample = self.original_data[i:i+1]
+            
+            # 生成输入数据
+            if self.input_resolution == self.original_data.shape[1:]:
+                input_data = original_sample[0]
+            else:
+                input_cropped = self._crop_data(original_sample, self.input_resolution)
+                input_data = input_cropped[0]
+            
+            # 生成输出数据
+            if self.output_resolution == self.original_data.shape[1:]:
+                output_data = original_sample[0]
+            elif self.output_resolution[0] <= self.original_data.shape[1] and self.output_resolution[1] <= self.original_data.shape[2]:
+                output_cropped = self._crop_data(original_sample, self.output_resolution)
+                output_data = output_cropped[0]
+            else:
+                output_resized = self._resize_data(original_sample, self.output_resolution)
+                output_data = output_resized[0]
+            
+            input_samples.append(input_data.flatten())
+            output_samples.append(output_data.flatten())
+        
+        # 计算统计信息
+        input_array = np.concatenate(input_samples)
+        output_array = np.concatenate(output_samples)
+        
+        self.input_min = np.min(input_array)
+        self.input_max = np.max(input_array)
+        self.output_min = np.min(output_array)
+        self.output_max = np.max(output_array)
+        
+        logger.info(f"输入数据范围: [{self.input_min:.6f}, {self.input_max:.6f}]")
+        logger.info(f"输出数据范围: [{self.output_min:.6f}, {self.output_max:.6f}]")
+    
+    def _normalize_data(self, data: np.ndarray, data_min: float, data_max: float) -> np.ndarray:
+        """归一化数据到[0, 1]范围"""
+        if data_max - data_min == 0:
+            return np.zeros_like(data)
+        return (data - data_min) / (data_max - data_min)
+    
+    def _denormalize_data(self, data: np.ndarray, data_min: float, data_max: float) -> np.ndarray:
+        """反归一化数据"""
+        return data * (data_max - data_min) + data_min
+    
     def __len__(self):
         return len(self.original_data)
     
@@ -175,6 +247,11 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         # 展平为1D
         input_flat = input_data.flatten()
         output_flat = output_data.flatten()
+        
+        # 应用归一化
+        if self.normalize_data:
+            input_flat = self._normalize_data(input_flat, self.input_min, self.input_max)
+            output_flat = self._normalize_data(output_flat, self.output_min, self.output_max)
         
         return (
             torch.FloatTensor(input_flat),
@@ -213,6 +290,7 @@ def create_dynamic_config(args=None):
             'output_resolution': [128, 128],  # 输出分辨率
             'num_samples': 100,
             'crop_mode': 'center',  # 'center', 'random', 'corner'
+            'normalize_data': True,  # 是否对数据进行归一化
             'batch_size': 16,
             'train_ratio': 0.7,
             'valid_ratio': 0.15,
@@ -326,7 +404,8 @@ def get_dynamic_loaders(config: Dict[str, Any]):
         input_resolution=tuple(data_config['input_resolution']),
         output_resolution=tuple(data_config['output_resolution']),
         num_samples=data_config['num_samples'],
-        crop_mode=data_config.get('crop_mode', 'center')
+        crop_mode=data_config.get('crop_mode', 'center'),
+        normalize_data=data_config.get('normalize_data', True)
     )
     
     # 数据集分割

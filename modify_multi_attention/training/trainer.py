@@ -1,6 +1,7 @@
 import os
 import torch
 import matplotlib.pyplot as plt
+from torch.cuda.amp import autocast, GradScaler
 
 # 设置matplotlib支持中文显示
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
@@ -16,6 +17,20 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
     # 标准 MSELoss（保证横向可比）
     import torch.nn as nn
     mse_loss = nn.MSELoss()
+    
+    # 混合精度训练配置
+    mixed_precision_config = cfg.get('mixed_precision', {})
+    use_amp = mixed_precision_config.get('enabled', False) and device.startswith('cuda')
+    scaler = GradScaler() if use_amp else None
+    
+    if use_amp:
+        print(f"🚀 启用混合精度训练 (AMP)，损失缩放: {mixed_precision_config.get('loss_scale', 'dynamic')}")
+    
+    # 梯度累积配置
+    gradient_config = cfg.get('gradient', {})
+    accumulation_steps = gradient_config.get('accumulation_steps', 1)
+    if accumulation_steps > 1:
+        print(f"📊 启用梯度累积，累积步数: {accumulation_steps}")
 
     # 配置参数直接来自cfg
     vis_enabled = cfg["visualization"]["enabled"]
@@ -112,16 +127,51 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                 in_press.to(device), out_pressure.to(device), time_steps.to(device)
             )
 
-            optimizer.zero_grad()
-            model_out = model(in_press, time_steps)
-            loss_value = criterion(model_out, out_pressure)  # 训练用自定义loss
-            loss_value.backward()
-            optimizer.step()
-            total_train_loss += loss_value.item()
+            # 梯度累积：只在累积步数的开始清零梯度
+            if i % accumulation_steps == 0:
+                optimizer.zero_grad()
+            
+            # 混合精度训练
+            if use_amp:
+                with autocast():
+                    model_out = model(in_press, time_steps)
+                    loss_value = criterion(model_out, out_pressure)  # 训练用自定义loss
+                    # 梯度累积：损失需要除以累积步数
+                    loss_value = loss_value / accumulation_steps
+                
+                scaler.scale(loss_value).backward()
+                
+                # 梯度累积：只在累积步数结束时更新参数
+                if (i + 1) % accumulation_steps == 0 or (i + 1) == len(train_loader):
+                    # 梯度裁剪
+                    if gradient_config.get('clip_enabled', False):
+                        clip_value = gradient_config.get('clip_value', 1.0)
+                        scaler.unscale_(optimizer)
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
+                    
+                    scaler.step(optimizer)
+                    scaler.update()
+            else:
+                model_out = model(in_press, time_steps)
+                loss_value = criterion(model_out, out_pressure)  # 训练用自定义loss
+                # 梯度累积：损失需要除以累积步数
+                loss_value = loss_value / accumulation_steps
+                loss_value.backward()
+                
+                # 梯度累积：只在累积步数结束时更新参数
+                if (i + 1) % accumulation_steps == 0 or (i + 1) == len(train_loader):
+                    # 梯度裁剪
+                    if gradient_config.get('clip_enabled', False):
+                        clip_value = gradient_config.get('clip_value', 1.0)
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
+                    
+                    optimizer.step()
+            
+            total_train_loss += loss_value.item() * accumulation_steps  # 恢复原始损失值用于记录
 
             if (i + 1) % 50 == 0 or i == 0:
                 print(
-                    f"    🔄 Epoch [{epoch + 1}/{num_epochs}], Batch [{i + 1}/{len(train_loader)}], Loss: {loss_value.item():.6f}")
+                    f"    🔄 Epoch [{epoch + 1}/{num_epochs}], Batch [{i + 1}/{len(train_loader)}], Loss: {loss_value.item() * accumulation_steps:.6f}")
 
         avg_train_loss = total_train_loss / len(train_loader)
         train_loss_history.append(avg_train_loss)

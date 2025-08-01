@@ -21,6 +21,9 @@ data:
   # 数据归一化配置
   normalize_data: true            # 是否对数据进行归一化到[0,1]范围
   
+  # 懒加载配置（内存优化）
+  lazy_loading: false             # 是否启用懒加载模式（节省内存，适合大数据集）
+  
   # 批次大小
   batch_size: 16                  # 多GPU训练建议增加到32或更大
   

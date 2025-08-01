@@ -22,6 +22,7 @@ import h5py
 import yaml
 import argparse
 import logging
+import gc
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any
 
@@ -42,6 +43,85 @@ from modify_multi_attention.utils.logging_utils import setup_logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+def log_gpu_memory(stage: str = ""):
+    """记录GPU内存使用情况"""
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated() / 1024**3  # GB
+        reserved = torch.cuda.memory_reserved() / 1024**3   # GB
+        max_allocated = torch.cuda.max_memory_allocated() / 1024**3  # GB
+        
+        logger.info(f"🔍 GPU内存状态 {stage}:")
+        logger.info(f"  已分配: {allocated:.2f} GB")
+        logger.info(f"  已保留: {reserved:.2f} GB")
+        logger.info(f"  峰值分配: {max_allocated:.2f} GB")
+        
+        # 如果内存使用过高，建议清理
+        if allocated > 8.0:  # 8GB阈值
+            logger.warning("⚠️  GPU内存使用较高，建议启用懒加载或减少批次大小")
+    else:
+        logger.info(f"💻 CPU模式 {stage}")
+
+def cleanup_memory():
+    """清理内存"""
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        logger.info("🧹 已清理GPU缓存")
+
+def validate_config(config: Dict[str, Any]) -> bool:
+    """验证配置文件的合理性"""
+    warnings = []
+    errors = []
+    
+    # 检查数据配置
+    data_config = config.get('data', {})
+    
+    # 检查分辨率配置
+    input_res = data_config.get('input_resolution', [])
+    output_res = data_config.get('output_resolution', [])
+    
+    if len(input_res) != 2 or len(output_res) != 2:
+        errors.append("输入和输出分辨率必须是长度为2的列表")
+    
+    if input_res and output_res:
+        input_dim = input_res[0] * input_res[1]
+        output_dim = output_res[0] * output_res[1]
+        
+        if output_dim > input_dim * 16:  # 超分辨率倍数过大
+            warnings.append(f"输出分辨率({output_res})比输入分辨率({input_res})大很多，可能影响训练效果")
+    
+    # 检查批次大小
+    batch_size = data_config.get('batch_size', 16)
+    if batch_size > 64:
+        warnings.append(f"批次大小({batch_size})较大，可能导致内存不足")
+    
+    # 检查高级功能配置
+    gradient_config = config.get('gradient', {})
+    mixed_precision_config = config.get('mixed_precision', {})
+    
+    if gradient_config.get('clip_enabled', False) and not gradient_config.get('clip_value'):
+        errors.append("启用梯度裁剪时必须设置clip_value")
+    
+    if mixed_precision_config.get('enabled', False) and not torch.cuda.is_available():
+        warnings.append("混合精度训练需要GPU支持，当前为CPU模式")
+    
+    # 输出验证结果
+    if warnings:
+        logger.warning("⚠️  配置验证警告:")
+        for warning in warnings:
+            logger.warning(f"  - {warning}")
+    
+    if errors:
+        logger.error("❌ 配置验证错误:")
+        for error in errors:
+            logger.error(f"  - {error}")
+        return False
+    
+    if not warnings and not errors:
+        logger.info("✅ 配置验证通过")
+    
+    return True
+
 class DynamicResolutionDataset(torch.utils.data.Dataset):
     """
     动态分辨率数据集类
@@ -54,7 +134,8 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
                  output_resolution: Tuple[int, int],
                  num_samples: int = 100,
                  crop_mode: str = 'center',
-                 normalize_data: bool = True):
+                 normalize_data: bool = True,
+                 lazy_loading: bool = False):
         """
         初始化动态分辨率数据集
         
@@ -65,6 +146,7 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
             num_samples: 样本数量
             crop_mode: 裁剪模式 ('center', 'random', 'corner')
             normalize_data: 是否对数据进行归一化
+            lazy_loading: 是否启用懒加载（节省内存）
         """
         self.data_path = Path(data_path)
         self.input_resolution = input_resolution
@@ -72,6 +154,7 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         self.num_samples = num_samples
         self.crop_mode = crop_mode
         self.normalize_data = normalize_data
+        self.lazy_loading = lazy_loading
         
         # 归一化相关属性
         self.input_min = None
@@ -83,9 +166,17 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         self.input_dim = input_resolution[0] * input_resolution[1]
         self.output_dim = output_resolution[0] * output_resolution[1]
         
-        # 加载原始数据
-        self.original_data = self._load_original_data()
+        # 数据形状信息（用于懒加载）
+        self.data_shape = None
         
+        if lazy_loading:
+            # 懒加载模式：只获取数据形状和归一化参数
+            self._init_lazy_loading()
+            logger.info("🚀 启用懒加载模式，节省内存使用")
+        else:
+            # 传统模式：加载所有数据到内存
+            self.original_data = self._load_original_data()
+            
         # 如果启用归一化，计算归一化参数
         if self.normalize_data:
             self._compute_normalization_params()
@@ -96,6 +187,49 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         logger.info(f"  样本数量: {num_samples}")
         logger.info(f"  裁剪模式: {crop_mode}")
         logger.info(f"  数据归一化: {normalize_data}")
+        logger.info(f"  懒加载模式: {lazy_loading}")
+    
+    def _init_lazy_loading(self):
+        """
+        初始化懒加载模式，获取数据形状信息
+        """
+        try:
+            with h5py.File(self.data_path, 'r') as f:
+                if 'tensor' not in f:
+                    raise ValueError("数据文件中未找到'tensor'键")
+                
+                self.dataset_name = 'tensor'
+                self.data_shape = f[self.dataset_name].shape
+                
+                logger.info(f"懒加载初始化: {self.dataset_name}")
+                logger.info(f"数据形状: {self.data_shape}")
+                
+        except Exception as e:
+            logger.error(f"懒加载初始化失败: {e}")
+            raise
+    
+    def _load_sample_data(self, index: int) -> np.ndarray:
+        """
+        懒加载模式下加载单个样本数据
+        
+        Args:
+            index: 样本索引
+            
+        Returns:
+            单个样本数据
+        """
+        try:
+            with h5py.File(self.data_path, 'r') as f:
+                data = np.array(f[self.dataset_name][index], dtype=np.float32)
+                
+                # 如果数据是3D且第一维是通道维度，移除它
+                if len(data.shape) == 3 and data.shape[0] == 1:
+                    data = data.squeeze(0)
+                
+                return data
+        except Exception as e:
+            logger.error(f"加载样本 {index} 失败: {e}")
+            raise
     
     def _load_original_data(self) -> np.ndarray:
         """加载原始数据"""
@@ -147,8 +281,14 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         
         return data[:, start_h:end_h, start_w:end_w]
     
-    def _resize_data(self, data: np.ndarray, target_size: Tuple[int, int]) -> np.ndarray:
-        """调整数据尺寸（简单的最近邻插值）"""
+    def _resize_data(self, data: np.ndarray, target_size: Tuple[int, int], method: str = 'bilinear') -> np.ndarray:
+        """调整数据尺寸
+        
+        Args:
+            data: 输入数据
+            target_size: 目标尺寸
+            method: 插值方法 ('nearest', 'bilinear', 'bicubic')
+        """
         from scipy.ndimage import zoom
         
         _, orig_h, orig_w = data.shape
@@ -157,9 +297,20 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         zoom_h = target_h / orig_h
         zoom_w = target_w / orig_w
         
+        # 根据插值方法选择order参数
+        if method == 'nearest':
+            order = 0
+        elif method == 'bilinear':
+            order = 1
+        elif method == 'bicubic':
+            order = 3
+        else:
+            logger.warning(f"未知的插值方法: {method}，使用双线性插值")
+            order = 1
+        
         resized_data = np.zeros((data.shape[0], target_h, target_w))
         for i in range(data.shape[0]):
-            resized_data[i] = zoom(data[i], (zoom_h, zoom_w), order=1)
+            resized_data[i] = zoom(data[i], (zoom_h, zoom_w), order=order)
         
         return resized_data
     
@@ -167,9 +318,28 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         """计算归一化参数 - 基于全局原始数据统计信息"""
         logger.info("计算全局归一化参数...")
         
-        # 使用全局原始数据计算统计信息，确保输入输出使用相同的归一化标准
-        global_min = np.min(self.original_data)
-        global_max = np.max(self.original_data)
+        if self.lazy_loading:
+            # 懒加载模式：通过采样计算归一化参数
+            logger.info("懒加载模式：使用采样数据计算归一化参数")
+            sample_size = min(100, self.data_shape[0])  # 采样100个样本或全部数据
+            sample_indices = np.linspace(0, self.data_shape[0]-1, sample_size, dtype=int)
+            
+            sample_data = []
+            with h5py.File(self.data_path, 'r') as f:
+                for idx in sample_indices:
+                    data = np.array(f[self.dataset_name][idx], dtype=np.float32)
+                    if len(data.shape) == 3 and data.shape[0] == 1:
+                        data = data.squeeze(0)
+                    sample_data.append(data)
+            
+            sample_data = np.array(sample_data)
+            global_min = np.min(sample_data)
+            global_max = np.max(sample_data)
+            logger.info(f"基于 {sample_size} 个样本计算归一化参数")
+        else:
+            # 传统模式：使用全部加载的数据
+            global_min = np.min(self.original_data)
+            global_max = np.max(self.original_data)
         
         # 输入和输出都使用相同的全局归一化参数
         self.global_min = global_min
@@ -207,11 +377,20 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         return data * (data_max - data_min) + data_min
     
     def __len__(self):
-        return len(self.original_data)
+        if self.lazy_loading:
+            return min(self.num_samples, self.data_shape[0])
+        else:
+            return len(self.original_data)
     
     def __getitem__(self, idx):
         # 获取原始样本
-        original_sample = self.original_data[idx:idx+1]  # 保持3D形状
+        if self.lazy_loading:
+            # 懒加载模式：实时加载单个样本
+            original_sample = self._load_sample_data(idx)
+            original_sample = original_sample[np.newaxis, :]  # 添加batch维度
+        else:
+            # 传统模式：从内存中获取
+            original_sample = self.original_data[idx:idx+1]  # 保持3D形状
         
         # 生成输入数据（裁剪到输入分辨率）
         if self.input_resolution == self.original_data.shape[1:]:
@@ -474,7 +653,8 @@ def get_dynamic_loaders(config: Dict[str, Any]):
         output_resolution=tuple(data_config['output_resolution']),
         num_samples=data_config['num_samples'],
         crop_mode=data_config.get('crop_mode', 'center'),
-        normalize_data=data_config.get('normalize_data', True)
+        normalize_data=data_config.get('normalize_data', True),
+        lazy_loading=data_config.get('lazy_loading', False)
     )
     
     # 数据集分割
@@ -947,6 +1127,12 @@ def main():
             os.makedirs(model_dir, exist_ok=True)
             logger.info(f"📁 模型保存目录: {model_dir}")
         
+        # 验证配置
+        logger.info("=== 验证配置 ===")
+        if not validate_config(config):
+            logger.error("配置验证失败，请修正配置后重试")
+            return
+        
         # 创建数据加载器
         logger.info("=== 创建数据加载器 ===")
         train_loader, valid_loader, test_loader, dataset = get_dynamic_loaders(config)
@@ -1106,6 +1292,27 @@ def main():
         else:
             print("📈 学习率调度器: 未启用")
         
+        # 显示高级训练功能状态
+        gradient_config = config.get('gradient', {})
+        mixed_precision_config = config.get('mixed_precision', {})
+        
+        logger.info("=== 高级训练功能状态 ===")
+        logger.info(f"梯度裁剪: {'启用' if gradient_config.get('clip_enabled', False) else '禁用'}")
+        if gradient_config.get('clip_enabled', False):
+            logger.info(f"  裁剪阈值: {gradient_config.get('clip_value', 1.0)}")
+        
+        logger.info(f"混合精度训练: {'启用' if mixed_precision_config.get('enabled', False) else '禁用'}")
+        if mixed_precision_config.get('enabled', False):
+            logger.info(f"  损失缩放: {mixed_precision_config.get('loss_scale', 'dynamic')}")
+        
+        accumulation_steps = gradient_config.get('accumulation_steps', 1)
+        logger.info(f"梯度累积: {'启用' if accumulation_steps > 1 else '禁用'}")
+        if accumulation_steps > 1:
+            logger.info(f"  累积步数: {accumulation_steps}")
+        
+        # 内存监控
+        log_gpu_memory("训练开始前")
+        
         # 开始训练
         logger.info("=== 开始训练 ===")
         model, train_losses, valid_losses, test_losses = train_model(
@@ -1146,6 +1353,10 @@ def main():
         
         logger.info("🎉 === 训练完成 ===")
         
+        # 内存监控和清理
+        log_gpu_memory("训练完成后")
+        cleanup_memory()
+        
         # 保存归一化信息（如果启用了归一化）
         if dataset.normalize_data:
             norm_info_path = results_dir / 'normalization_info.json'
@@ -1170,6 +1381,7 @@ def main():
     except torch.cuda.OutOfMemoryError as e:
         logger.error(f"❌ GPU内存不足: {str(e)}")
         logger.error("建议减小batch_size或使用CPU训练")
+        cleanup_memory()
     except Exception as e:
         logger.error(f"❌ 训练过程中出错: {str(e)}")
         import traceback

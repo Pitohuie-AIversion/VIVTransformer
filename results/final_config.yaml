@@ -1,0 +1,81 @@
+data:
+  batch_size: 16
+  crop_mode: center
+  input_resolution:
+  - 32
+  - 32
+  num_samples: 10
+  output_resolution:
+  - 64
+  - 64
+  path: X:\2025\Graduation_project\Pdebench_input_Transformer\VIVTransformer-1\PDEBench\pdebench\data_download\2D_DarcyFlow_beta0.1_Train.hdf5
+  test_ratio: 0.15
+  train_ratio: 0.7
+  valid_ratio: 0.15
+dataloader:
+  drop_last: false
+  num_workers: 0
+  persistent_workers: false
+  pin_memory: true
+  prefetch_factor: 2
+device: auto
+logging:
+  file: ./results/logs/dynamic_resolution_training.log
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  level: DEBUG
+loss:
+  base_weight: 0.8
+  loss_type: mse_svd
+  normalize_svd_weights: true
+  svd_loss_enabled: true
+  svd_weights:
+  - 0.05
+  - 0.04
+  - 0.03
+  - 0.02
+  - 0.02
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.01
+  topk: 10
+model:
+  attention_type: sge
+  d_model: 512
+  input_dim: 1024
+  max_time_steps: 100
+  num_heads: 8
+  num_layers: 4
+  output_dim: 4096
+  seq_len: 32
+no_pretrained: false
+optimizer:
+  amsgrad: false
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  type: Adam
+scheduler:
+  T_max: 100
+  enabled: true
+  eta_min: 1.0e-06
+  gamma: 0.1
+  step_size: 30
+  type: cosine
+seed: 42
+training:
+  epochs: 1
+  learning_rate: 0.001
+  log_interval: 10
+  min_delta: 1.0e-06
+  model_save_path: ./results/models/dynamic_resolution_model.pth
+  patience: 15
+  save_best_model: true
+  weight_decay: 0.0001
+use_dataparallel: false
+visualization:
+  enabled: true
+  interval: 10
+  max_samples: 5

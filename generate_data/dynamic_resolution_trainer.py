@@ -164,49 +164,35 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         return resized_data
     
     def _compute_normalization_params(self):
-        """计算归一化参数"""
-        logger.info("计算归一化参数...")
+        """计算归一化参数 - 基于全局原始数据统计信息"""
+        logger.info("计算全局归一化参数...")
         
-        # 计算输入数据的归一化参数
-        input_samples = []
-        output_samples = []
+        # 使用全局原始数据计算统计信息，确保输入输出使用相同的归一化标准
+        global_min = np.min(self.original_data)
+        global_max = np.max(self.original_data)
         
-        # 采样部分数据来计算统计信息
-        sample_size = min(10, len(self.original_data))
-        for i in range(sample_size):
-            original_sample = self.original_data[i:i+1]
-            
-            # 生成输入数据
-            if self.input_resolution == self.original_data.shape[1:]:
-                input_data = original_sample[0]
-            else:
-                input_cropped = self._crop_data(original_sample, self.input_resolution)
-                input_data = input_cropped[0]
-            
-            # 生成输出数据
-            if self.output_resolution == self.original_data.shape[1:]:
-                output_data = original_sample[0]
-            elif self.output_resolution[0] <= self.original_data.shape[1] and self.output_resolution[1] <= self.original_data.shape[2]:
-                output_cropped = self._crop_data(original_sample, self.output_resolution)
-                output_data = output_cropped[0]
-            else:
-                output_resized = self._resize_data(original_sample, self.output_resolution)
-                output_data = output_resized[0]
-            
-            input_samples.append(input_data.flatten())
-            output_samples.append(output_data.flatten())
+        # 输入和输出都使用相同的全局归一化参数
+        self.global_min = global_min
+        self.global_max = global_max
         
-        # 计算统计信息
-        input_array = np.concatenate(input_samples)
-        output_array = np.concatenate(output_samples)
+        # 为了兼容性，保留原有的变量名
+        self.input_min = global_min
+        self.input_max = global_max
+        self.output_min = global_min
+        self.output_max = global_max
         
-        self.input_min = np.min(input_array)
-        self.input_max = np.max(input_array)
-        self.output_min = np.min(output_array)
-        self.output_max = np.max(output_array)
+        # 记录归一化信息，用于后续反归一化
+        self.normalization_info = {
+            'global_min': float(global_min),
+            'global_max': float(global_max),
+            'normalization_method': 'global_minmax',
+            'original_data_shape': self.original_data.shape,
+            'input_resolution': self.input_resolution,
+            'output_resolution': self.output_resolution
+        }
         
-        logger.info(f"输入数据范围: [{self.input_min:.6f}, {self.input_max:.6f}]")
-        logger.info(f"输出数据范围: [{self.output_min:.6f}, {self.output_max:.6f}]")
+        logger.info(f"全局数据范围: [{global_min:.6f}, {global_max:.6f}]")
+        logger.info(f"归一化信息已记录，可用于反归一化")
     
     def _normalize_data(self, data: np.ndarray, data_min: float, data_max: float) -> np.ndarray:
         """归一化数据到[0, 1]范围"""
@@ -271,6 +257,86 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
             'input_range': (sample_input.min().item(), sample_input.max().item()),
             'output_range': (sample_output.min().item(), sample_output.max().item())
         }
+    
+    def get_normalization_info(self):
+        """获取归一化信息，用于反归一化"""
+        if hasattr(self, 'normalization_info'):
+            return self.normalization_info.copy()
+        else:
+            # 兼容旧版本
+            return {
+                'global_min': float(self.input_min),
+                'global_max': float(self.input_max),
+                'normalization_method': 'global_minmax',
+                'original_data_shape': self.original_data.shape,
+                'input_resolution': self.input_resolution,
+                'output_resolution': self.output_resolution
+            }
+    
+    def denormalize_predictions(self, normalized_data):
+        """反归一化预测结果，恢复物理信息
+        
+        Args:
+            normalized_data: 归一化的数据 (torch.Tensor 或 numpy.ndarray)
+            
+        Returns:
+            反归一化后的物理数据
+        """
+        if hasattr(self, 'global_min') and hasattr(self, 'global_max'):
+            data_min = self.global_min
+            data_max = self.global_max
+        else:
+            # 兼容旧版本
+            data_min = self.output_min
+            data_max = self.output_max
+        
+        # 处理torch.Tensor
+        if hasattr(normalized_data, 'cpu'):
+            normalized_data = normalized_data.cpu().numpy()
+        
+        return self._denormalize_data(normalized_data, data_min, data_max)
+    
+    def save_normalization_info(self, filepath):
+        """保存归一化信息到文件
+        
+        Args:
+            filepath: 保存路径 (支持 .json 或 .yaml)
+        """
+        import json
+        
+        norm_info = self.get_normalization_info()
+        
+        if filepath.endswith('.json'):
+            with open(filepath, 'w') as f:
+                json.dump(norm_info, f, indent=2)
+        elif filepath.endswith('.yaml') or filepath.endswith('.yml'):
+            with open(filepath, 'w') as f:
+                yaml.dump(norm_info, f, default_flow_style=False)
+        else:
+            raise ValueError("文件格式不支持，请使用 .json 或 .yaml")
+        
+        logger.info(f"归一化信息已保存到: {filepath}")
+    
+    @staticmethod
+    def load_normalization_info(filepath):
+        """从文件加载归一化信息
+        
+        Args:
+            filepath: 文件路径
+            
+        Returns:
+            归一化信息字典
+        """
+        import json
+        
+        if filepath.endswith('.json'):
+            with open(filepath, 'r') as f:
+                return json.load(f)
+        elif filepath.endswith('.yaml') or filepath.endswith('.yml'):
+            with open(filepath, 'r') as f:
+                return yaml.safe_load(f)
+        else:
+            raise ValueError("文件格式不支持，请使用 .json 或 .yaml")
 
 def create_dynamic_config(args=None):
     """
@@ -844,6 +910,19 @@ def main():
         stats = dataset.get_data_statistics()
         logger.info(f"数据统计: {stats}")
         
+        # 显示归一化信息
+        if dataset.normalize_data:
+            norm_info = dataset.get_normalization_info()
+            logger.info("=== 归一化信息 ===")
+            logger.info(f"归一化方法: {norm_info['normalization_method']}")
+            logger.info(f"全局数据范围: [{norm_info['global_min']:.6f}, {norm_info['global_max']:.6f}]")
+            logger.info(f"原始数据形状: {norm_info['original_data_shape']}")
+            logger.info(f"输入分辨率: {norm_info['input_resolution']}")
+            logger.info(f"输出分辨率: {norm_info['output_resolution']}")
+            logger.info("✅ 数据已归一化到[0,1]范围，可用于反归一化恢复物理信息")
+        else:
+            logger.info("ℹ️  归一化已禁用，使用原始数据范围")
+        
         # 创建模型
         logger.info("=== 创建模型 ===")
         model = TransformerFlowReconstructionModel(
@@ -1013,6 +1092,16 @@ def main():
             plot_losses(train_losses, valid_losses, test_losses, save_path=str(loss_plot_path))
         
         logger.info("🎉 === 训练完成 ===")
+        
+        # 保存归一化信息（如果启用了归一化）
+        if dataset.normalize_data:
+            norm_info_path = results_dir / 'normalization_info.json'
+            dataset.save_normalization_info(str(norm_info_path))
+            logger.info(f"📊 归一化信息已保存: {norm_info_path}")
+            logger.info("💡 使用提示:")
+            logger.info("   - 使用 dataset.denormalize_predictions(predictions) 反归一化预测结果")
+            logger.info("   - 使用 DynamicResolutionDataset.load_normalization_info(path) 加载归一化信息")
+            logger.info("   - 参考 demo_global_normalization.py 了解完整用法")
         
         # 保存最终配置
         config_save_path = results_dir / 'final_config.yaml'

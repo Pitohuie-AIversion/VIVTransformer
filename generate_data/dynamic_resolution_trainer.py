@@ -196,7 +196,9 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
     
     def _normalize_data(self, data: np.ndarray, data_min: float, data_max: float) -> np.ndarray:
         """归一化数据到[0, 1]范围"""
-        if data_max - data_min == 0:
+        eps = 1e-8  # 添加小的容差，提高数值稳定性
+        if abs(data_max - data_min) < eps:
+            logger.warning(f"数据范围过小，可能存在常数数据: [{data_min:.6f}, {data_max:.6f}]")
             return np.zeros_like(data)
         return (data - data_min) / (data_max - data_min)
     
@@ -418,7 +420,8 @@ def create_dynamic_config(args=None):
     
     default_config['model']['input_dim'] = input_h * input_w
     default_config['model']['output_dim'] = output_h * output_w
-    default_config['model']['seq_len'] = int(np.sqrt(input_h * input_w))  # 近似序列长度
+    # 修复序列长度计算：直接使用输入维度，更符合Transformer的处理逻辑
+    default_config['model']['seq_len'] = input_h * input_w
     
     return default_config
 
@@ -758,7 +761,8 @@ def load_config_with_args(config_path, args):
     output_h, output_w = config['data']['output_resolution']
     config['model']['input_dim'] = input_h * input_w
     config['model']['output_dim'] = output_h * output_w
-    config['model']['seq_len'] = int(np.sqrt(input_h * input_w))
+    # 修复序列长度计算：直接使用输入维度
+    config['model']['seq_len'] = input_h * input_w
     
     return config
 
@@ -816,6 +820,12 @@ def validate_config(config):
     if len(output_res) != 2 or any(x <= 0 for x in output_res):
         errors.append(f"输出分辨率无效: {output_res}")
     
+    # 验证分辨率兼容性
+    input_dim = input_res[0] * input_res[1]
+    output_dim = output_res[0] * output_res[1]
+    if input_dim > 10000 or output_dim > 10000:
+        logger.warning(f"分辨率较高，可能导致内存问题: 输入{input_dim}, 输出{output_dim}")
+    
     # 验证训练参数
     if config['training']['epochs'] <= 0:
         errors.append(f"训练轮数必须大于0: {config['training']['epochs']}")
@@ -832,6 +842,41 @@ def validate_config(config):
     
     if config['model']['d_model'] % config['model']['num_heads'] != 0:
         errors.append(f"模型维度({config['model']['d_model']})必须能被注意力头数({config['model']['num_heads']})整除")
+    
+    # 验证SVD损失权重
+    if 'loss' in config and 'svd_weights' in config['loss']:
+        svd_weights = config['loss']['svd_weights']
+        base_weight = config['loss'].get('base_weight', 1.0)
+        
+        if not isinstance(svd_weights, list) or len(svd_weights) == 0:
+            errors.append("SVD权重必须是非空列表")
+        
+        if any(w < 0 for w in svd_weights):
+            errors.append("SVD权重必须为非负数")
+        
+        if base_weight < 0:
+            errors.append("基础权重必须为非负数")
+        
+        total_weight = base_weight + sum(svd_weights)
+        if total_weight == 0:
+            errors.append("所有权重之和不能为0")
+        
+        # 检查权重分布是否合理
+        if base_weight / total_weight < 0.1:
+            logger.warning(f"基础MSE权重占比过低: {base_weight/total_weight:.3f}")
+    
+    # 验证数据格式（如果是HDF5文件）
+    if data_path.endswith('.h5') or data_path.endswith('.hdf5'):
+        try:
+            import h5py
+            with h5py.File(data_path, 'r') as f:
+                # 检查必要的数据集是否存在
+                if 'tensor' not in f.keys():
+                    logger.warning(f"HDF5文件缺少'tensor'数据集")
+        except ImportError:
+            logger.warning("未安装h5py，无法验证HDF5文件格式")
+        except Exception as e:
+            logger.warning(f"验证HDF5文件时出错: {e}")
     
     return errors
 
@@ -978,6 +1023,14 @@ def main():
             svd_weights=svd_weights,
             topk=topk
         )
+        
+        # 显示实际的权重分布信息
+        logger.info("=== 实际损失函数权重分布 ===")
+        weight_info = criterion.get_weight_info()
+        logger.info(f"原始权重总和: {weight_info['weight_sum']:.4f}")
+        logger.info(f"归一化后基础权重: {weight_info['normalized_base_weight']:.4f}")
+        logger.info(f"归一化后SVD权重: {[f'{w:.4f}' for w in weight_info['normalized_svd_weights']]}")
+        logger.info("================================")
         
         # 从配置中获取优化器参数
         optimizer_config = config['optimizer']

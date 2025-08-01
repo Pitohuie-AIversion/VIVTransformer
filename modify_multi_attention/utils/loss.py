@@ -37,13 +37,38 @@ class TotalLossWithSVD(nn.Module):
         # 默认主损失占0.5，svd分配剩余0.5
         if svd_weights is None:
             svd_weights = [0.5/topk] * topk  # 比如[0.166,0.166,0.166]
+        
+        # 验证权重参数
+        if base_weight < 0:
+            raise ValueError(f"基础权重必须为非负数，当前值: {base_weight}")
+        if any(w < 0 for w in svd_weights):
+            raise ValueError(f"SVD权重必须为非负数，当前值: {svd_weights}")
+        if len(svd_weights) != topk:
+            raise ValueError(f"SVD权重数量({len(svd_weights)})必须等于topk({topk})")
+        
+        # 计算权重总和
         all_weights = [base_weight] + svd_weights
-        # 归一化
         weight_sum = sum(all_weights)
+        
+        if weight_sum == 0:
+            raise ValueError("所有权重之和不能为0")
+        
+        # 权重归一化
         self.base_weight = base_weight / weight_sum
         self.svd_weights = [w / weight_sum for w in svd_weights]
         self.topk = topk
         self.base_loss = nn.MSELoss()
+        
+        # 权重分布警告
+        if self.base_weight < 0.1:
+            print(f"警告: 基础MSE权重占比过低({self.base_weight:.3f})，可能影响训练稳定性")
+        if self.base_weight > 0.9:
+            print(f"警告: 基础MSE权重占比过高({self.base_weight:.3f})，SVD损失可能失效")
+        
+        # 记录原始和归一化后的权重
+        self._original_base_weight = base_weight
+        self._original_svd_weights = svd_weights.copy()
+        self._weight_sum = weight_sum
 
     def forward(self, pred, target):
         # pred/target: [B, N] or [B, H, W]
@@ -53,3 +78,26 @@ class TotalLossWithSVD(nn.Module):
         for w, l in zip(self.svd_weights, loss_svds):
             total_loss += w * l
         return total_loss
+    
+    def get_weight_info(self):
+        """获取权重信息，用于调试和监控"""
+        return {
+            'original_base_weight': self._original_base_weight,
+            'original_svd_weights': self._original_svd_weights,
+            'normalized_base_weight': self.base_weight,
+            'normalized_svd_weights': self.svd_weights,
+            'weight_sum': self._weight_sum,
+            'topk': self.topk
+        }
+    
+    def print_weight_info(self):
+        """打印权重信息"""
+        info = self.get_weight_info()
+        print(f"=== SVD损失权重信息 ===")
+        print(f"原始基础权重: {info['original_base_weight']:.4f}")
+        print(f"原始SVD权重: {[f'{w:.4f}' for w in info['original_svd_weights']]}")
+        print(f"权重总和: {info['weight_sum']:.4f}")
+        print(f"归一化基础权重: {info['normalized_base_weight']:.4f}")
+        print(f"归一化SVD权重: {[f'{w:.4f}' for w in info['normalized_svd_weights']]}")
+        print(f"TopK模态数: {info['topk']}")
+        print(f"=========================")

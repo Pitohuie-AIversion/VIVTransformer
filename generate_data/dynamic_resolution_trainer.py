@@ -683,8 +683,9 @@ def get_dynamic_loaders(config: Dict[str, Any]):
     pin_memory = dataloader_config.get('pin_memory', True)
     drop_last = dataloader_config.get('drop_last', False)
     persistent_workers = dataloader_config.get('persistent_workers', False) and num_workers > 0
+    prefetch_factor = dataloader_config.get('prefetch_factor', 2) if num_workers > 0 else 2
     
-    logger.info(f"🔄 数据加载器配置: num_workers={num_workers}, pin_memory={pin_memory}, drop_last={drop_last}")
+    logger.info(f"🔄 数据加载器配置: num_workers={num_workers}, pin_memory={pin_memory}, drop_last={drop_last}, prefetch_factor={prefetch_factor}")
     
     train_loader = torch.utils.data.DataLoader(
         train_dataset, 
@@ -693,7 +694,8 @@ def get_dynamic_loaders(config: Dict[str, Any]):
         num_workers=num_workers,
         pin_memory=pin_memory,
         drop_last=drop_last,
-        persistent_workers=persistent_workers
+        persistent_workers=persistent_workers,
+        prefetch_factor=prefetch_factor
     )
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset, 
@@ -702,7 +704,8 @@ def get_dynamic_loaders(config: Dict[str, Any]):
         num_workers=num_workers,
         pin_memory=pin_memory,
         drop_last=False,
-        persistent_workers=persistent_workers
+        persistent_workers=persistent_workers,
+        prefetch_factor=prefetch_factor
     )
     test_loader = torch.utils.data.DataLoader(
         test_dataset, 
@@ -711,7 +714,8 @@ def get_dynamic_loaders(config: Dict[str, Any]):
         num_workers=num_workers,
         pin_memory=pin_memory,
         drop_last=False,
-        persistent_workers=persistent_workers
+        persistent_workers=persistent_workers,
+        prefetch_factor=prefetch_factor
     )
     
     logger.info(f"数据集分割: 训练集={train_size}, 验证集={valid_size}, 测试集={test_size}")
@@ -1178,6 +1182,21 @@ def main():
         use_dataparallel = config.get('use_dataparallel', False)
         if use_dataparallel and torch.cuda.is_available() and torch.cuda.device_count() > 1:
             logger.info(f"🚀 启用多GPU训练: 检测到 {torch.cuda.device_count()} 张GPU")
+            
+            # 🔧 修复多GPU设备不一致问题
+            # 确保模型完全在主设备(cuda:0)上
+            if device.type == 'cuda':
+                torch.cuda.set_device(0)  # 设置主设备
+                model = model.cuda(0)     # 确保模型在主设备上
+                logger.info("✅ 已将模型移动到主设备 cuda:0")
+            
+            # 清理所有GPU缓存，避免设备冲突
+            torch.cuda.empty_cache()
+            for i in range(torch.cuda.device_count()):
+                with torch.cuda.device(i):
+                    torch.cuda.empty_cache()
+            logger.info("🧹 已清理所有GPU缓存")
+            
             model = torch.nn.DataParallel(model)
             logger.info(f"   使用的GPU设备: {list(range(torch.cuda.device_count()))}")
             

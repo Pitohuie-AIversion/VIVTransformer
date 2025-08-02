@@ -173,9 +173,9 @@ mixed_precision:
   # loss_scale: "dynamic"         # 动态损失缩放，减少30-50%显存使用
 
 # 设备配置
-device: "cpu"                     # 设备类型: 'auto', 'cuda', 'cpu' (使用CPU避免GPU内存不足)
-use_dataparallel: false          # CPU模式下禁用数据并行
-max_memory_fraction: 0.6         # 最大显存占用比例（降低以避免内存不足）
+device: "cuda"                    # 设备类型: 'auto', 'cuda', 'cpu' (使用CUDA进行多GPU训练)
+use_dataparallel: true           # 启用多GPU数据并行训练
+max_memory_fraction: 0.7         # 最大显存占用比例（适中设置以支持多GPU）
 
 # ===== 多GPU训练配置说明 (DataParallel方案) =====
 # 如果服务器有多张显卡，可以按以下方式配置：
@@ -232,15 +232,15 @@ monitoring:
 
 # 数据加载配置
 dataloader:
-  num_workers: 4                  # 数据加载器工作进程数
+  num_workers: 8                  # 数据加载器工作进程数（多GPU训练优化）
   pin_memory: true                # 是否将数据固定在内存中
-  persistent_workers: false       # 是否保持工作进程持久化
-  prefetch_factor: 2              # 预取因子
+  persistent_workers: true        # 保持工作进程持久化（多GPU训练推荐）
+  prefetch_factor: 4              # 预取因子（多GPU训练优化）
   
-  # 多GPU训练优化建议：
-  # num_workers: 8                 # 双GPU建议增加到8
-  # persistent_workers: true       # 启用持久化工作进程
-  # prefetch_factor: 4             # 增加预取因子到4
+  # 多GPU训练优化说明：
+  # num_workers: 8                 # 双GPU建议设置为8，提升数据加载效率
+  # persistent_workers: true       # 启用持久化工作进程，减少启动开销
+  # prefetch_factor: 4             # 增加预取因子，提升数据流水线效率
 
 # 验证配置
 validation:

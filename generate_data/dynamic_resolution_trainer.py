@@ -87,6 +87,10 @@ def validate_config(config: Dict[str, Any]) -> bool:
         input_dim = input_res[0] * input_res[1]
         output_dim = output_res[0] * output_res[1]
         
+        # 检查分辨率是否过高（仅警告，不阻止训练）
+        if input_dim > 50000 or output_dim > 50000:
+            warnings.append(f"分辨率较高，可能导致内存问题: 输入{input_dim}, 输出{output_dim}")
+        
         if output_dim > input_dim * 16:  # 超分辨率倍数过大
             warnings.append(f"输出分辨率({output_res})比输入分辨率({input_res})大很多，可能影响训练效果")
     
@@ -119,6 +123,9 @@ def validate_config(config: Dict[str, Any]) -> bool:
     
     if not warnings and not errors:
         logger.info("✅ 配置验证通过")
+    
+    # 添加调试信息
+    logger.info(f"配置验证详情: warnings={len(warnings)}, errors={len(errors)}")
     
     return True
 
@@ -799,100 +806,95 @@ def load_config_with_args(config_path, args):
     """
     加载配置文件并与命令行参数合并
     """
-    # 默认配置
-    default_config = {
-        'data': {
-            'path': 'X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\PDEBench\\pdebench\\data_download\\2D_DarcyFlow_beta0.1_Train.hdf5',
-            'input_resolution': [32, 32],
-            'output_resolution': [128, 128],
-            'num_samples': 100,
-            'crop_mode': 'center',
-            'batch_size': 16,
-            'train_ratio': 0.7,
-            'valid_ratio': 0.15,
-            'test_ratio': 0.15
-        },
-        'training': {
-            'epochs': 10,
-            'learning_rate': 0.001,
-            'weight_decay': 1e-4,
-            'patience': 15,
-            'min_delta': 1e-6,
-            'save_best_model': True,
-            'model_save_path': './results/models/dynamic_resolution_model.pth',
-            'log_interval': 10
-        },
-        'model': {
-            'num_layers': 4,
-            'd_model': 512,
-            'num_heads': 8,
-            'max_time_steps': 100,
-            'attention_type': 'sge'
-        },
-        'device': 'auto',
-        'use_dataparallel': False,  # 启用多GPU训练 (DataParallel)
-        'no_pretrained': False,  # 不加载预训练模型，从头开始训练
-        'seed': 42,
-        'visualization': {
-            'enabled': True,
-            'interval': 10,
-            'max_samples': 5
-        },
-        'logging': {
-            'level': 'INFO',
-            'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            'file': './results/logs/dynamic_resolution_training.log'
-        },
-        'optimizer': {
-            'type': 'Adam',
-            'betas': [0.9, 0.999],
-            'eps': 1e-8,
-            'amsgrad': False
-        },
-        'scheduler': {
-            'enabled': True,
-            'type': 'cosine',
-            'T_max': 100,
-            'eta_min': 1e-6,
-            'step_size': 30,
-            'gamma': 0.1
-        },
-        'loss': {
-            'base_weight': 0.8,
-            'svd_weights': [0.05, 0.04, 0.03, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01],
-            'topk': 10,
-            'loss_type': 'mse_svd',
-            'svd_loss_enabled': True,
-            'normalize_svd_weights': True
-        },
-        'dataloader': {
-            'num_workers': 0,
-            'pin_memory': True,
-            'drop_last': False,
-            'persistent_workers': False,
-            'prefetch_factor': 2
-        }
-    }
-    
-    # 如果有配置文件，使用配置文件
-    config = default_config.copy()
+    # 如果有配置文件，优先使用配置文件
+    config = {}
     if config_path and os.path.exists(config_path):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                yaml_config = yaml.safe_load(f)
-                if yaml_config:
-                    # 深度合并配置
-                    for key, value in yaml_config.items():
-                        if isinstance(value, dict) and key in config:
-                            config[key].update(value)
-                        else:
-                            config[key] = value
+                config = yaml.safe_load(f) or {}
             print(f"✅ 成功加载配置文件: {config_path}")
         except Exception as e:
             print(f"⚠️ 加载配置文件失败: {e}，使用默认配置")
+            config = {}
     else:
         if config_path:
             print(f"⚠️ 配置文件不存在: {config_path}，使用默认配置")
+    
+    # 如果配置文件为空或不存在，使用最小默认配置
+    if not config:
+        config = {
+            'data': {
+                'path': 'X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\PDEBench\\pdebench\\data_download\\2D_DarcyFlow_beta0.1_Train.hdf5',
+                'input_resolution': [32, 32],
+                'output_resolution': [128, 128],
+                'num_samples': 100,
+                'crop_mode': 'center',
+                'batch_size': 16,
+                'train_ratio': 0.7,
+                'valid_ratio': 0.15,
+                'test_ratio': 0.15
+            },
+            'training': {
+                'epochs': 10,
+                'learning_rate': 0.001,
+                'weight_decay': 1e-4,
+                'patience': 15,
+                'min_delta': 1e-6,
+                'save_best_model': True,
+                'model_save_path': './results/models/dynamic_resolution_model.pth',
+                'log_interval': 10
+            },
+            'model': {
+                'num_layers': 4,
+                'd_model': 512,
+                'num_heads': 8,
+                'max_time_steps': 100,
+                'attention_type': 'sge'
+            },
+            'device': 'auto',
+            'use_dataparallel': False,
+            'no_pretrained': False,
+            'seed': 42,
+            'visualization': {
+                'enabled': True,
+                'interval': 10,
+                'max_samples': 5
+            },
+            'logging': {
+                'level': 'INFO',
+                'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                'file': './results/logs/dynamic_resolution_training.log'
+            },
+            'optimizer': {
+                'type': 'Adam',
+                'betas': [0.9, 0.999],
+                'eps': 1e-8,
+                'amsgrad': False
+            },
+            'scheduler': {
+                'enabled': True,
+                'type': 'cosine',
+                'T_max': 100,
+                'eta_min': 1e-6,
+                'step_size': 30,
+                'gamma': 0.1
+            },
+            'loss': {
+                'base_weight': 0.8,
+                'svd_weights': [0.05, 0.04, 0.03, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01],
+                'topk': 10,
+                'loss_type': 'mse_svd',
+                'svd_loss_enabled': True,
+                'normalize_svd_weights': True
+            },
+            'dataloader': {
+                'num_workers': 0,
+                'pin_memory': True,
+                'drop_last': False,
+                'persistent_workers': False,
+                'prefetch_factor': 2
+            }
+        }
     
     # 命令行参数覆盖配置文件
     if args.data_path:
@@ -979,9 +981,9 @@ def setup_enhanced_logging(config):
     logger.info(f"📝 日志系统已初始化，日志文件: {log_file}")
     return logger
 
-def validate_config(config):
+def validate_config_detailed(config):
     """
-    验证配置的有效性
+    验证配置的有效性（详细版本，返回错误列表）
     """
     errors = []
     
@@ -1003,7 +1005,7 @@ def validate_config(config):
     # 验证分辨率兼容性
     input_dim = input_res[0] * input_res[1]
     output_dim = output_res[0] * output_res[1]
-    if input_dim > 10000 or output_dim > 10000:
+    if input_dim > 50000 or output_dim > 50000:
         logger.warning(f"分辨率较高，可能导致内存问题: 输入{input_dim}, 输出{output_dim}")
     
     # 验证训练参数
@@ -1068,14 +1070,17 @@ def main():
     args = parse_arguments()
     
     try:
+        # 如果没有指定配置文件，使用默认配置文件
+        config_path = args.config if args.config else 'dynamic_config.yaml'
+        
         # 加载和合并配置
-        config = load_config_with_args(args.config, args)
+        config = load_config_with_args(config_path, args)
         
         # 设置增强的日志系统
         logger = setup_enhanced_logging(config)
         
         # 验证配置
-        config_errors = validate_config(config)
+        config_errors = validate_config_detailed(config)
         if config_errors:
             logger.error("❌ 配置验证失败:")
             for error in config_errors:

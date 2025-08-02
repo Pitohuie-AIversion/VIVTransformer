@@ -25,7 +25,7 @@ data:
   lazy_loading: false             # 是否启用懒加载模式（节省内存，适合大数据集）
   
   # 批次大小
-  batch_size: 16                  # 多GPU训练建议增加到32或更大
+  batch_size: 1                   # 进一步减小批次大小以适应GPU内存限制
   
   # 数据集分割比例
   train_ratio: 0.7
@@ -173,9 +173,9 @@ mixed_precision:
   # loss_scale: "dynamic"         # 动态损失缩放，减少30-50%显存使用
 
 # 设备配置
-device: "auto"                    # 设备类型: 'auto', 'cuda', 'cpu'
-use_dataparallel: true           # 是否使用数据并行
-max_memory_fraction: 0.8         # 最大显存占用比例
+device: "cpu"                     # 设备类型: 'auto', 'cuda', 'cpu' (使用CPU避免GPU内存不足)
+use_dataparallel: false          # CPU模式下禁用数据并行
+max_memory_fraction: 0.6         # 最大显存占用比例（降低以避免内存不足）
 
 # ===== 多GPU训练配置说明 (DataParallel方案) =====
 # 如果服务器有多张显卡，可以按以下方式配置：

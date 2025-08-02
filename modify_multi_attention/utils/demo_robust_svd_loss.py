@@ -1,233 +1,206 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-演示如何使用修复后的鲁棒SVD损失函数
+演示如何使用修复后的SVD损失函数进行稳定训练
 """
 
 import torch
 import torch.nn as nn
-import numpy as np
+import torch.optim as optim
 from svd10_loss import TotalLossWithSVD
+import matplotlib.pyplot as plt
+import numpy as np
 
-def create_sample_model():
-    """创建一个简单的示例模型"""
-    class SimpleModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.conv1 = nn.Conv2d(1, 16, 3, padding=1)
-            self.conv2 = nn.Conv2d(16, 1, 3, padding=1)
-            self.relu = nn.ReLU()
-            
-        def forward(self, x):
-            x = self.relu(self.conv1(x))
-            x = self.conv2(x)
-            return x
+class SimpleModel(nn.Module):
+    """简单的测试模型"""
+    def __init__(self, input_size=1024, hidden_size=512):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, input_size)
+        )
     
-    return SimpleModel()
+    def forward(self, x):
+        return self.layers(x)
 
-def create_sample_data(batch_size=4, size=32):
-    """创建示例训练数据"""
-    # 创建输入数据
-    input_data = torch.randn(batch_size, 1, size, size)
+def create_synthetic_data(batch_size=8, size=32, num_batches=100):
+    """创建合成数据用于测试"""
+    data = []
+    for _ in range(num_batches):
+        # 创建具有不同特性的数据
+        if np.random.random() < 0.1:  # 10%概率创建病态数据
+            x = torch.randn(batch_size, size, size) * 1e-6  # 非常小的值
+        elif np.random.random() < 0.1:  # 10%概率创建大值数据
+            x = torch.randn(batch_size, size, size) * 1e3   # 大值
+        else:
+            x = torch.randn(batch_size, size, size)         # 正常数据
+        
+        # 目标是输入的简单变换
+        y = x + 0.1 * torch.randn_like(x)
+        data.append((x.view(batch_size, -1), y.view(batch_size, -1)))
     
-    # 创建目标数据（添加一些噪声模拟真实情况）
-    target_data = torch.randn(batch_size, 1, size, size)
-    
-    return input_data, target_data
+    return data
 
-def demo_basic_usage():
-    """演示基本使用方法"""
-    print("=== 基本使用演示 ===")
+def train_with_robust_svd_loss():
+    """使用稳定的SVD损失函数进行训练演示"""
+    print("=== 稳定SVD损失函数训练演示 ===")
     
-    # 创建模型和数据
-    model = create_sample_model()
-    input_data, target_data = create_sample_data()
+    # 设置设备
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"使用设备: {device}")
     
-    # 创建鲁棒SVD损失函数
-    loss_fn = TotalLossWithSVD(
-        base_weight=0.6,    # 60% 基础MSE损失
-        topk=5             # 使用前5个SVD模态
+    # 创建模型
+    model = SimpleModel(input_size=1024).to(device)
+    
+    # 创建优化器
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    
+    # 创建稳定的SVD损失函数
+    criterion = TotalLossWithSVD(
+        base_weight=0.7,     # 较高的基础权重确保稳定性
+        topk=5               # 使用较少的模态减少计算复杂度
     )
     
-    # 显示权重信息
+    # 打印权重信息
     print("\n损失函数权重配置:")
-    loss_fn.print_weight_info()
+    criterion.print_weight_info()
     
-    # 前向传播
-    model.eval()
-    with torch.no_grad():
-        pred = model(input_data)
-        # 调整形状以匹配损失函数要求
-        pred_flat = pred.view(pred.size(0), -1)
-        target_flat = target_data.view(target_data.size(0), -1)
+    # 创建数据
+    train_data = create_synthetic_data(batch_size=4, size=32, num_batches=50)
+    
+    # 训练循环
+    losses = []
+    svd_failures = 0
+    
+    print("\n开始训练...")
+    for epoch in range(10):
+        epoch_losses = []
         
-        # 计算损失
-        loss = loss_fn(pred_flat, target_flat)
-        print(f"\n计算得到的损失值: {loss.item():.6f}")
-
-def demo_training_loop():
-    """演示训练循环中的使用"""
-    print("\n=== 训练循环演示 ===")
-    
-    # 创建模型和优化器
-    model = create_sample_model()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    
-    # 创建损失函数
-    loss_fn = TotalLossWithSVD(
-        base_weight=0.5,
-        svd_weights=[0.1, 0.08, 0.06, 0.04, 0.02],  # 自定义权重
-        topk=5
-    )
-    
-    print("开始训练演示...")
-    
-    # 模拟训练循环
-    for epoch in range(3):
-        model.train()
-        epoch_loss = 0.0
-        
-        # 模拟多个batch
-        for batch_idx in range(2):
-            # 创建batch数据
-            input_data, target_data = create_sample_data(batch_size=2)
+        for batch_idx, (x, y) in enumerate(train_data):
+            x, y = x.to(device), y.to(device)
             
             # 前向传播
-            pred = model(input_data)
-            pred_flat = pred.view(pred.size(0), -1)
-            target_flat = target_data.view(target_data.size(0), -1)
+            optimizer.zero_grad()
+            output = model(x)
             
             # 计算损失
-            loss = loss_fn(pred_flat, target_flat)
+            loss = criterion(output.view(-1, 32, 32), y.view(-1, 32, 32))
+            
+            # 检查损失是否有效
+            if torch.isnan(loss) or torch.isinf(loss):
+                print(f"  警告: Epoch {epoch+1}, Batch {batch_idx+1} 损失无效")
+                svd_failures += 1
+                continue
             
             # 反向传播
-            optimizer.zero_grad()
             loss.backward()
+            
+            # 梯度裁剪（推荐）
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            
             optimizer.step()
             
-            epoch_loss += loss.item()
-            print(f"Epoch {epoch+1}, Batch {batch_idx+1}, Loss: {loss.item():.6f}")
+            epoch_losses.append(loss.item())
         
-        avg_loss = epoch_loss / 2
-        print(f"Epoch {epoch+1} 平均损失: {avg_loss:.6f}\n")
+        if epoch_losses:
+            avg_loss = np.mean(epoch_losses)
+            losses.append(avg_loss)
+            print(f"Epoch {epoch+1:2d}: 平均损失 = {avg_loss:.6f}, 批次数 = {len(epoch_losses)}")
+        else:
+            print(f"Epoch {epoch+1:2d}: 所有批次都失败")
+    
+    print(f"\n训练完成!")
+    print(f"SVD失败次数: {svd_failures}")
+    print(f"成功训练批次: {len(train_data) * 10 - svd_failures}")
+    
+    return losses, model
 
-def demo_problematic_data():
-    """演示处理问题数据的能力"""
-    print("=== 问题数据处理演示 ===")
+def compare_loss_functions():
+    """比较标准MSE损失和稳定SVD损失"""
+    print("\n=== 损失函数比较 ===")
     
-    # 创建损失函数
-    loss_fn = TotalLossWithSVD(base_weight=0.5, topk=3)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    print("\n1. 测试病态矩阵:")
-    # 创建病态矩阵（接近奇异）
-    pred = torch.ones(2, 64) * 1e-8
-    target = torch.ones(2, 64) * 1e-8
-    pred[0, 0] = 1.0
-    target[0, 0] = 1.1
+    # 创建测试数据
+    x = torch.randn(2, 32, 32, device=device)
+    y = torch.randn(2, 32, 32, device=device)
     
-    loss = loss_fn(pred, target)
-    print(f"病态矩阵损失: {loss.item():.6f}")
+    # 标准MSE损失
+    mse_loss = nn.MSELoss()
+    mse_value = mse_loss(x, y)
     
-    print("\n2. 测试包含NaN的数据:")
-    pred = torch.randn(2, 64)
-    target = torch.randn(2, 64)
-    pred[0, 0] = float('nan')
+    # 稳定SVD损失
+    svd_loss = TotalLossWithSVD(base_weight=0.5, topk=5)
+    svd_value = svd_loss(x, y)
     
-    loss = loss_fn(pred, target)
-    print(f"NaN数据损失: {loss.item():.6f}")
+    print(f"MSE损失: {mse_value.item():.6f}")
+    print(f"SVD损失: {svd_value.item():.6f}")
     
-    print("\n3. 测试极值数据:")
-    pred = torch.ones(2, 64) * 1e10
-    target = torch.ones(2, 64) * 1e10
+    # 测试病态数据
+    print("\n测试病态数据:")
+    x_bad = torch.ones(2, 32, 32, device=device) * 1e6  # 大值
+    y_bad = torch.ones(2, 32, 32, device=device) * 1e6
     
-    loss = loss_fn(pred, target)
-    print(f"极值数据损失: {loss.item():.6f}")
+    try:
+        mse_bad = mse_loss(x_bad, y_bad)
+        print(f"MSE损失(病态): {mse_bad.item():.6f}")
+    except Exception as e:
+        print(f"MSE损失(病态): 失败 - {str(e)}")
+    
+    try:
+        svd_bad = svd_loss(x_bad, y_bad)
+        print(f"SVD损失(病态): {svd_bad.item():.6f}")
+    except Exception as e:
+        print(f"SVD损失(病态): 失败 - {str(e)}")
 
-def demo_gpu_usage():
-    """演示GPU使用"""
-    print("\n=== GPU使用演示 ===")
+def plot_training_curve(losses):
+    """绘制训练曲线"""
+    if not losses:
+        print("没有损失数据可绘制")
+        return
     
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-        print(f"使用GPU: {torch.cuda.get_device_name()}")
-        
-        # 创建GPU上的模型和数据
-        model = create_sample_model().to(device)
-        input_data, target_data = create_sample_data()
-        input_data = input_data.to(device)
-        target_data = target_data.to(device)
-        
-        # 创建损失函数
-        loss_fn = TotalLossWithSVD(base_weight=0.5, topk=3)
-        
-        # 计算损失
-        model.eval()
-        with torch.no_grad():
-            pred = model(input_data)
-            pred_flat = pred.view(pred.size(0), -1)
-            target_flat = target_data.view(target_data.size(0), -1)
-            
-            loss = loss_fn(pred_flat, target_flat)
-            print(f"GPU损失计算成功: {loss.item():.6f}")
-            
-        print(f"GPU内存使用: {torch.cuda.memory_allocated(device) / 1024**2:.2f} MB")
-    else:
-        print("CUDA不可用，跳过GPU演示")
-
-def demo_weight_analysis():
-    """演示权重分析功能"""
-    print("\n=== 权重分析演示 ===")
+    plt.figure(figsize=(10, 6))
+    plt.plot(losses, 'b-', linewidth=2, label='训练损失')
+    plt.xlabel('Epoch')
+    plt.ylabel('损失值')
+    plt.title('稳定SVD损失函数训练曲线')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.yscale('log')  # 使用对数刻度
     
-    # 创建不同权重配置的损失函数
-    configs = [
-        {"name": "均衡配置", "base_weight": 0.5, "svd_weights": None},
-        {"name": "MSE主导", "base_weight": 0.8, "svd_weights": [0.04, 0.04, 0.04, 0.04, 0.04]},
-        {"name": "SVD主导", "base_weight": 0.2, "svd_weights": [0.16, 0.16, 0.16, 0.16, 0.16]},
-        {"name": "递减权重", "base_weight": 0.4, "svd_weights": [0.2, 0.15, 0.1, 0.1, 0.05]}
-    ]
-    
-    for config in configs:
-        print(f"\n{config['name']}:")
-        loss_fn = TotalLossWithSVD(
-            base_weight=config["base_weight"],
-            svd_weights=config["svd_weights"],
-            topk=5
-        )
-        
-        # 显示权重信息
-        info = loss_fn.get_weight_info()
-        print(f"  基础权重: {info['normalized_base_weight']:.3f}")
-        print(f"  SVD权重: {[f'{w:.3f}' for w in info['normalized_svd_weights']]}")
+    # 保存图片
+    plt.savefig('svd_training_curve.png', dpi=300, bbox_inches='tight')
+    print("训练曲线已保存为 svd_training_curve.png")
+    plt.show()
 
 def main():
-    """主演示函数"""
-    print("鲁棒SVD损失函数使用演示\n")
+    """主函数"""
+    print("稳定SVD损失函数演示")
     print("=" * 50)
     
-    # 设置随机种子以获得可重复的结果
+    # 设置随机种子
     torch.manual_seed(42)
     np.random.seed(42)
     
-    try:
-        demo_basic_usage()
-        demo_training_loop()
-        demo_problematic_data()
-        demo_gpu_usage()
-        demo_weight_analysis()
-        
-        print("\n" + "=" * 50)
-        print("✅ 所有演示完成！")
-        print("\n主要特点:")
-        print("- 🛡️  数值稳定性：自动处理病态矩阵、NaN/Inf值")
-        print("- 🔄 自动降级：SVD失败时自动回退到MSE损失")
-        print("- ⚙️  灵活配置：支持自定义权重分布")
-        print("- 🖥️  GPU兼容：完全支持CUDA加速")
-        print("- 📊 监控友好：详细的警告和调试信息")
-        
-    except Exception as e:
-        print(f"❌ 演示过程中出现错误: {e}")
-        import traceback
-        traceback.print_exc()
+    # 比较损失函数
+    compare_loss_functions()
+    
+    # 训练演示
+    losses, model = train_with_robust_svd_loss()
+    
+    # 绘制训练曲线
+    if losses:
+        plot_training_curve(losses)
+    
+    print("\n=== 使用建议 ===")
+    print("1. 在实际训练中，建议使用较高的基础权重(0.6-0.8)")
+    print("2. 从较少的SVD模态开始(topk=3-5)，根据效果调整")
+    print("3. 添加梯度裁剪以提高训练稳定性")
+    print("4. 监控警告信息，了解SVD计算状态")
+    print("5. 如果频繁出现SVD失败，考虑数据预处理")
 
 if __name__ == "__main__":
     main()

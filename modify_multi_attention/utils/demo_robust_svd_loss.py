@@ -11,6 +11,10 @@ from svd10_loss import TotalLossWithSVD
 import matplotlib.pyplot as plt
 import numpy as np
 
+# 设置matplotlib支持中文显示
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
+
 class SimpleModel(nn.Module):
     """简单的测试模型"""
     def __init__(self, input_size=1024, hidden_size=512):

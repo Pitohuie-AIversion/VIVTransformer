@@ -10,12 +10,21 @@ def get_svd_modes(tensor, topk=10):
     B, H, W = tensor.shape
     modes = []
     
+    # 记录原始数据类型，用于统一处理
+    original_dtype = tensor.dtype
+    
+    def create_zero_mode(reference_shape, dtype):
+        """统一的零模态创建函数"""
+        zero_mode = torch.zeros(reference_shape, device=tensor.device, dtype=torch.float32)
+        if dtype == torch.float16:
+            zero_mode = zero_mode.half()
+        return zero_mode
+    
     for i in range(B):
         current_tensor = tensor[i]
         u, s, vh = None, None, None
         
         # 检查数据类型，如果是Half精度则转换为Float32
-        original_dtype = current_tensor.dtype
         if current_tensor.dtype == torch.float16:
             current_tensor = current_tensor.float()
         
@@ -25,8 +34,8 @@ def get_svd_modes(tensor, topk=10):
             lambda t: torch.linalg.svd(t, full_matrices=False),
             # 策略2: 添加小噪声
             lambda t: torch.linalg.svd(t + 1e-8 * torch.randn_like(t), full_matrices=False),
-            # 策略3: 添加对角正则化
-            lambda t: torch.linalg.svd(t + 1e-6 * torch.eye(min(t.shape), device=t.device, dtype=t.dtype), full_matrices=False),
+            # 策略3: 添加对角正则化（修复维度问题）
+            lambda t: torch.linalg.svd(t + 1e-6 * torch.eye(min(t.shape[-2:]), device=t.device, dtype=t.dtype), full_matrices=False),
             # 策略4: 使用更大的正则化
             lambda t: torch.linalg.svd(t + 1e-4 * torch.randn_like(t), full_matrices=False),
             # 策略5: 截断极值
@@ -46,12 +55,12 @@ def get_svd_modes(tensor, topk=10):
                     # 所有策略都失败，使用零模态
                     print(f"错误: 所有SVD策略都失败，使用零模态替代。错误: {str(e)}")
                     success = False
+                    break
                 continue
         
         if not success:
-            # 创建零模态，需要考虑原始数据类型
-            reference_tensor = tensor[i]  # 使用原始张量作为参考
-            single_modes = [torch.zeros_like(reference_tensor) for _ in range(topk)]
+            # 使用统一的零模态创建函数
+            single_modes = [create_zero_mode(tensor[i].shape, original_dtype) for _ in range(topk)]
         else:
             # 确保奇异值为正数并按降序排列
             s = torch.clamp(s, min=1e-12)
@@ -59,8 +68,7 @@ def get_svd_modes(tensor, topk=10):
             # 检查数值稳定性
             if torch.isnan(s).any() or torch.isinf(s).any():
                 print("警告: SVD结果包含NaN或Inf，使用零模态替代")
-                reference_tensor = tensor[i]  # 使用原始张量作为参考
-                single_modes = [torch.zeros_like(reference_tensor) for _ in range(topk)]
+                single_modes = [create_zero_mode(tensor[i].shape, original_dtype) for _ in range(topk)]
             else:
                 single_modes = []
                 for k in range(min(topk, len(s))):
@@ -68,22 +76,19 @@ def get_svd_modes(tensor, topk=10):
                         mode_k = s[k] * torch.outer(u[:, k], vh[k, :])
                         # 检查模态是否有效
                         if torch.isnan(mode_k).any() or torch.isinf(mode_k).any():
-                            mode_k = torch.zeros_like(current_tensor)
-                        # 转换回原始数据类型
-                        if original_dtype == torch.float16:
-                            mode_k = mode_k.half()
+                            mode_k = create_zero_mode(current_tensor.shape, original_dtype)
+                        else:
+                            # 转换回原始数据类型
+                            if original_dtype == torch.float16:
+                                mode_k = mode_k.half()
                         single_modes.append(mode_k)
                     except Exception as e:
                         print(f"警告: 模态{k}计算失败，使用零模态: {str(e)}")
-                        zero_mode = torch.zeros_like(current_tensor)
-                        if original_dtype == torch.float16:
-                            zero_mode = zero_mode.half()
-                        single_modes.append(zero_mode)
+                        single_modes.append(create_zero_mode(current_tensor.shape, original_dtype))
                 
                 # 如果奇异值数量不足topk，用零填充
                 while len(single_modes) < topk:
-                    zero_mode = torch.zeros_like(tensor[i])  # 使用原始张量作为参考
-                    single_modes.append(zero_mode)
+                    single_modes.append(create_zero_mode(tensor[i].shape, original_dtype))
         
         # 组织模态数据
         for k in range(topk):
@@ -96,8 +101,10 @@ def get_svd_modes(tensor, topk=10):
         modes = [torch.stack(modes[k], dim=0) for k in range(topk)]
     except Exception as e:
         print(f"警告: 模态堆叠失败，返回零模态: {str(e)}")
-        # 返回零模态
-        zero_mode = torch.zeros_like(tensor)
+        # 使用统一的零模态创建函数返回零模态
+        zero_mode = torch.zeros_like(tensor, dtype=torch.float32)
+        if original_dtype == torch.float16:
+            zero_mode = zero_mode.half()
         modes = [zero_mode for _ in range(topk)]
     
     return modes

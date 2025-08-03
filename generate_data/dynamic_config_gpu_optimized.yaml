@@ -67,6 +67,22 @@ loss:
   # SVD损失配置
   svd_loss_enabled: true          # 是否启用SVD损失
   normalize_svd_weights: true     # 是否归一化SVD权重
+  
+  # 增强版SVD损失函数配置
+  enhanced:
+    enabled: true                 # 是否启用增强版SVD损失函数
+    mixed_precision_mode: true    # 混合精度优化模式（提高数值稳定性）
+    adaptive_weights: true        # 自适应权重调整（根据训练进度自动调整权重）
+    fallback_level: 2             # 错误处理级别 (1=基础, 2=标准, 3=完整)
+    enable_monitoring: true       # 启用性能监控（记录SVD调用统计）
+    adaptation_interval: 10       # 权重调整间隔(epoch)
+    evaluation_mode: false        # 评估模式（true=降低SVD权重，false=正常模式）
+    
+    # 控制模式说明：
+    # evaluation_mode: false      # 正常模式 - SVD损失函数完全参与训练
+    # evaluation_mode: true       # 评估模式 - 自动降低SVD权重(基础0.8，SVD总0.2)
+    # adaptive_weights: true      # 自适应模式 - 根据训练进度自动调整权重比例
+    # adaptive_weights: false     # 固定模式 - 使用固定权重，不进行自动调整
 
 # 多损失配置 (可选，用于批量实验)
 loss_configs:

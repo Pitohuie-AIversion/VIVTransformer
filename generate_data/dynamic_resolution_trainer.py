@@ -47,6 +47,11 @@ try:
     from modify_multi_attention.utils.visualization import plot_losses
     from modify_multi_attention.utils.svd10_loss import TotalLossWithSVD
     from modify_multi_attention.utils.logging_utils import setup_logging
+    # 导入增强版SVD损失函数
+    from modify_multi_attention.utils.enhanced_svd_loss import (
+        EnhancedTotalLossWithSVD, create_enhanced_svd_loss,
+        get_global_svd_stats, print_global_svd_stats, reset_global_svd_stats
+    )
 except ImportError as e:
     logger.warning(f"第一次导入失败: {e}")
     try:
@@ -57,6 +62,11 @@ except ImportError as e:
         from utils.visualization import plot_losses
         from utils.svd10_loss import TotalLossWithSVD
         from utils.logging_utils import setup_logging
+        # 导入增强版SVD损失函数
+        from utils.enhanced_svd_loss import (
+            EnhancedTotalLossWithSVD, create_enhanced_svd_loss,
+            get_global_svd_stats, print_global_svd_stats, reset_global_svd_stats
+        )
     except ImportError as e2:
         logger.error(f"所有导入方式都失败: {e2}")
         logger.error(f"当前Python路径: {sys.path}")
@@ -1057,27 +1067,33 @@ def validate_config_detailed(config):
     if config['model']['d_model'] % config['model']['num_heads'] != 0:
         errors.append(f"模型维度({config['model']['d_model']})必须能被注意力头数({config['model']['num_heads']})整除")
     
-    # 验证SVD损失权重
-    if 'loss' in config and 'svd_weights' in config['loss']:
-        svd_weights = config['loss']['svd_weights']
-        base_weight = config['loss'].get('base_weight', 1.0)
+    # 验证SVD损失权重（仅在启用SVD损失时验证）
+    if 'loss' in config:
+        loss_config = config['loss']
+        svd_loss_enabled = loss_config.get('svd_loss_enabled', True)
         
-        if not isinstance(svd_weights, list) or len(svd_weights) == 0:
-            errors.append("SVD权重必须是非空列表")
-        
-        if any(w < 0 for w in svd_weights):
-            errors.append("SVD权重必须为非负数")
-        
-        if base_weight < 0:
-            errors.append("基础权重必须为非负数")
-        
-        total_weight = base_weight + sum(svd_weights)
-        if total_weight == 0:
-            errors.append("所有权重之和不能为0")
-        
-        # 检查权重分布是否合理
-        if base_weight / total_weight < 0.1:
-            logger.warning(f"基础MSE权重占比过低: {base_weight/total_weight:.3f}")
+        if svd_loss_enabled and 'svd_weights' in loss_config:
+            svd_weights = loss_config['svd_weights']
+            base_weight = loss_config.get('base_weight', 1.0)
+            
+            if not isinstance(svd_weights, list) or len(svd_weights) == 0:
+                errors.append("SVD权重必须是非空列表")
+            
+            if any(w < 0 for w in svd_weights):
+                errors.append("SVD权重必须为非负数")
+            
+            if base_weight < 0:
+                errors.append("基础权重必须为非负数")
+            
+            total_weight = base_weight + sum(svd_weights)
+            if total_weight == 0:
+                errors.append("所有权重之和不能为0")
+            
+            # 检查权重分布是否合理
+            if base_weight / total_weight < 0.1:
+                logger.warning(f"基础MSE权重占比过低: {base_weight/total_weight:.3f}")
+        elif not svd_loss_enabled:
+            logger.info("ℹ️ SVD损失已禁用，跳过SVD权重验证")
     
     # 验证数据格式（如果是HDF5文件）
     if data_path.endswith('.h5') or data_path.endswith('.hdf5'):
@@ -1241,34 +1257,84 @@ def main():
             logger.info(f"🖥️ 单GPU训练模式")
         
         # 创建损失函数和优化器
-        logger.info("=== 创建损失函数 ===")
+        logger.info("=== 创建增强版损失函数 ===")
+        
+        # 获取混合精度配置（需要在使用前定义）
+        mixed_precision_config = config.get('mixed_precision', {})
         
         # 从配置中获取损失函数参数
         loss_config = config.get('loss', {})
         base_weight = loss_config.get('base_weight', 0.8)
         svd_weights = loss_config.get('svd_weights', [0.05, 0.04, 0.03, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01])
         topk = loss_config.get('topk', 10)
+        svd_loss_enabled = loss_config.get('svd_loss_enabled', True)
+        
+        # 增强版SVD损失函数配置
+        enhanced_config = loss_config.get('enhanced', {})
+        use_enhanced_svd = enhanced_config.get('enabled', True)
+        mixed_precision_mode = enhanced_config.get('mixed_precision_mode', mixed_precision_config.get('enabled', False))
+        adaptive_weights = enhanced_config.get('adaptive_weights', True)
+        fallback_level = enhanced_config.get('fallback_level', 2)
+        enable_monitoring = enhanced_config.get('enable_monitoring', True)
+        adaptation_interval = enhanced_config.get('adaptation_interval', 10)
         
         logger.info(f"损失函数配置:")
         logger.info(f"  - 基础权重 (base_weight): {base_weight}")
         logger.info(f"  - SVD权重 (svd_weights): {svd_weights}")
         logger.info(f"  - SVD模态数 (topk): {topk}")
-        logger.info(f"  - 损失类型: {loss_config.get('loss_type', 'mse_svd')}")
-        logger.info(f"  - SVD损失启用: {loss_config.get('svd_loss_enabled', True)}")
+        logger.info(f"  - 损失类型: {loss_config.get('loss_type', 'enhanced_mse_svd')}")
+        logger.info(f"  - SVD损失启用: {svd_loss_enabled}")
+        logger.info(f"  - 增强版SVD: {use_enhanced_svd}")
+        logger.info(f"  - 混合精度优化: {mixed_precision_mode}")
+        logger.info(f"  - 自适应权重: {adaptive_weights}")
+        logger.info(f"  - Fallback级别: {fallback_level}")
+        logger.info(f"  - 性能监控: {enable_monitoring}")
         
-        criterion = TotalLossWithSVD(
-            base_weight=base_weight,
-            svd_weights=svd_weights,
-            topk=topk
-        )
-        
-        # 显示实际的权重分布信息
-        logger.info("=== 实际损失函数权重分布 ===")
-        weight_info = criterion.get_weight_info()
-        logger.info(f"原始权重总和: {weight_info['weight_sum']:.4f}")
-        logger.info(f"归一化后基础权重: {weight_info['normalized_base_weight']:.4f}")
-        logger.info(f"归一化后SVD权重: {[f'{w:.4f}' for w in weight_info['normalized_svd_weights']]}")
-        logger.info("================================")
+        # 根据配置决定使用哪种损失函数
+        if svd_loss_enabled:
+            if use_enhanced_svd:
+                logger.info("✅ 启用增强版SVD损失函数 (EnhancedTotalLossWithSVD)")
+                
+                # 重置全局监控器
+                if enable_monitoring:
+                    reset_global_svd_stats()
+                    logger.info("🔄 已重置SVD性能监控器")
+                
+                criterion = create_enhanced_svd_loss(
+                    base_weight=base_weight,
+                    svd_weights=svd_weights,
+                    topk=topk,
+                    mixed_precision=mixed_precision_mode,
+                    adaptive_weights=adaptive_weights,
+                    monitoring=enable_monitoring,
+                    fallback_level=fallback_level
+                )
+                
+                # 显示增强版损失函数信息
+                logger.info("=== 增强版SVD损失函数配置 ===")
+                criterion.print_weight_info()
+                
+            else:
+                logger.info("✅ 启用标准SVD损失函数 (TotalLossWithSVD)")
+                criterion = TotalLossWithSVD(
+                    base_weight=base_weight,
+                    svd_weights=svd_weights,
+                    topk=topk
+                )
+                
+                # 显示实际的权重分布信息
+                logger.info("=== 标准SVD损失函数权重分布 ===")
+                weight_info = criterion.get_weight_info()
+                logger.info(f"原始权重总和: {weight_info['weight_sum']:.4f}")
+                logger.info(f"归一化后基础权重: {weight_info['normalized_base_weight']:.4f}")
+                logger.info(f"归一化后SVD权重: {[f'{w:.4f}' for w in weight_info['normalized_svd_weights']]}")
+                logger.info("================================")
+        else:
+            logger.info("⚠️ 禁用SVD损失，使用标准MSE损失函数")
+            criterion = torch.nn.MSELoss()
+            logger.info("=== 使用标准MSE损失函数 ===")
+            logger.info("SVD计算已完全跳过，节省计算资源")
+            logger.info("================================")
         
         # 从配置中获取优化器参数
         optimizer_config = config['optimizer']
@@ -1346,7 +1412,6 @@ def main():
         
         # 显示高级训练功能状态
         gradient_config = config.get('gradient', {})
-        mixed_precision_config = config.get('mixed_precision', {})
         
         logger.info("=== 高级训练功能状态 ===")
         logger.info(f"梯度裁剪: {'启用' if gradient_config.get('clip_enabled', False) else '禁用'}")
@@ -1397,6 +1462,45 @@ def main():
         )
         
         logger.info(f"最终测试损失: {test_loss:.6f}")
+        
+        # 显示增强版SVD损失函数的性能报告
+        if svd_loss_enabled and use_enhanced_svd and enable_monitoring:
+            logger.info("\n=== SVD损失函数性能报告 ===")
+            try:
+                # 显示性能统计
+                criterion.print_performance_stats()
+                
+                # 显示权重适应历史
+                if adaptive_weights:
+                    weight_info = criterion.get_weight_info()
+                    adaptation_history = weight_info.get('adaptation_history', [])
+                    if adaptation_history:
+                        logger.info("\n=== 权重自适应历史 ===")
+                        logger.info(f"总共进行了 {len(adaptation_history)} 次权重调整")
+                        for i, record in enumerate(adaptation_history[-5:]):  # 显示最后5次调整
+                            logger.info(f"调整 {i+1}: Epoch {record['epoch']}, "
+                                       f"基础权重={record['base_weight']:.4f}, "
+                                       f"损失趋势={record['loss_trend']:.4f}")
+                    else:
+                        logger.info("📊 权重自适应: 训练期间未触发权重调整")
+                
+                # 保存性能统计到文件
+                perf_stats = criterion.get_performance_stats()
+                perf_stats_path = results_dir / 'svd_performance_stats.json'
+                import json
+                with open(perf_stats_path, 'w', encoding='utf-8') as f:
+                    json.dump(perf_stats, f, indent=2, ensure_ascii=False)
+                logger.info(f"📊 SVD性能统计已保存: {perf_stats_path}")
+                
+                # 保存权重信息
+                weight_info = criterion.get_weight_info()
+                weight_info_path = results_dir / 'weight_adaptation_info.json'
+                with open(weight_info_path, 'w', encoding='utf-8') as f:
+                    json.dump(weight_info, f, indent=2, ensure_ascii=False, default=str)
+                logger.info(f"⚖️ 权重适应信息已保存: {weight_info_path}")
+                
+            except Exception as e:
+                logger.warning(f"⚠️ 生成SVD性能报告时出错: {e}")
         
         # 可视化损失
         if config['visualization']['enabled']:

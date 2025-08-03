@@ -1,0 +1,120 @@
+# 增强版动态分辨率训练配置文件
+# 包含增强版SVD损失函数的完整配置选项
+
+# 数据配置
+data:
+  path: "../data/2D/CFD/2D_Train_Rand/2D_CFD_Rand_M0.1_Eta0.01_Zeta0.01_periodic_Train.hdf5"
+  input_resolution: [32, 32]   # 输入分辨率
+  output_resolution: [64, 64]  # 输出分辨率
+  num_samples: 200             # 样本数量
+  batch_size: 8                # 批次大小
+  crop_mode: "center"          # 裁剪模式: center, random, resize
+  normalize_data: true         # 是否归一化数据
+  lazy_loading: false          # 是否启用懒加载
+  train_ratio: 0.7             # 训练集比例
+  valid_ratio: 0.2             # 验证集比例
+  test_ratio: 0.1              # 测试集比例
+
+# 模型配置
+model:
+  input_dim: 1024              # 输入维度 (32*32)
+  output_dim: 4096             # 输出维度 (64*64)
+  num_heads: 8                 # 注意力头数
+  num_layers: 6                # Transformer层数
+  d_model: 512                 # 模型维度
+  max_time_steps: 20           # 最大时间步数
+  attention_type: "standard"   # 注意力类型
+  seq_len: 20                  # 序列长度
+
+# 增强版损失函数配置
+loss:
+  loss_type: "enhanced_mse_svd"  # 损失函数类型
+  svd_loss_enabled: true         # 是否启用SVD损失
+  base_weight: 0.6               # 基础MSE损失权重
+  svd_weights: [0.08, 0.06, 0.05, 0.04, 0.03, 0.03, 0.02, 0.02, 0.02, 0.01]  # SVD模态权重
+  topk: 10                       # SVD模态数量
+  
+  # 增强版SVD配置
+  enhanced:
+    enabled: true                    # 启用增强版SVD损失
+    mixed_precision_mode: true       # 混合精度优化模式
+    adaptive_weights: true           # 自适应权重调整
+    fallback_level: 2                # 错误处理级别 (1=基础, 2=标准, 3=完整)
+    enable_monitoring: true          # 启用性能监控
+    adaptation_interval: 10          # 权重调整间隔(epoch)
+    evaluation_mode: false           # 评估模式(降低SVD权重)
+
+# 训练配置
+training:
+  epochs: 100                  # 训练轮数
+  learning_rate: 0.0001        # 学习率
+  weight_decay: 0.0001         # 权重衰减
+  patience: 15                 # 早停耐心值
+  model_save_path: "./models/enhanced_dynamic_model.pth"  # 模型保存路径
+
+# 优化器配置
+optimizer:
+  type: "AdamW"                # 优化器类型: Adam, SGD, AdamW
+  betas: [0.9, 0.999]          # Adam beta参数
+  eps: 1e-8                    # Adam epsilon参数
+  amsgrad: false               # 是否使用AMSGrad
+  momentum: 0.9                # SGD动量(仅SGD使用)
+
+# 学习率调度器配置
+scheduler:
+  enabled: true                # 是否启用调度器
+  type: "cosine"               # 调度器类型: cosine, step, exponential
+  T_max: 100                   # Cosine调度器周期
+  step_size: 30                # Step调度器步长
+  gamma: 0.1                   # 衰减因子
+
+# 梯度配置
+gradient:
+  clip_enabled: true           # 是否启用梯度裁剪
+  clip_value: 1.0              # 梯度裁剪阈值
+  accumulation_steps: 1        # 梯度累积步数
+
+# 混合精度训练配置
+mixed_precision:
+  enabled: true                # 是否启用混合精度训练
+  loss_scale: "dynamic"        # 损失缩放: dynamic 或具体数值
+  init_scale: 65536.0          # 初始缩放因子
+  growth_factor: 2.0           # 增长因子
+  backoff_factor: 0.5          # 回退因子
+  growth_interval: 2000        # 增长间隔
+
+# 可视化配置
+visualization:
+  enabled: true                # 是否启用可视化
+  save_plots: true             # 是否保存图表
+  plot_interval: 10            # 绘图间隔
+
+# 设备和性能配置
+device: "auto"                 # 设备: auto, cuda, cpu
+use_dataparallel: true         # 是否使用多GPU
+max_memory_fraction: 0.8       # GPU显存使用限制
+num_workers: 4                 # 数据加载器工作进程数
+pin_memory: true               # 是否固定内存
+
+# 其他配置
+seed: 42                       # 随机种子
+no_pretrained: true            # 不使用预训练模型
+log_level: "INFO"              # 日志级别
+
+# 实验配置
+experiment:
+  name: "enhanced_dynamic_resolution"  # 实验名称
+  description: "使用增强版SVD损失函数的动态分辨率训练"  # 实验描述
+  tags: ["enhanced_svd", "dynamic_resolution", "mixed_precision", "adaptive_weights"]  # 实验标签
+  
+  # 性能基准
+  performance_targets:
+    max_train_time_hours: 2.0   # 最大训练时间(小时)
+    target_test_loss: 0.01      # 目标测试损失
+    max_gpu_memory_gb: 10.0     # 最大GPU内存使用(GB)
+    
+  # 监控配置
+  monitoring:
+    log_svd_stats_interval: 50  # SVD统计日志间隔
+    save_checkpoint_interval: 25  # 检查点保存间隔
+    early_stop_metric: "test_loss"  # 早停监控指标

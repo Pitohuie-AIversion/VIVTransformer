@@ -1,0 +1,66 @@
+# 测试SVD损失禁用的配置文件
+data:
+  path: "./data/sample_data.h5"
+  input_resolution: [32, 32]
+  output_resolution: [64, 64]
+  batch_size: 4
+  num_samples: 100
+  crop_mode: "center"
+  normalize_data: true
+  lazy_loading: false
+
+training:
+  epochs: 5
+  learning_rate: 0.001
+  weight_decay: 1e-4
+  patience: 15
+  min_delta: 1e-6
+  save_best_model: true
+  model_save_path: "./results/models/test_svd_disabled_model.pth"
+  log_interval: 10
+
+model:
+  num_layers: 2
+  d_model: 256
+  num_heads: 4
+  max_time_steps: 100
+  attention_type: "sge"
+
+device: "auto"
+use_dataparallel: false
+no_pretrained: false
+seed: 42
+
+visualization:
+  enabled: true
+  interval: 10
+  max_samples: 5
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./results/logs/test_svd_disabled_training.log"
+
+optimizer:
+  type: "Adam"
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  amsgrad: false
+
+scheduler:
+  enabled: true
+  type: "cosine"
+  T_max: 100
+  eta_min: 1e-6
+  step_size: 30
+  gamma: 0.1
+
+# 关键配置：禁用SVD损失
+loss:
+  svd_loss_enabled: false  # 禁用SVD损失，使用标准MSE损失
+  # 以下SVD相关参数在禁用时将被忽略
+  base_weight: 1.0
+  svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  topk: 10
+  loss_type: "mse"
+  normalize_svd_weights: false

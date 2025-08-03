@@ -683,40 +683,41 @@ def get_dynamic_loaders(config: Dict[str, Any]):
     pin_memory = dataloader_config.get('pin_memory', True)
     drop_last = dataloader_config.get('drop_last', False)
     persistent_workers = dataloader_config.get('persistent_workers', False) and num_workers > 0
-    prefetch_factor = dataloader_config.get('prefetch_factor', 2) if num_workers > 0 else 2
+    prefetch_factor = dataloader_config.get('prefetch_factor', 2) if num_workers > 0 else None
     
     logger.info(f"🔄 数据加载器配置: num_workers={num_workers}, pin_memory={pin_memory}, drop_last={drop_last}, prefetch_factor={prefetch_factor}")
     
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, 
-        batch_size=batch_size, 
-        shuffle=True, 
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=drop_last,
-        persistent_workers=persistent_workers,
-        prefetch_factor=prefetch_factor
-    )
-    valid_loader = torch.utils.data.DataLoader(
-        valid_dataset, 
-        batch_size=batch_size, 
-        shuffle=False, 
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=False,
-        persistent_workers=persistent_workers,
-        prefetch_factor=prefetch_factor
-    )
-    test_loader = torch.utils.data.DataLoader(
-        test_dataset, 
-        batch_size=batch_size, 
-        shuffle=False, 
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=False,
-        persistent_workers=persistent_workers,
-        prefetch_factor=prefetch_factor
-    )
+    # 构建 DataLoader 参数
+    dataloader_kwargs = {
+        'batch_size': batch_size,
+        'shuffle': True,
+        'num_workers': num_workers,
+        'pin_memory': pin_memory,
+        'drop_last': drop_last,
+        'persistent_workers': persistent_workers
+    }
+    
+    # 只有在多进程模式下才设置 prefetch_factor
+    if num_workers > 0 and prefetch_factor is not None:
+        dataloader_kwargs['prefetch_factor'] = prefetch_factor
+    
+    train_loader = torch.utils.data.DataLoader(train_dataset, **dataloader_kwargs)
+    # 构建验证和测试 DataLoader 参数
+    valid_test_kwargs = {
+        'batch_size': batch_size,
+        'shuffle': False,
+        'num_workers': num_workers,
+        'pin_memory': pin_memory,
+        'drop_last': False,
+        'persistent_workers': persistent_workers
+    }
+    
+    # 只有在多进程模式下才设置 prefetch_factor
+    if num_workers > 0 and prefetch_factor is not None:
+        valid_test_kwargs['prefetch_factor'] = prefetch_factor
+    
+    valid_loader = torch.utils.data.DataLoader(valid_dataset, **valid_test_kwargs)
+    test_loader = torch.utils.data.DataLoader(test_dataset, **valid_test_kwargs)
     
     logger.info(f"数据集分割: 训练集={train_size}, 验证集={valid_size}, 测试集={test_size}")
     

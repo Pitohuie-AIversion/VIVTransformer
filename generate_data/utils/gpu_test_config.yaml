@@ -1,0 +1,99 @@
+# GPU测试配置 - 小模型参数
+data:
+  input_resolution: [16, 16]      # 减小输入分辨率
+  output_resolution: [32, 32]     # 减小输出分辨率
+  num_samples: 10
+  batch_size: 1
+  path: "X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\PDEBench\\pdebench\\data_download\\2D_DarcyFlow_beta0.1_Train.hdf5"
+  crop_mode: "center"
+  train_ratio: 0.7
+  valid_ratio: 0.2
+  test_ratio: 0.1
+  
+training:
+  epochs: 1
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  patience: 5
+  model_save_path: "models/gpu_test_model.pth"
+  
+loss:
+  type: "mse_svd"
+  base_weight: 0.7
+  svd_weights: [0.15, 0.10, 0.05]
+  topk: 3
+
+# 小模型配置
+model:
+  num_layers: 2                    # 减少层数
+  d_model: 128                     # 减小模型维度
+  num_heads: 4                     # 减少注意力头数
+  max_time_steps: 50               # 减少时间步数
+  dropout: 0.1
+  dim_feedforward: 256             # 减小前馈网络维度
+  attention_type: "sge"
+  activation: "relu"
+  
+  weight_init:
+    method: "xavier_uniform"
+    gain: 1.0
+    std: 0.02
+    
+  normalization:
+    type: "layer_norm"
+    eps: 1e-6
+    
+  positional_encoding:
+    type: "sinusoidal"
+    max_len: 5000
+    
+logging:
+  level: "INFO"
+  save_logs: true
+  log_dir: "logs"
+  
+optimizer:
+  type: "adamw"
+  lr: 0.001
+  weight_decay: 0.001
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  amsgrad: false
+  
+scheduler:
+  enabled: true
+  type: "cosine"
+  T_max: 10
+  eta_min: 1e-6
+  
+gradient:
+  clip_norm: 1.0
+  accumulation_steps: 1
+  
+mixed_precision:
+  enabled: false
+  
+device:
+  device: "cuda"
+  use_dataparallel: false
+  max_memory_fraction: 0.5         # 限制GPU内存使用
+  
+checkpoint:
+  save_best: true
+  save_last: true
+  monitor: "val_loss"
+  mode: "min"
+  save_dir: "checkpoints"
+  
+visualization:
+  enabled: true
+  save_plots: true
+  plot_dir: "plots"
+  show_plots: false
+  interval: 1
+  max_samples: 5
+  
+output:
+  save_dir: "results"
+  save_predictions: true
+  save_metrics: true

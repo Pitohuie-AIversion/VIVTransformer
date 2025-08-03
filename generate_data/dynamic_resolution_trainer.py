@@ -26,22 +26,43 @@ import gc
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any
 
+# 设置日志（在导入之前）
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 # 添加路径
-sys.path.append(str(Path(__file__).parent.parent / 'modify_multi_attention'))
-sys.path.append(str(Path(__file__).parent))
+project_root = Path(__file__).parent.parent
+modify_multi_attention_path = project_root / 'modify_multi_attention'
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(modify_multi_attention_path))
+sys.path.insert(0, str(Path(__file__).parent))
 
 # 导入归一化功能
 from pde_process.pdebench_data_processor import PDEBenchProcessor, PDEBenchConfig
 
-from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
-from modify_multi_attention.training.trainer import train_model, test_model
-from modify_multi_attention.utils.visualization import plot_losses
-from modify_multi_attention.utils.svd10_loss import TotalLossWithSVD
-from modify_multi_attention.utils.logging_utils import setup_logging
-
-# 设置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# 尝试多种导入方式
+try:
+    from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
+    from modify_multi_attention.training.trainer import train_model, test_model
+    from modify_multi_attention.utils.visualization import plot_losses
+    from modify_multi_attention.utils.svd10_loss import TotalLossWithSVD
+    from modify_multi_attention.utils.logging_utils import setup_logging
+except ImportError as e:
+    logger.warning(f"第一次导入失败: {e}")
+    try:
+        # 尝试直接导入
+        sys.path.append(str(modify_multi_attention_path))
+        from mymodels.transformer import TransformerFlowReconstructionModel
+        from training.trainer import train_model, test_model
+        from utils.visualization import plot_losses
+        from utils.svd10_loss import TotalLossWithSVD
+        from utils.logging_utils import setup_logging
+    except ImportError as e2:
+        logger.error(f"所有导入方式都失败: {e2}")
+        logger.error(f"当前Python路径: {sys.path}")
+        logger.error(f"项目根目录: {project_root}")
+        logger.error(f"modify_multi_attention路径: {modify_multi_attention_path}")
+        raise
 
 def log_gpu_memory(stage: str = ""):
     """记录GPU内存使用情况"""
@@ -359,11 +380,16 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
         self.output_max = global_max
         
         # 记录归一化信息，用于后续反归一化
+        if self.lazy_loading:
+            original_data_shape = self.data_shape
+        else:
+            original_data_shape = self.original_data.shape
+            
         self.normalization_info = {
             'global_min': float(global_min),
             'global_max': float(global_max),
             'normalization_method': 'global_minmax',
-            'original_data_shape': self.original_data.shape,
+            'original_data_shape': original_data_shape,
             'input_resolution': self.input_resolution,
             'output_resolution': self.output_resolution
         }
@@ -400,16 +426,17 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
             original_sample = self.original_data[idx:idx+1]  # 保持3D形状
         
         # 生成输入数据（裁剪到输入分辨率）
-        if self.input_resolution == self.original_data.shape[1:]:
+        original_shape = self.data_shape if self.lazy_loading else self.original_data.shape[1:]
+        if self.input_resolution == original_shape:
             input_data = original_sample[0]
         else:
             input_cropped = self._crop_data(original_sample, self.input_resolution)
             input_data = input_cropped[0]
         
         # 生成输出数据
-        if self.output_resolution == self.original_data.shape[1:]:
+        if self.output_resolution == original_shape:
             output_data = original_sample[0]
-        elif self.output_resolution[0] <= self.original_data.shape[1] and self.output_resolution[1] <= self.original_data.shape[2]:
+        elif self.output_resolution[0] <= original_shape[0] and self.output_resolution[1] <= original_shape[1]:
             # 输出分辨率小于等于原始分辨率，使用裁剪
             output_cropped = self._crop_data(original_sample, self.output_resolution)
             output_data = output_cropped[0]

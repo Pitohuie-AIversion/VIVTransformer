@@ -20,7 +20,8 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
     
     # 混合精度训练配置
     mixed_precision_config = cfg.get('mixed_precision', {})
-    use_amp = mixed_precision_config.get('enabled', False) and device.startswith('cuda')
+    device_str = str(device) if hasattr(device, 'type') else str(device)
+    use_amp = mixed_precision_config.get('enabled', False) and 'cuda' in device_str
     scaler = GradScaler() if use_amp else None
     
     if use_amp:

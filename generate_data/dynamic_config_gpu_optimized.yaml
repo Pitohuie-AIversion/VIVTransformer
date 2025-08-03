@@ -10,7 +10,7 @@ data:
   input_resolution: [32, 32]    # 32x32 = 1024维
   
   # 输出分辨率 [height, width] - 内存优化
-  output_resolution: [128, 128]   # 64x64 = 4096维 (大幅减少内存使用)
+  output_resolution: [128, 128]   # 128x128 = 16384维
   
   # 样本数量
   num_samples: 100
@@ -25,7 +25,7 @@ data:
   lazy_loading: false             # 是否启用懒加载模式（节省内存，适合大数据集）
   
   # 批次大小
-  batch_size: 1                   # 保持最小批次大小以适应8GB GPU内存限制
+  batch_size: 1                   # 最小批次大小以节省内存
   
   # 数据集分割比例
   train_ratio: 0.7
@@ -98,12 +98,12 @@ loss_configs:
 # 模型配置
 model:
   # 注意：input_dim, output_dim, seq_len 会根据分辨率自动计算
-  num_layers: 4
-  d_model: 512
-  num_heads: 8
+  num_layers: 1
+  d_model: 32
+  num_heads: 1
   max_time_steps: 100
   dropout: 0.1                     # Dropout率
-  dim_feedforward: 2048            # 前馈网络维度
+  dim_feedforward: 128             # 前馈网络维度
   
   # 注意力机制类型: 'sge', 'cbam', 'eca', 'se', 'relative', 'external'
   attention_type: "sge"
@@ -173,9 +173,9 @@ mixed_precision:
   # loss_scale: "dynamic"         # 动态损失缩放，防止梯度下溢
 
 # 设备配置（内存优化）
-device: "cuda"                    # 设备类型: 'auto', 'cuda', 'cpu'
+device: "cuda"                    # 使用GPU
 use_dataparallel: false          # 禁用多GPU以节省内存开销
-max_memory_fraction: 0.6         # 降低显存占用比例以避免OOM
+max_memory_fraction: 0.2         # 最低显存占用比例以避免OOM
 
 # ===== 多GPU训练配置说明 (DataParallel方案) =====
 # 如果服务器有多张显卡，可以按以下方式配置：

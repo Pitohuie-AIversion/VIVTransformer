@@ -38,7 +38,7 @@ data:
 training:
   epochs: 5000
   learning_rate: 0.001
-  weight_decay: 1e-4
+  weight_decay: 0.0001
   
   # 早停配置
   early_stopping:

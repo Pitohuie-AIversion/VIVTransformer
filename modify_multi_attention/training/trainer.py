@@ -39,8 +39,9 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
     max_samples = cfg["visualization"]["max_samples"]
     
     # 早停配置参数
-    early_stopping_config = cfg.get("training", {})
-    enable_early_stopping = early_stopping_config.get("enable_early_stopping", True)
+    training_config = cfg.get("training", {})
+    early_stopping_config = training_config.get("early_stopping", {})
+    enable_early_stopping = early_stopping_config.get("enabled", False)  # 默认禁用早停
     patience = early_stopping_config.get("patience", early_stop_patience)
     min_delta = early_stopping_config.get("min_delta", 1e-6)
     monitor = early_stopping_config.get("monitor", "val_loss")

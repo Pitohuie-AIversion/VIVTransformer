@@ -1441,7 +1441,7 @@ def main():
             optimizer=optimizer,
             num_epochs=config['training']['epochs'],
             device=device,
-            early_stop_patience=config['training']['patience'],
+            early_stop_patience=config['training']['early_stopping']['patience'],
             attention_type=config['model']['attention_type'],
             result_dir='./results',
             cfg=config,

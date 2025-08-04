@@ -41,15 +41,17 @@ training:
   weight_decay: 1e-4
   
   # 早停配置
-  enable_early_stopping: false  # 是否启用早停
-  patience: 15                 # 早停耐心值（验证损失不改善的epoch数）
-  min_delta: 0.000001         # 最小改善阈值
-  monitor: "val_loss"         # 监控指标: 'val_loss', 'train_loss', 'val_accuracy'
-  mode: "min"                 # 监控模式: 'min'(损失), 'max'(准确率)
-  restore_best_weights: true  # 是否恢复最佳权重
+  early_stopping:
+    enabled: false             # 是否启用早停
+    patience: 15               # 早停耐心值（验证损失不改善的epoch数）
+    min_delta: 0.000001        # 最小改善阈值
+    monitor: "val_loss"        # 监控指标: 'val_loss', 'train_loss', 'val_accuracy'
+    mode: "min"                # 监控模式: 'min'(损失), 'max'(准确率)
+    restore_best_weights: true # 是否恢复最佳权重
   
   save_best_model: true
   save_path: "./results/models/dynamic_resolution_model.pth"
+  model_save_path: "./results/models/dynamic_resolution_model.pth"
   save_best_only: true         # 只保存最佳模型
   log_interval: 10
 

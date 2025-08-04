@@ -1277,6 +1277,7 @@ def main():
         fallback_level = enhanced_config.get('fallback_level', 2)
         enable_monitoring = enhanced_config.get('enable_monitoring', True)
         adaptation_interval = enhanced_config.get('adaptation_interval', 10)
+        force_svd = enhanced_config.get('force_svd', False)
         
         logger.info(f"损失函数配置:")
         logger.info(f"  - 基础权重 (base_weight): {base_weight}")
@@ -1289,6 +1290,7 @@ def main():
         logger.info(f"  - 自适应权重: {adaptive_weights}")
         logger.info(f"  - Fallback级别: {fallback_level}")
         logger.info(f"  - 性能监控: {enable_monitoring}")
+        logger.info(f"  - 强制SVD: {force_svd}")
         
         # 根据配置决定使用哪种损失函数
         if svd_loss_enabled:
@@ -1307,7 +1309,8 @@ def main():
                     mixed_precision=mixed_precision_mode,
                     adaptive_weights=adaptive_weights,
                     monitoring=enable_monitoring,
-                    fallback_level=fallback_level
+                    fallback_level=fallback_level,
+                    force_svd=force_svd
                 )
                 
                 # 显示增强版损失函数信息

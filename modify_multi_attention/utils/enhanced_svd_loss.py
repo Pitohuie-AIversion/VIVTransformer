@@ -81,7 +81,7 @@ class SVDPerformanceMonitor:
 svd_monitor = SVDPerformanceMonitor()
 
 def get_svd_modes_enhanced(tensor, topk=10, mixed_precision_mode=False, 
-                          enable_monitoring=True, fallback_level=2):
+                          enable_monitoring=True, fallback_level=2, force_svd=False):
     """
     增强版SVD模态提取函数
     
@@ -91,6 +91,7 @@ def get_svd_modes_enhanced(tensor, topk=10, mixed_precision_mode=False,
         mixed_precision_mode: 是否启用混合精度优化
         enable_monitoring: 是否启用性能监控
         fallback_level: 错误处理级别 (1=基础, 2=标准, 3=完整)
+        force_svd: 强制使用SVD，禁用fallback机制 (True=强制SVD, False=允许fallback)
     """
     if enable_monitoring:
         svd_monitor.record_call()
@@ -125,8 +126,13 @@ def get_svd_modes_enhanced(tensor, topk=10, mixed_precision_mode=False,
             zero_mode = zero_mode.half()
         return zero_mode
     
-    # 根据fallback_level定义策略
-    if fallback_level == 1:  # 基础级别
+    # 根据force_svd和fallback_level定义策略
+    if force_svd:
+        # 强制SVD模式：只使用标准SVD，不使用任何fallback策略
+        strategies = [
+            lambda t: torch.linalg.svd(t, full_matrices=False)
+        ]
+    elif fallback_level == 1:  # 基础级别
         strategies = [
             lambda t: torch.linalg.svd(t, full_matrices=False),
             lambda t: torch.linalg.svd(t + 1e-8 * torch.randn_like(t), full_matrices=False)
@@ -225,16 +231,18 @@ def get_svd_modes_enhanced(tensor, topk=10, mixed_precision_mode=False,
     return modes
 
 def svd_topk_losses_enhanced(pred, target, topk=10, mixed_precision_mode=False, 
-                            enable_monitoring=True, fallback_level=2):
+                            enable_monitoring=True, fallback_level=2, force_svd=False):
     """增强版SVD损失计算"""
     pred_modes = get_svd_modes_enhanced(pred, topk=topk, 
                                        mixed_precision_mode=mixed_precision_mode,
                                        enable_monitoring=enable_monitoring,
-                                       fallback_level=fallback_level)
+                                       fallback_level=fallback_level,
+                                       force_svd=force_svd)
     target_modes = get_svd_modes_enhanced(target, topk=topk,
                                          mixed_precision_mode=mixed_precision_mode,
                                          enable_monitoring=enable_monitoring,
-                                         fallback_level=fallback_level)
+                                         fallback_level=fallback_level,
+                                         force_svd=force_svd)
     losses = []
     for k in range(topk):
         loss_k = ((pred_modes[k] - target_modes[k]) ** 2).mean()
@@ -314,7 +322,7 @@ class EnhancedTotalLossWithSVD(nn.Module):
     def __init__(self, base_weight=0.5, svd_weights=None, topk=10,
                  mixed_precision_mode=False, enable_monitoring=True,
                  fallback_level=2, adaptive_weights=False,
-                 adaptation_interval=10, evaluation_mode=False):
+                 adaptation_interval=10, evaluation_mode=False, force_svd=False):
         super().__init__()
         
         # 基础参数
@@ -323,6 +331,7 @@ class EnhancedTotalLossWithSVD(nn.Module):
         self.enable_monitoring = enable_monitoring
         self.fallback_level = fallback_level
         self.evaluation_mode = evaluation_mode
+        self.force_svd = force_svd
         
         # 权重管理
         if adaptive_weights:
@@ -403,7 +412,8 @@ class EnhancedTotalLossWithSVD(nn.Module):
                 pred, target, topk=self.topk,
                 mixed_precision_mode=self.mixed_precision_mode,
                 enable_monitoring=self.enable_monitoring,
-                fallback_level=self.fallback_level
+                fallback_level=self.fallback_level,
+                force_svd=self.force_svd
             )
             
             # 检查SVD损失有效性
@@ -486,7 +496,7 @@ class EnhancedTotalLossWithSVD(nn.Module):
 def create_enhanced_svd_loss(base_weight=0.5, svd_weights=None, topk=10,
                              mixed_precision=False, adaptive_weights=False,
                              monitoring=True, fallback_level=2,
-                             evaluation_mode=False):
+                             evaluation_mode=False, force_svd=False):
     """创建增强版SVD损失函数的便捷函数"""
     return EnhancedTotalLossWithSVD(
         base_weight=base_weight,
@@ -496,7 +506,8 @@ def create_enhanced_svd_loss(base_weight=0.5, svd_weights=None, topk=10,
         enable_monitoring=monitoring,
         fallback_level=fallback_level,
         adaptive_weights=adaptive_weights,
-        evaluation_mode=evaluation_mode
+        evaluation_mode=evaluation_mode,
+        force_svd=force_svd
     )
 
 # 全局监控器访问函数

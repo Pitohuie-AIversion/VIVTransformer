@@ -191,19 +191,26 @@ max_memory_fraction: 0.9         # 提高显存使用率以充分利用GPU资源
 gpu_memory_growth: true          # 启用GPU内存动态增长
 clear_cache_interval: 50         # 每50个epoch清理GPU缓存
 
+# 环境配置（服务器无GUI环境）
+environment:
+  headless: true                  # 无头模式
+  backend: "Agg"                  # 使用Agg后端避免GUI依赖
+  qt_qpa_platform: "offscreen"    # Qt离屏渲染
+  disable_gui: true               # 禁用所有GUI功能
+
 # 随机种子和确定性
 seed: 42
 deterministic: false
 
 # 可视化配置 - 服务器优化版本
 visualization:
-  enabled: true                   # 启用可视化以观察降采样效果
+  enabled: false                  # 禁用可视化（避免Qt错误）
   interval: 10                    # 减少可视化间隔以更频繁监控
   max_samples: 12                 # 增加可视化样本数以更好观察效果
   save_format: "png"              # 保存格式 (可选: png, jpg, svg)
   dpi: 300                        # 图像分辨率
-  save_comparison: true           # 保存输入输出对比图
-  save_error_maps: true           # 保存误差热力图
+  save_comparison: false          # 禁用对比图（避免Qt错误）
+  save_error_maps: false          # 禁用误差热力图（避免Qt错误）
 
 # 检查点配置 - 服务器优化版本
 checkpoint:
@@ -225,7 +232,7 @@ monitoring:
   save_system_stats: true         # 保存系统统计信息
   monitor_gradient_norms: true    # 监控梯度范数
   monitor_weight_norms: true      # 监控权重范数
-  alert_on_anomaly: true          # 异常检测告警
+  alert_on_anomaly: false         # 禁用异常告警（避免GUI依赖）
 
 # 数据加载配置 - 服务器优化版本
 dataloader:
@@ -408,7 +415,7 @@ resolution_presets:
 # 使用方法：
 # python dynamic_resolution_trainer.py --config dynamic_config_server_downsampling.yaml
 # 
-# ===== 2024年优化版本更新说明 =====
+# ===== 2024年优化版本更新说明 (v2.1) =====
 # 
 # 本次优化针对服务器环境进行了全面改进：
 # 
@@ -458,11 +465,25 @@ resolution_presets:
 #    - 添加误差热力图和对比图保存
 #    - 增强性能监控 (梯度范数、权重范数、异常检测)
 # 
-# 9. 核心优化理念：
-#    - 输入32x32 → 输出128x128的超分辨率重建
-#    - 输出128x128与原始数据完全匹配，无需额外处理
-#    - 充分利用服务器多GPU和高内存优势
-#    - 平衡训练效率与模型性能
+# 9. 服务器环境适配 (v2.1新增)：
+#    - 禁用可视化功能 (避免Qt平台插件错误)
+#    - 添加无头模式配置 (headless: true)
+#    - 使用Agg后端避免GUI依赖 (backend: "Agg")
+#    - Qt离屏渲染配置 (qt_qpa_platform: "offscreen")
+#    - 禁用异常告警GUI功能 (alert_on_anomaly: false)
+# 
+# 10. 核心优化理念：
+#     - 输入32x32 → 输出128x128的超分辨率重建
+#     - 输出128x128与原始数据完全匹配，无需额外处理
+#     - 充分利用服务器多GPU和高内存优势
+#     - 平衡训练效率与模型性能
+#     - 完全适配无GUI服务器环境
+# 
+# Qt错误修复说明：
+# - 问题：服务器环境缺少Qt GUI支持，导致"qt.qpa.plugin: Could not find the Qt platform plugin"错误
+# - 解决：禁用所有可视化和GUI相关功能，使用无头模式运行
+# - 环境：设置QT_QPA_PLATFORM=offscreen，使用matplotlib的Agg后端
+# - 监控：通过日志文件而非可视化界面监控训练进度
 # 
 # 注意事项：
 # - 确保服务器已安装opencv-python
@@ -470,4 +491,6 @@ resolution_presets:
 # - 根据实际GPU数量调整batch_size
 # - 监控GPU内存使用，必要时调整max_memory_fraction
 # - 降采样质量与计算开销成正比，根据需求选择合适的插值方法
+# - 在无GUI环境下运行，避免Qt相关错误
+# - 使用日志文件监控训练进度，而非可视化界面
 # - 建议在训练前运行一个小批次测试以验证配置兼容性

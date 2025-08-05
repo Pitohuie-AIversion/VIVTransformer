@@ -25,6 +25,14 @@ data:
   # 懒加载配置（内存优化）
   lazy_loading: true              # 是否启用懒加载模式（节省内存，适合大数据集）
   
+  # 降采样配置（新增功能）
+  downsampling:
+    enabled: false                # 是否启用降采样模式（替代传统裁剪）
+    method: "bilinear"            # 降采样方法: 'bilinear', 'nearest', 'bicubic', 'area', 'lanczos'
+    preserve_aspect_ratio: true   # 是否保持宽高比
+    anti_aliasing: true           # 是否启用抗锯齿
+    backend: "auto"               # 后端选择: 'auto', 'opencv', 'scipy'
+  
   # 批次大小
   batch_size: 32                  # 服务器可以使用更大批次
   

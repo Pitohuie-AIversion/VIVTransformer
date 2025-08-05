@@ -7,13 +7,13 @@ data:
   path: "X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\PDEBench\\pdebench\\data_download\\2D_DarcyFlow_beta0.1_Train.hdf5"
   
   # 输入分辨率 [height, width]
-  input_resolution: [32, 32]    # 32x32 = 1024维
+  input_resolution: [32, 32]    # 32x32 = 1024维 - 更小的输入分辨率以节省GPU内存
   
   # 输出分辨率 [height, width] - 内存优化
-  output_resolution: [128, 128]   # 128x128 = 16384维
+  output_resolution: [64, 64]    # 64x64 = 4096维 - 更小的输出分辨率以节省GPU内存
   
   # 样本数量
-  num_samples: 100
+  num_samples: 10                  # 更少样本数量以节省内存
   
   # 裁剪模式: 'center'(中心), 'random'(随机), 'corner'(左上角)
   crop_mode: "center"
@@ -24,13 +24,21 @@ data:
   # 懒加载配置（内存优化）
   lazy_loading: false             # 是否启用懒加载模式（节省内存，适合大数据集）
   
+  # 降采样配置
+  downsampling:
+    enabled: true                 # 启用降采样功能
+    method: "bilinear"            # 降采样方法: 'bilinear', 'bicubic', 'nearest', 'area'
+    backend: "auto"               # 后端选择: 'auto', 'opencv', 'scipy'
+    preserve_aspect_ratio: true   # 保持宽高比
+    antialias: true              # 抗锯齿
+  
   # 批次大小
-  batch_size: 56                   # 最小批次大小以节省内存
+  batch_size: 1                   # 极小批次大小
   
   # 数据集分割比例
-  train_ratio: 0.7
-  valid_ratio: 0.15
-  test_ratio: 0.15
+  train_ratio: 0.8
+  valid_ratio: 0.1
+  test_ratio: 0.1
 
 # 训练配置
 training:
@@ -117,11 +125,11 @@ loss_configs:
 model:
   # 注意：input_dim, output_dim, seq_len 会根据分辨率自动计算
   num_layers: 1
-  d_model: 32
+  d_model: 8                       # 超小模型维度
   num_heads: 1
   max_time_steps: 100
   dropout: 0.1                     # Dropout率
-  dim_feedforward: 128             # 前馈网络维度
+  dim_feedforward: 32              # 超小前馈网络维度
   
   # 注意力机制类型: 'sge', 'cbam', 'eca', 'se', 'relative', 'external'
   attention_type: "sge"
@@ -191,9 +199,9 @@ mixed_precision:
   # loss_scale: "dynamic"         # 动态损失缩放，防止梯度下溢
 
 # 设备配置（内存优化）
-device: "cuda"                    # 使用GPU
-use_dataparallel: false          # 禁用多GPU以节省内存开销
-max_memory_fraction: 0.2         # 最低显存占用比例以避免OOM
+device: "cuda"                    # 使用GPU进行训练
+use_dataparallel: false          # 禁用多GPU
+max_memory_fraction: 0.1         # 更小的显存占用比例
 
 # ===== 多GPU训练配置说明 (DataParallel方案) =====
 # 如果服务器有多张显卡，可以按以下方式配置：
@@ -251,9 +259,10 @@ monitoring:
 # 数据加载配置（内存优化版本）
 dataloader:
   num_workers: 1                  # 减少工作进程数以节省内存
-  pin_memory: false               # 禁用内存固定以节省GPU内存
+  pin_memory: false               # 禁用内存固定，数据在CPU上加载
   persistent_workers: false       # 禁用持久化工作进程以节省内存
   prefetch_factor: 2              # 减少预取因子以节省内存
+  cpu_data_loading: true          # 启用CPU数据加载优化
   
   # 内存优化说明：
   # num_workers: 2                 # 减少到2个工作进程，降低内存占用

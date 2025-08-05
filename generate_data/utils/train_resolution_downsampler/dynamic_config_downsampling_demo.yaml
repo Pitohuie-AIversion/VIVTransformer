@@ -1,0 +1,322 @@
+# 动态分辨率训练配置文件 - 降采样演示版本
+# 展示如何使用新的降分辨率模块
+
+# 数据配置
+data:
+  # 原始数据文件路径
+  path: "demo_data.h5"  # 使用演示数据文件
+  
+  # 输入分辨率 [height, width]
+  input_resolution: [64, 64]      # 64x64 = 4096维
+  
+  # 输出分辨率 [height, width]
+  output_resolution: [128, 128]   # 128x128 = 16384维
+  
+  # 样本数量
+  num_samples: 100
+  
+  # 裁剪模式: 'center'(中心), 'random'(随机), 'corner'(左上角)
+  crop_mode: "center"
+  
+  # 数据归一化配置
+  normalize_data: true            # 是否对数据进行归一化到[0,1]范围
+  normalize: true                 # 是否归一化数据
+  
+  # 懒加载配置（内存优化）
+  lazy_loading: false             # 演示版本关闭懒加载以便观察效果
+  
+  # 降采样配置（新增功能 - 启用演示）
+  downsampling:
+    enabled: true                 # 启用降采样模式（替代传统裁剪）
+    method: "bilinear"            # 降采样方法: 'bilinear', 'nearest', 'bicubic', 'area', 'lanczos'
+    preserve_aspect_ratio: true   # 是否保持宽高比
+    anti_aliasing: true           # 是否启用抗锯齿
+    backend: "auto"               # 后端选择: 'auto', 'opencv', 'scipy'
+  
+  # 批次大小
+  batch_size: 8                   # 演示版本使用较小批次
+  
+  # 数据集分割比例
+  train_ratio: 0.8
+  valid_ratio: 0.1
+  test_ratio: 0.1
+  shuffle: true                   # 是否打乱数据
+
+# 训练配置
+training:
+  epochs: 5                       # 演示版本使用较少轮数
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  
+  # 早停配置
+  early_stopping:
+    enabled: false               # 演示版本关闭早停
+    patience: 15
+    min_delta: 0.000001
+    monitor: "val_loss"
+    mode: "min"
+    restore_best_weights: true
+  
+  save_best_model: true
+  save_path: "./results/models/downsampling_demo_model.pth"
+  model_save_path: "./results/models/downsampling_demo_model.pth"
+  save_best_only: true
+  log_interval: 1                 # 每个epoch都记录
+
+# 损失函数配置
+loss:
+  # 基础损失权重 (MSE全局损失)
+  base_weight: 0.8
+  
+  # SVD损失权重配置
+  svd_weights: [0.05, 0.04, 0.03, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01]
+  
+  # SVD主模态数量
+  topk: 10
+  
+  # 损失函数类型
+  loss_type: "mse_svd"
+  
+  # SVD损失配置
+  svd_loss_enabled: true
+  normalize_svd_weights: true
+  
+  # 增强版SVD损失函数配置
+  enhanced:
+    enabled: true
+    mixed_precision_mode: true
+    adaptive_weights: true
+    fallback_level: 2
+    enable_monitoring: true
+    adaptation_interval: 10
+    evaluation_mode: false
+    force_svd: true
+
+# 模型配置
+model:
+  # 注意：input_dim, output_dim, seq_len 会根据分辨率自动计算
+  num_layers: 4
+  d_model: 512
+  num_heads: 8
+  max_time_steps: 100
+  dropout: 0.1
+  dim_feedforward: 2048
+  
+  # 注意力机制类型
+  attention_type: "sge"
+  
+  # 激活函数配置
+  activation: "relu"
+  
+  # 权重初始化配置
+  weight_init:
+    method: "xavier_uniform"
+    gain: 1.0
+    std: 0.02
+  
+  # 归一化配置
+  normalization:
+    type: "layer_norm"
+    eps: 1e-5
+    elementwise_affine: true
+  
+  # 位置编码配置
+  positional_encoding:
+    type: "learnable"
+    max_len: 5000
+    dropout: 0.1
+  
+  # 前馈网络配置
+  feedforward:
+    activation: "relu"
+    dropout: 0.1
+    bias: true
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./results/logs/downsampling_demo_training.log"
+  verbose: true                   # 启用详细日志
+
+# 优化器配置
+optimizer:
+  type: "adam"
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  amsgrad: false
+
+# 学习率调度器配置
+scheduler:
+  enabled: false
+  type: "step"
+  step_size: 30
+  gamma: 0.1
+  T_max: 100
+
+# 梯度配置
+gradient:
+  clip_enabled: false
+  clip_value: 1.0
+  accumulation_steps: 1
+
+# 混合精度训练配置
+mixed_precision:
+  enabled: false
+  loss_scale: "dynamic"
+
+# 设备配置
+device: "cuda"
+use_dataparallel: false         # 演示版本关闭多GPU
+max_memory_fraction: 0.9
+
+# 随机种子和确定性
+seed: 42
+deterministic: false
+
+# 可视化配置
+visualization:
+  enabled: true
+  interval: 1                     # 每个epoch都可视化
+  max_samples: 3                  # 演示版本减少样本数
+  save_format: "png"
+  dpi: 300
+
+# 检查点配置
+checkpoint:
+  enabled: true
+  save_interval: 2                # 每2个epoch保存一次
+  keep_last_n: 2
+  auto_resume: true
+
+# 性能监控配置
+monitoring:
+  enabled: true
+  log_memory_usage: true
+  log_gpu_usage: true
+  profile_enabled: false
+
+# 数据加载配置
+dataloader:
+  num_workers: 2                  # 演示版本使用较少工作进程
+  pin_memory: true
+  persistent_workers: false       # 演示版本关闭持久化
+  prefetch_factor: 2
+
+# 验证配置
+validation:
+  enabled: true
+  interval: 1
+  metrics: ["mse", "mae", "rmse", "psnr"]
+  save_predictions: false
+  max_samples_to_save: 5
+
+# 测试配置
+test:
+  enabled: true
+  metrics: ["mse", "mae", "rmse", "psnr", "ssim"]
+  save_predictions: true
+  save_visualizations: true
+  output_dir: "./results/test_downsampling_demo"
+
+# 评估指标配置
+evaluation:
+  # 回归指标
+  regression_metrics:
+    mse: true
+    mae: true
+    rmse: true
+    r2_score: true
+  
+  # 图像质量指标
+  image_metrics:
+    psnr: true
+    ssim: true
+    lpips: false
+  
+  # 物理指标（针对流体力学）
+  physics_metrics:
+    energy_conservation: false    # 演示版本简化
+    mass_conservation: false
+    vorticity_error: false
+
+# 数据增强配置
+data_augmentation:
+  enabled: false                  # 演示版本关闭数据增强
+
+# 分布式训练配置
+distributed:
+  enabled: false
+
+# 模型压缩配置
+model_compression:
+  quantization:
+    enabled: false
+  pruning:
+    enabled: false
+  knowledge_distillation:
+    enabled: false
+
+# 超参数调优配置
+hyperparameter_tuning:
+  enabled: false
+
+# 交叉验证配置
+cross_validation:
+  enabled: false
+
+# 模型集成配置
+model_ensemble:
+  enabled: false
+
+# 迁移学习配置
+transfer_learning:
+  enabled: false
+
+# 联邦学习配置
+federated_learning:
+  enabled: false
+
+# 预设分辨率配置示例
+resolution_presets:
+  # 降采样演示配置
+  downsampling_demo:
+    input_resolution: [64, 64]
+    output_resolution: [128, 128]
+    batch_size: 8
+    downsampling:
+      enabled: true
+      method: "bilinear"
+      preserve_aspect_ratio: true
+      anti_aliasing: true
+      backend: "auto"
+  
+  # 高质量降采样配置
+  high_quality_downsampling:
+    input_resolution: [32, 32]
+    output_resolution: [256, 256]
+    batch_size: 4
+    downsampling:
+      enabled: true
+      method: "bicubic"
+      preserve_aspect_ratio: true
+      anti_aliasing: true
+      backend: "opencv"
+
+# ===== 降采样功能说明 =====
+# 
+# 新的降采样功能相比传统裁剪方法的优势：
+# 1. 信息保持：降采样保留整张图像的信息，而裁剪会丢失边缘信息
+# 2. 灵活性：支持任意分辨率转换，不受原始图像尺寸限制
+# 3. 质量优化：提供多种插值算法和抗锯齿选项
+# 4. 后端支持：自动选择最优后端（OpenCV或SciPy）
+# 
+# 使用方法：
+# 1. 设置 data.downsampling.enabled: true
+# 2. 选择合适的降采样方法（bilinear推荐用于一般用途，bicubic用于高质量）
+# 3. 根据需要调整其他参数
+# 
+# 注意事项：
+# - 降采样适用于输出分辨率小于等于输入分辨率的情况
+# - 对于超分辨率任务，建议使用传统裁剪方法
+# - 启用抗锯齿可以减少摩尔纹，但会增加计算开销

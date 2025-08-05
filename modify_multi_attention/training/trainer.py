@@ -125,9 +125,16 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
 
         # ===== 训练用自定义 loss =====
         for i, (in_press, out_pressure, time_steps) in enumerate(train_loader):
-            in_press, out_pressure, time_steps = (
-                in_press.to(device), out_pressure.to(device), time_steps.to(device)
-            )
+            # CPU数据加载优化：只在需要时传输到GPU，减少GPU内存占用
+            if device.type == 'cuda':
+                # 非阻塞传输，提高效率
+                in_press = in_press.to(device, non_blocking=True)
+                out_pressure = out_pressure.to(device, non_blocking=True) 
+                time_steps = time_steps.to(device, non_blocking=True)
+            else:
+                in_press, out_pressure, time_steps = (
+                    in_press.to(device), out_pressure.to(device), time_steps.to(device)
+                )
 
             # 梯度累积：只在累积步数的开始清零梯度
             if i % accumulation_steps == 0:
@@ -183,9 +190,15 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         total_valid_loss = 0
         with torch.no_grad():
             for in_press, out_pressure, time_steps in valid_loader:
-                in_press, out_pressure, time_steps = (
-                    in_press.to(device), out_pressure.to(device), time_steps.to(device)
-                )
+                # CPU数据加载优化：验证时也使用非阻塞传输
+                if device.type == 'cuda':
+                    in_press = in_press.to(device, non_blocking=True)
+                    out_pressure = out_pressure.to(device, non_blocking=True)
+                    time_steps = time_steps.to(device, non_blocking=True)
+                else:
+                    in_press, out_pressure, time_steps = (
+                        in_press.to(device), out_pressure.to(device), time_steps.to(device)
+                    )
                 model_out = model(in_press, time_steps)
                 loss_value = mse_loss(model_out, out_pressure)  # 验证横向对比只用MSE
                 total_valid_loss += loss_value.item()
@@ -203,9 +216,15 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         total_test_loss = 0
         with torch.no_grad():
             for in_press, out_pressure, time_steps in test_loader:
-                in_press, out_pressure, time_steps = (
-                    in_press.to(device), out_pressure.to(device), time_steps.to(device)
-                )
+                # CPU数据加载优化：测试时也使用非阻塞传输
+                if device.type == 'cuda':
+                    in_press = in_press.to(device, non_blocking=True)
+                    out_pressure = out_pressure.to(device, non_blocking=True)
+                    time_steps = time_steps.to(device, non_blocking=True)
+                else:
+                    in_press, out_pressure, time_steps = (
+                        in_press.to(device), out_pressure.to(device), time_steps.to(device)
+                    )
                 model_out = model(in_press, time_steps)
                 loss_value = mse_loss(model_out, out_pressure)  # 测试也用MSE
                 total_test_loss += loss_value.item()
@@ -391,9 +410,15 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
 
     with torch.no_grad():
         for idx, (in_press, out_pressure, time_steps) in enumerate(test_loader):
-            in_press, out_pressure, time_steps = (
-                in_press.to(device), out_pressure.to(device), time_steps.to(device)
-            )
+            # CPU数据加载优化：测试函数中也使用非阻塞传输
+            if device.type == 'cuda':
+                in_press = in_press.to(device, non_blocking=True)
+                out_pressure = out_pressure.to(device, non_blocking=True)
+                time_steps = time_steps.to(device, non_blocking=True)
+            else:
+                in_press, out_pressure, time_steps = (
+                    in_press.to(device), out_pressure.to(device), time_steps.to(device)
+                )
 
             model_out = model(in_press, time_steps)
             loss_value = mse_loss(model_out, out_pressure)  # 只用MSE

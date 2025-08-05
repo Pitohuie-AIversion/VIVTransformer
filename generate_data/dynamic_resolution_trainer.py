@@ -40,6 +40,18 @@ sys.path.insert(0, str(Path(__file__).parent))
 # 导入归一化功能
 from pde_process.pdebench_data_processor import PDEBenchProcessor, PDEBenchConfig
 
+# 导入新的降分辨率模块
+try:
+    from pde_process.resolution_downsampler.resolution_downsampler import (
+        ResolutionDownsampler, DownsampledResolutionDataset
+    )
+    HAS_DOWNSAMPLER = True
+    logger.info("✅ 成功导入降分辨率模块")
+except ImportError as e:
+    HAS_DOWNSAMPLER = False
+    logger.warning(f"⚠️ 降分辨率模块导入失败: {e}")
+    logger.warning("将使用传统的裁剪方法")
+
 # 尝试多种导入方式
 try:
     from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
@@ -139,6 +151,24 @@ def validate_config(config: Dict[str, Any]) -> bool:
     
     if mixed_precision_config.get('enabled', False) and not torch.cuda.is_available():
         warnings.append("混合精度训练需要GPU支持，当前为CPU模式")
+    
+    # 检查降采样配置
+    downsampling_config = data_config.get('downsampling', {})
+    if downsampling_config.get('enabled', False):
+        if not HAS_DOWNSAMPLER:
+            errors.append("配置启用了降采样，但降分辨率模块未成功导入")
+        else:
+            # 验证降采样方法
+            method = downsampling_config.get('method', 'bilinear')
+            valid_methods = ['bilinear', 'nearest', 'bicubic', 'area', 'lanczos']
+            if method not in valid_methods:
+                errors.append(f"无效的降采样方法: {method}，支持的方法: {valid_methods}")
+            
+            # 验证降采样后端
+            backend = downsampling_config.get('backend', 'auto')
+            valid_backends = ['auto', 'opencv', 'scipy']
+            if backend not in valid_backends:
+                warnings.append(f"无效的降采样后端: {backend}，支持的后端: {valid_backends}")
     
     # 输出验证结果
     if warnings:
@@ -690,16 +720,47 @@ def get_dynamic_loaders(config: Dict[str, Any]):
     """
     data_config = config['data']
     
-    # 创建动态数据集
-    dataset = DynamicResolutionDataset(
-        data_path=data_config['path'],
-        input_resolution=tuple(data_config['input_resolution']),
-        output_resolution=tuple(data_config['output_resolution']),
-        num_samples=data_config['num_samples'],
-        crop_mode=data_config.get('crop_mode', 'center'),
-        normalize_data=data_config.get('normalize_data', True),
-        lazy_loading=data_config.get('lazy_loading', False)
-    )
+    # 检查是否启用降采样
+    downsampling_config = data_config.get('downsampling', {})
+    use_downsampling = downsampling_config.get('enabled', False) and HAS_DOWNSAMPLER
+    
+    if use_downsampling:
+        logger.info("🔽 使用降分辨率数据集 (DownsampledResolutionDataset)")
+        # 创建降分辨率数据集
+        dataset = DownsampledResolutionDataset(
+            data_path=data_config['path'],
+            input_resolution=tuple(data_config['input_resolution']),
+            output_resolution=tuple(data_config['output_resolution']),
+            num_samples=data_config['num_samples'],
+            downsample_method=downsampling_config.get('method', 'bilinear'),
+            preserve_aspect_ratio=downsampling_config.get('preserve_aspect_ratio', True),
+            normalize_data=data_config.get('normalize_data', True),
+            lazy_loading=data_config.get('lazy_loading', False)
+        )
+        
+        # 记录降采样配置信息
+        logger.info(f"降采样方法: {downsampling_config.get('method', 'bilinear')}")
+        logger.info(f"保持宽高比: {downsampling_config.get('preserve_aspect_ratio', True)}")
+        logger.info(f"抗锯齿: {downsampling_config.get('anti_aliasing', True)}")
+        logger.info(f"后端: {downsampling_config.get('backend', 'auto')}")
+    else:
+        if downsampling_config.get('enabled', False) and not HAS_DOWNSAMPLER:
+            logger.warning("⚠️ 配置启用了降采样但模块未导入，回退到传统裁剪方法")
+        
+        logger.info("✂️ 使用传统裁剪数据集 (DynamicResolutionDataset)")
+        # 创建传统动态数据集
+        dataset = DynamicResolutionDataset(
+            data_path=data_config['path'],
+            input_resolution=tuple(data_config['input_resolution']),
+            output_resolution=tuple(data_config['output_resolution']),
+            num_samples=data_config['num_samples'],
+            crop_mode=data_config.get('crop_mode', 'center'),
+            normalize_data=data_config.get('normalize_data', True),
+            lazy_loading=data_config.get('lazy_loading', False)
+        )
+        
+        # 记录裁剪配置信息
+        logger.info(f"裁剪模式: {data_config.get('crop_mode', 'center')}")
     
     # 数据集分割
     total_size = len(dataset)

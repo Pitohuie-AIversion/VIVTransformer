@@ -498,6 +498,61 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
     def get_downsampler_info(self):
         """获取降采样器信息"""
         return self.downsampler.get_downsample_info()
+    
+    def get_normalization_info(self):
+        """获取归一化信息，保持与原始数据集的兼容性"""
+        if self.normalize_data:
+            # 使用全局数据范围作为 global_min/max
+            global_min = min(float(self.input_min), float(self.output_min))
+            global_max = max(float(self.input_max), float(self.output_max))
+            return {
+                'input_min': float(self.input_min),
+                'input_max': float(self.input_max),
+                'output_min': float(self.output_min),
+                'output_max': float(self.output_max),
+                'global_min': global_min,
+                'global_max': global_max,
+                'original_data_shape': self.data_shape,
+                'input_resolution': self.input_resolution,
+                'output_resolution': self.output_resolution,
+                'normalized': True,
+                'normalization_method': 'min_max_global'
+            }
+        else:
+            return {
+                'input_min': 0.0,
+                'input_max': 1.0,
+                'output_min': 0.0,
+                'output_max': 1.0,
+                'global_min': 0.0,
+                'global_max': 1.0,
+                'original_data_shape': self.data_shape,
+                'input_resolution': self.input_resolution,
+                'output_resolution': self.output_resolution,
+                'normalized': False,
+                'normalization_method': 'none'
+            }
+    
+    def save_normalization_info(self, save_path: str):
+        """
+        保存归一化信息到文件
+        
+        Args:
+            save_path: 保存路径
+        """
+        import json
+        
+        norm_info = self.get_normalization_info()
+        
+        # 确保保存目录存在
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 保存为JSON文件
+        with open(save_path, 'w', encoding='utf-8') as f:
+            json.dump(norm_info, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"归一化信息已保存到: {save_path}")
 
 def demo_resolution_downsampler():
     """

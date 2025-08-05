@@ -456,16 +456,20 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
             return len(self.original_data)
     
     def __getitem__(self, idx):
-        # 获取原始样本
+        # ===== CPU端数据加载和预处理优化 =====
+        # 所有数据加载、裁剪、插值、归一化等重复工作都在CPU上完成
+        # 只有最终的tensor创建才涉及内存分配
+        
+        # 获取原始样本 (CPU操作)
         if self.lazy_loading:
-            # 懒加载模式：实时加载单个样本
+            # 懒加载模式：实时加载单个样本 (I/O在CPU)
             original_sample = self._load_sample_data(idx)
             original_sample = original_sample[np.newaxis, :]  # 添加batch维度
         else:
-            # 传统模式：从内存中获取
+            # 传统模式：从内存中获取 (CPU内存访问)
             original_sample = self.original_data[idx:idx+1]  # 保持3D形状
         
-        # 生成输入数据（裁剪到输入分辨率）
+        # 生成输入数据（裁剪到输入分辨率） - CPU计算
         original_shape = self.data_shape if self.lazy_loading else self.original_data.shape[1:]
         if self.input_resolution == original_shape:
             input_data = original_sample[0]
@@ -473,30 +477,32 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
             input_cropped = self._crop_data(original_sample, self.input_resolution)
             input_data = input_cropped[0]
         
-        # 生成输出数据
+        # 生成输出数据 - CPU计算
         if self.output_resolution == original_shape:
             output_data = original_sample[0]
         elif self.output_resolution[0] <= original_shape[0] and self.output_resolution[1] <= original_shape[1]:
-            # 输出分辨率小于等于原始分辨率，使用裁剪
+            # 输出分辨率小于等于原始分辨率，使用裁剪 (CPU)
             output_cropped = self._crop_data(original_sample, self.output_resolution)
             output_data = output_cropped[0]
         else:
-            # 输出分辨率大于原始分辨率，使用插值
+            # 输出分辨率大于原始分辨率，使用插值 (CPU)
             output_resized = self._resize_data(original_sample, self.output_resolution)
             output_data = output_resized[0]
         
-        # 展平为1D
+        # 展平为1D - CPU操作
         input_flat = input_data.flatten()
         output_flat = output_data.flatten()
         
-        # 应用归一化
+        # 应用归一化 - CPU计算
         if self.normalize_data:
             input_flat = self._normalize_data(input_flat, self.input_min, self.input_max)
             output_flat = self._normalize_data(output_flat, self.output_min, self.output_max)
         
+        # 最终tensor创建 - 这里会在DataLoader的pin_memory机制下优化GPU传输
+        # pin_memory=True确保数据在页锁定内存中，加速CPU->GPU传输
         return (
-            torch.FloatTensor(input_flat),
-            torch.FloatTensor(output_flat),
+            torch.FloatTensor(input_flat),   # CPU tensor，通过pin_memory优化传输
+            torch.FloatTensor(output_flat),  # CPU tensor，通过pin_memory优化传输
             torch.tensor(idx, dtype=torch.float32)
         )
     
@@ -909,95 +915,110 @@ def load_config_with_args(config_path, args):
     """
     加载配置文件并与命令行参数合并
     """
-    # 如果有配置文件，优先使用配置文件
-    config = {}
+    # 首先定义默认配置
+    default_config = {
+        'data': {
+            'path': 'X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\PDEBench\\pdebench\\data_download\\2D_DarcyFlow_beta0.1_Train.hdf5',
+            'input_resolution': [32, 32],
+            'output_resolution': [128, 128],
+            'num_samples': 100,
+            'crop_mode': 'center',
+            'batch_size': 16,
+            'train_ratio': 0.7,
+            'valid_ratio': 0.15,
+            'test_ratio': 0.15
+        },
+        'training': {
+            'epochs': 10,
+            'learning_rate': 0.001,
+            'weight_decay': 1e-4,
+            'patience': 15,
+            'min_delta': 1e-6,
+            'save_best_model': True,
+            'model_save_path': './results/models/dynamic_resolution_model.pth',
+            'log_interval': 10
+        },
+        'model': {
+            'num_layers': 4,
+            'd_model': 512,
+            'num_heads': 8,
+            'max_time_steps': 100,
+            'attention_type': 'sge'
+        },
+        'device': 'auto',
+        'use_dataparallel': False,
+        'no_pretrained': False,
+        'seed': 42,
+        'visualization': {
+            'enabled': True,
+            'interval': 10,
+            'max_samples': 5
+        },
+        'logging': {
+            'level': 'INFO',
+            'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            'file': './results/logs/dynamic_resolution_training.log'
+        },
+        'optimizer': {
+            'type': 'Adam',
+            'betas': [0.9, 0.999],
+            'eps': 1e-8,
+            'amsgrad': False
+        },
+        'scheduler': {
+            'enabled': True,
+            'type': 'cosine',
+            'T_max': 100,
+            'eta_min': 1e-6,
+            'step_size': 30,
+            'gamma': 0.1
+        },
+        'loss': {
+            'base_weight': 0.8,
+            'svd_weights': [0.05, 0.04, 0.03, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01],
+            'topk': 10,
+            'loss_type': 'mse_svd',
+            'svd_loss_enabled': True,
+            'normalize_svd_weights': True
+        },
+        'dataloader': {
+            'num_workers': 0,
+            'pin_memory': True,
+            'drop_last': False,
+            'persistent_workers': False,
+            'prefetch_factor': 2
+        }
+    }
+    
+    # 从默认配置开始
+    config = default_config.copy()
+    
+    # 如果有配置文件，加载并合并配置文件
     if config_path and os.path.exists(config_path):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f) or {}
+                yaml_config = yaml.safe_load(f) or {}
             print(f"✅ 成功加载配置文件: {config_path}")
+            
+            # 深度合并配置文件到默认配置
+            def deep_merge(default_dict, override_dict):
+                """深度合并两个字典"""
+                result = default_dict.copy()
+                for key, value in override_dict.items():
+                    if isinstance(value, dict) and key in result and isinstance(result[key], dict):
+                        result[key] = deep_merge(result[key], value)
+                    else:
+                        result[key] = value
+                return result
+            
+            config = deep_merge(config, yaml_config)
+            print(f"🔄 配置文件已合并，epochs设置为: {config.get('training', {}).get('epochs', 'N/A')}")
+            
         except Exception as e:
             print(f"⚠️ 加载配置文件失败: {e}，使用默认配置")
-            config = {}
     else:
         if config_path:
             print(f"⚠️ 配置文件不存在: {config_path}，使用默认配置")
-    
-    # 如果配置文件为空或不存在，使用最小默认配置
-    if not config:
-        config = {
-            'data': {
-                'path': 'X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\PDEBench\\pdebench\\data_download\\2D_DarcyFlow_beta0.1_Train.hdf5',
-                'input_resolution': [32, 32],
-                'output_resolution': [128, 128],
-                'num_samples': 100,
-                'crop_mode': 'center',
-                'batch_size': 16,
-                'train_ratio': 0.7,
-                'valid_ratio': 0.15,
-                'test_ratio': 0.15
-            },
-            'training': {
-                'epochs': 10,
-                'learning_rate': 0.001,
-                'weight_decay': 1e-4,
-                'patience': 15,
-                'min_delta': 1e-6,
-                'save_best_model': True,
-                'model_save_path': './results/models/dynamic_resolution_model.pth',
-                'log_interval': 10
-            },
-            'model': {
-                'num_layers': 4,
-                'd_model': 512,
-                'num_heads': 8,
-                'max_time_steps': 100,
-                'attention_type': 'sge'
-            },
-            'device': 'auto',
-            'use_dataparallel': False,
-            'no_pretrained': False,
-            'seed': 42,
-            'visualization': {
-                'enabled': True,
-                'interval': 10,
-                'max_samples': 5
-            },
-            'logging': {
-                'level': 'INFO',
-                'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                'file': './results/logs/dynamic_resolution_training.log'
-            },
-            'optimizer': {
-                'type': 'Adam',
-                'betas': [0.9, 0.999],
-                'eps': 1e-8,
-                'amsgrad': False
-            },
-            'scheduler': {
-                'enabled': True,
-                'type': 'cosine',
-                'T_max': 100,
-                'eta_min': 1e-6,
-                'step_size': 30,
-                'gamma': 0.1
-            },
-            'loss': {
-                'base_weight': 0.8,
-                'svd_weights': [0.05, 0.04, 0.03, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01],
-                'topk': 10,
-                'loss_type': 'mse_svd',
-                'svd_loss_enabled': True,
-                'normalize_svd_weights': True
-            },
-            'dataloader': {
-                'num_workers': 0,
-                'pin_memory': True,
-                'drop_last': False,
-                'persistent_workers': False,
-                'prefetch_factor': 2
-            }
-        }
     
     # 命令行参数覆盖配置文件
     if args.data_path:
@@ -1505,7 +1526,7 @@ def main():
             optimizer=optimizer,
             num_epochs=config['training']['epochs'],
             device=device,
-            early_stop_patience=config['training']['early_stopping']['patience'],
+            early_stop_patience=config['training'].get('patience', 15),
             attention_type=config['model']['attention_type'],
             result_dir='./results',
             cfg=config,

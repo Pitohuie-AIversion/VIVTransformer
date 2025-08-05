@@ -10,7 +10,7 @@ data:
   input_resolution: [32, 32]    # 32x32 = 1024维 - 更小的输入分辨率以节省GPU内存
   
   # 输出分辨率 [height, width] - 内存优化
-  output_resolution: [64, 64]    # 64x64 = 4096维 - 更小的输出分辨率以节省GPU内存
+  output_resolution: [128, 128]    # 64x64 = 4096维 - 更小的输出分辨率以节省GPU内存
   
   # 样本数量
   num_samples: 10                  # 更少样本数量以节省内存
@@ -42,9 +42,14 @@ data:
 
 # 训练配置
 training:
-  epochs: 10
+  epochs: 1
   learning_rate: 0.001
   weight_decay: 0.0001
+  patience: 15
+  min_delta: 0.000001
+  save_best_model: true
+  model_save_path: "./results/models/dynamic_resolution_model.pth"
+  log_interval: 10
   
   # 早停配置
   early_stopping:
@@ -54,10 +59,6 @@ training:
     monitor: "val_loss"       # 监控指标: 'val_loss', 'train_loss', 'val_accuracy'
     mode: "min"               # 监控模式: 'min'(损失), 'max'(准确率)
     restore_best_weights: true # 是否恢复最佳权重
-  
-  save_best_model: true
-  model_save_path: "./results/models/dynamic_resolution_model.pth"
-  log_interval: 10
 
 # 损失函数配置
 loss:

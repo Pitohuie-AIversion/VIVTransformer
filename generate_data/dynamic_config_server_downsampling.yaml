@@ -1,0 +1,399 @@
+# 动态分辨率训练配置文件 - 服务器版降采样配置
+# 结合服务器高性能特性与降采样功能的完整配置
+# 适用于多GPU服务器环境的降采样训练
+
+# 数据配置
+data:
+  # 原始数据文件路径 (服务器路径)
+  path: "/share/fandixiaLab/suguangsheng/PycharmProjects/Sparse_to_Dense_Transformer/VIVTransformer-4sh2r1-codex/pdebench_extended/PDEBench/pdebench/data_download/2D_DarcyFlow_beta10.0_Train.hdf5"
+  
+  # 输入分辨率 [height, width]
+  input_resolution: [64, 64]      # 64x64 = 4096维
+  
+  # 输出分辨率 [height, width]
+  output_resolution: [128, 128]   # 128x128 = 16384维
+  
+  # 样本数量
+  num_samples: 1000               # 服务器可以处理更多样本
+  
+  # 裁剪模式: 'center'(中心), 'random'(随机), 'corner'(左上角)
+  crop_mode: "center"
+  
+  # 数据归一化配置
+  normalize_data: true            # 是否对数据进行归一化到[0,1]范围
+  normalize: true                 # 是否归一化数据
+  
+  # 懒加载配置（内存优化）
+  lazy_loading: true              # 服务器启用懒加载以处理大数据集
+  
+  # 降采样配置（核心功能 - 启用服务器级降采样）
+  downsampling:
+    enabled: true                 # 启用降采样模式（替代传统裁剪）
+    method: "bicubic"             # 服务器使用高质量bicubic插值
+    preserve_aspect_ratio: true   # 是否保持宽高比
+    anti_aliasing: true           # 启用抗锯齿以提高质量
+    backend: "opencv"             # 服务器优先使用opencv后端
+  
+  # 批次大小
+  batch_size: 64                  # 多GPU环境增加批次大小
+  
+  # 数据集分割比例
+  train_ratio: 0.8
+  valid_ratio: 0.1
+  test_ratio: 0.1
+  shuffle: true                   # 是否打乱数据
+
+# 训练配置
+training:
+  epochs: 1000                    # 训练轮数 (可根据需要调整)
+  learning_rate: 0.001            # 学习率
+  weight_decay: 0.0001            # 权重衰减 (L2正则化)
+  
+  # 早停配置 (修复配置兼容性问题)
+  enable_early_stopping: false   # 禁用早停，进行完整训练
+  patience: 20                    # 早停耐心值
+  min_delta: 0.000001             # 最小改善阈值
+  monitor: "val_loss"             # 监控指标
+  mode: "min"                     # 监控模式
+  restore_best_weights: true      # 是否恢复最佳权重
+  
+  save_best_model: true
+  save_path: "./results/models/server_downsampling_model.pth"
+  model_save_path: "./results/models/server_downsampling_model.pth"
+  save_best_only: true
+  log_interval: 10                # 适中的日志间隔
+
+# 损失函数配置
+loss:
+  # 基础损失权重 (MSE全局损失) - 使用纯MSE损失
+  base_weight: 1.0                # 设为1.0，仅使用MSE损失
+  
+  # SVD损失权重配置 (已禁用)
+  svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 全部设为0，禁用SVD损失
+  
+  # SVD主模态数量 (已禁用)
+  topk: 10                        # 保留参数但不使用
+  
+  # 损失函数类型 - 改为纯MSE
+  loss_type: "mse"                # 使用基础MSE损失，不使用SVD
+  
+  # SVD损失配置 (已禁用)
+  svd_loss_enabled: false         # 禁用SVD损失
+  normalize_svd_weights: false    # 禁用SVD权重归一化
+  
+  # 增强版SVD损失函数配置 (已禁用)
+  enhanced:
+    enabled: false                # 禁用增强版SVD损失函数
+    mixed_precision_mode: false   # 禁用混合精度优化模式
+    adaptive_weights: false       # 禁用自适应权重调整
+    fallback_level: 2             # 错误处理级别 (保留参数)
+    enable_monitoring: false      # 禁用性能监控
+    adaptation_interval: 10       # 权重调整间隔 (保留参数)
+    evaluation_mode: false        # 正常训练模式
+    force_svd: false             # 禁用强制SVD
+
+# 多损失配置 (可选，用于批量实验) - 当前仅使用基础MSE
+loss_configs:
+  # 基础配置 - 仅MSE损失 (当前使用)
+  - base_weight: 1.0
+    svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    topk: 10
+    
+  # 平衡配置 - MSE + SVD (可选，当前禁用)
+  # - base_weight: 0.7
+  #   svd_weights: [0.08, 0.06, 0.05, 0.04, 0.03, 0.02, 0.01, 0.01, 0.0, 0.0]
+  #   topk: 10
+    
+  # SVD主导配置 (可选，当前禁用)
+  # - base_weight: 0.3
+  #   svd_weights: [0.15, 0.12, 0.10, 0.08, 0.06, 0.05, 0.04, 0.03, 0.02, 0.02]
+  #   topk: 10
+
+# 模型配置
+model:
+  # 注意：input_dim, output_dim, seq_len 会根据分辨率自动计算
+  num_layers: 6                   # 服务器可以支持更深的模型
+  d_model: 512
+  num_heads: 8
+  max_time_steps: 100
+  dropout: 0.1
+  dim_feedforward: 2048
+  
+  # 注意力机制类型
+  attention_type: "sge"
+  
+  # 激活函数配置
+  activation: "relu"
+  
+  # 权重初始化配置
+  weight_init:
+    method: "xavier_uniform"
+    gain: 1.0
+    std: 0.02
+  
+  # 归一化配置
+  normalization:
+    type: "layer_norm"
+    eps: 1e-5
+    elementwise_affine: true
+  
+  # 位置编码配置
+  positional_encoding:
+    type: "learnable"
+    max_len: 5000
+    dropout: 0.1
+  
+  # 前馈网络配置
+  feedforward:
+    activation: "relu"
+    dropout: 0.1
+    bias: true
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./results/logs/server_downsampling_training.log"
+  verbose: true                   # 启用详细日志以监控降采样效果
+
+# 优化器配置
+optimizer:
+  type: "adam"
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  amsgrad: false
+
+# 学习率调度器配置 (多GPU优化)
+scheduler:
+  enabled: true                   # 启用学习率调度，优化训练效果
+  type: "cosine"                  # 余弦退火调度器 (多GPU推荐)
+  T_max: 1000                     # 与训练轮数匹配
+  eta_min: 1e-6                   # 最小学习率
+
+# 梯度配置 (多GPU优化)
+gradient:
+  clip_enabled: true              # 启用梯度裁剪，防止梯度爆炸
+  clip_value: 1.0                 # 梯度裁剪阈值
+  accumulation_steps: 2           # 梯度累积步数 (多GPU环境增加)
+
+# 混合精度训练配置 (多GPU优化)
+mixed_precision:
+  enabled: true                   # 启用混合精度训练 (多GPU推荐)
+  loss_scale: "dynamic"           # 动态损失缩放
+
+# 设备配置 (服务器多GPU配置) - 可选功能
+device: "cuda"
+use_dataparallel: true           # 启用多GPU数据并行
+max_memory_fraction: 0.8         # 控制显存使用以避免OOM
+
+# 随机种子和确定性
+seed: 42
+deterministic: false
+
+# 可视化配置 (可选功能)
+visualization:
+  enabled: true                   # 启用可视化以观察降采样效果
+  interval: 20                    # 可视化间隔 (每N个epoch)
+  max_samples: 8                  # 可视化样本数
+  save_format: "png"              # 保存格式 (可选: png, jpg, svg)
+  dpi: 300                        # 图像分辨率
+
+# 检查点配置 (可选功能)
+checkpoint:
+  enabled: true                   # 启用检查点保存
+  save_interval: 20               # 检查点保存间隔 (每N个epoch)
+  keep_last_n: 5                  # 保留最近N个检查点
+  auto_resume: true               # 自动恢复训练
+
+# 性能监控配置 (可选功能)
+monitoring:
+  enabled: true                   # 启用性能监控
+  log_memory_usage: true          # 记录内存使用情况
+  log_gpu_usage: true             # 记录GPU使用情况
+  profile_enabled: false          # 性能分析 (可选，影响性能)
+
+# 数据加载配置 (修复兼容性问题)
+dataloader:
+  num_workers: 12                 # 工作进程数 (多GPU环境增加)
+  pin_memory: true                # 固定内存以提升GPU传输速度
+  persistent_workers: true        # 持久化工作进程 (多GPU推荐)
+  prefetch_factor: 6              # 预取因子 (多GPU环境增加)
+
+# 验证配置 (可选功能)
+validation:
+  enabled: true                   # 启用验证
+  interval: 1                     # 验证间隔 (每N个epoch)
+  metrics: ["mse", "mae", "rmse", "psnr"]  # 验证指标
+  save_predictions: false         # 保存验证预测结果 (可选)
+  max_samples_to_save: 10         # 最大保存样本数 (可选)
+
+# 测试配置 (可选功能)
+test:
+  enabled: true                   # 启用测试
+  metrics: ["mse", "mae", "rmse", "psnr", "ssim"]  # 测试指标
+  save_predictions: true          # 保存测试预测结果 (可选)
+  save_visualizations: true       # 保存可视化结果 (可选)
+  output_dir: "./results/test_server_downsampling"  # 输出目录
+
+# 评估指标配置 (可选功能)
+evaluation:
+  # 回归指标
+  regression_metrics:
+    mse: true                     # 均方误差 (基础指标)
+    mae: true                     # 平均绝对误差 (可选)
+    rmse: true                    # 均方根误差 (可选)
+    r2_score: true                # R²决定系数 (可选)
+  
+  # 图像质量指标
+  image_metrics:
+    psnr: true                    # 峰值信噪比 (图像质量)
+    ssim: true                    # 结构相似性指数 (感知质量)
+    lpips: false                  # 感知图像补丁相似性 (可选，需额外依赖)
+  
+  # 物理指标（针对流体力学）
+  physics_metrics:
+    energy_conservation: true     # 能量守恒检查 (物理约束)
+    mass_conservation: true       # 质量守恒检查 (物理约束)
+    vorticity_error: true         # 涡度误差 (流体特性)
+
+# 数据增强配置 (可选功能，通常不用于降采样任务)
+data_augmentation:
+  enabled: false                  # 禁用数据增强 (降采样任务通常不需要)
+  rotation: false                 # 旋转增强 (可选)
+  flip: false                     # 翻转增强 (可选)
+  noise: false                    # 噪声增强 (可选)
+  brightness: false               # 亮度增强 (可选)
+  contrast: false                 # 对比度增强 (可选)
+
+# 分布式训练配置 (高级功能，多机多卡) - 修复配置
+distributed:
+  enabled: false                 # 禁用分布式训练 (避免配置冲突)
+  backend: "nccl"                 # 分布式后端 (推荐用于GPU)
+  init_method: "env://"           # 初始化方法
+  world_size: 1                   # 总进程数 (单机单卡模式)
+  rank: 0                         # 当前进程排名 (自动设置)
+  # 注意：如需启用分布式训练，请根据实际GPU数量调整world_size
+
+# 模型压缩配置 (高级功能，减少模型大小)
+model_compression:
+  quantization:
+    enabled: false                # 量化 (可选，减少精度换取速度)
+  pruning:
+    enabled: false                # 剪枝 (可选，移除不重要连接)
+  knowledge_distillation:
+    enabled: false                # 知识蒸馏 (可选，用大模型训练小模型)
+
+# 超参数调优配置 (高级功能，自动寻找最佳参数)
+hyperparameter_tuning:
+  enabled: false                  # 禁用超参数调优
+  method: "grid_search"            # 调优方法 (可选: grid_search, random_search, bayesian)
+  n_trials: 50                    # 试验次数 (可选)
+  parameters:                     # 调优参数范围 (可选)
+    learning_rate: [0.0001, 0.001, 0.01]
+    batch_size: [16, 32, 64]
+    weight_decay: [0.0001, 0.001, 0.01]
+
+# 交叉验证配置 (高级功能，更可靠的模型评估)
+cross_validation:
+  enabled: false                  # 禁用交叉验证
+  k_folds: 5                      # 折数 (可选)
+  shuffle: true                   # 是否打乱 (可选)
+  random_state: 42                # 随机种子 (可选)
+
+# 模型集成配置 (高级功能，多模型组合提升性能)
+model_ensemble:
+  enabled: false                  # 禁用模型集成
+  n_models: 3                     # 集成模型数量 (可选)
+  voting_strategy: "average"       # 投票策略 (可选: average, weighted_average, majority)
+  diversity_loss_weight: 0.1      # 多样性损失权重 (可选)
+
+# 迁移学习配置 (高级功能，使用预训练模型)
+transfer_learning:
+  enabled: false                  # 禁用迁移学习
+  pretrained_model_path: null     # 预训练模型路径 (可选)
+  freeze_layers: []               # 冻结层列表 (可选)
+  fine_tune_layers: "all"          # 微调层 (可选: all, last, custom)
+
+# 联邦学习配置 (高级功能，分布式隐私保护训练)
+federated_learning:
+  enabled: false                  # 禁用联邦学习
+  n_clients: 10                   # 客户端数量 (可选)
+  rounds: 100                     # 联邦轮数 (可选)
+  client_fraction: 0.1            # 客户端参与比例 (可选)
+  local_epochs: 5                 # 本地训练轮数 (可选)
+
+# 预设分辨率配置示例 (服务器级降采样配置)
+resolution_presets:
+  # 服务器降采样演示配置 (修复GPU内存问题)
+  server_downsampling_demo:
+    input_resolution: [64, 64]
+    output_resolution: [128, 128]
+    batch_size: 32
+    downsampling:
+      enabled: true
+      method: "bicubic"
+      preserve_aspect_ratio: true
+      anti_aliasing: true
+      backend: "opencv"
+  
+  # 高质量服务器降采样配置
+  server_high_quality_downsampling:
+    input_resolution: [32, 32]
+    output_resolution: [256, 256]
+    batch_size: 16
+    downsampling:
+      enabled: true
+      method: "lanczos"             # 最高质量插值
+      preserve_aspect_ratio: true
+      anti_aliasing: true
+      backend: "opencv"
+  
+  # 服务器快速降采样配置
+  server_fast_downsampling:
+    input_resolution: [128, 128]
+    output_resolution: [64, 64]
+    batch_size: 64
+    downsampling:
+      enabled: true
+      method: "bilinear"            # 快速插值
+      preserve_aspect_ratio: true
+      anti_aliasing: false          # 关闭抗锯齿以提升速度
+      backend: "auto"
+
+# ===== 服务器降采样功能说明 =====
+# 
+# 本配置文件结合了服务器的高性能特性与降采样功能：
+# 
+# 1. 服务器特性保留：
+#    - 多GPU支持 (use_dataparallel: true)
+#    - 大批次处理 (batch_size: 32)
+#    - 更多工作进程 (num_workers: 12)
+#    - 混合精度训练 (mixed_precision.enabled: true)
+#    - 持久化工作进程 (persistent_workers: true)
+#    - 增强的预取 (prefetch_factor: 6)
+# 
+# 2. 降采样功能集成：
+#    - 启用高质量bicubic插值
+#    - 优先使用opencv后端
+#    - 启用抗锯齿以提高图像质量
+#    - 保持宽高比以避免失真
+# 
+# 3. 性能优化：
+#    - 懒加载模式处理大数据集
+#    - 梯度裁剪防止梯度爆炸
+#    - 余弦退火学习率调度
+#    - 早停机制避免过拟合
+# 
+# 4. 监控与可视化：
+#    - 详细的性能监控
+#    - 增强的可视化配置
+#    - 完整的评估指标
+# 
+# 使用方法：
+# python dynamic_resolution_trainer.py --config utils/train_resolution_downsampler/dynamic_config_server_downsampling.yaml
+# 
+# 注意事项：
+# - 确保服务器已安装opencv-python
+# - 多GPU环境下建议启用混合精度训练
+# - 根据显存大小调整batch_size和max_memory_fraction
+# - 降采样质量与计算开销成正比，根据需求选择合适的插值方法

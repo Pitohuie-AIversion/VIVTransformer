@@ -41,8 +41,8 @@ def load_and_crop_data():
                 print(f"原始数据形状: {tensor_data.shape}")
                 print(f"数据类型: {tensor_data.dtype}")
                 
-                # 读取前5个样本
-                num_samples = 5
+                # 读取前10个样本
+                num_samples = 10
                 original_data = np.array(tensor_data[:num_samples], dtype=np.float32)
                 print(f"加载样本数: {num_samples}")
                 print(f"加载数据形状: {original_data.shape}")
@@ -80,7 +80,7 @@ def load_and_crop_data():
         print(f"加载数据时出错: {str(e)}")
         return None, None, None
 
-def visualize_spatial_crop(original_data, cropped_data, crop_region, sample_idx=0):
+def visualize_spatial_crop(original_data, cropped_data, crop_region, sample_idx=0, save_name=None):
     """
     可视化空间裁剪结果
     
@@ -89,6 +89,7 @@ def visualize_spatial_crop(original_data, cropped_data, crop_region, sample_idx=
         cropped_data: 裁剪后的数据 [samples, crop_height, crop_width]
         crop_region: 裁剪区域 (start_h, end_h, start_w, end_w)
         sample_idx: 要可视化的样本索引
+        save_name: 保存文件名
     """
     start_h, end_h, start_w, end_w = crop_region
     
@@ -128,8 +129,10 @@ def visualize_spatial_crop(original_data, cropped_data, crop_region, sample_idx=
     plt.colorbar(im3, ax=axes[2], shrink=0.8)
     
     plt.tight_layout()
-    plt.savefig('spatial_crop_32x32_visualization.png', dpi=300, bbox_inches='tight')
+    filename = save_name if save_name else f'spatial_crop_32x32_sample_{sample_idx+1}.png'
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
     plt.show()
+    print(f"可视化已保存: {filename}")
     
     # 打印统计信息
     print(f"\n=== 样本 {sample_idx+1} 统计信息 ===")
@@ -169,6 +172,136 @@ def analyze_multiple_samples(original_data, cropped_data):
         ratio_std = crop_sample.std() / orig_sample.std() if orig_sample.std() != 0 else 0
         print(f"  比率: 均值比={ratio_mean:.3f}, 标准差比={ratio_std:.3f}")
 
+def create_multiple_crop_regions(height, width, crop_size=32):
+    """
+    创建多个不同的裁剪区域
+    
+    Args:
+        height: 原始数据高度
+        width: 原始数据宽度
+        crop_size: 裁剪尺寸
+    
+    Returns:
+        list: 裁剪区域列表，每个元素为 (start_h, end_h, start_w, end_w, name)
+    """
+    regions = []
+    
+    # 只保留中心区域
+    center_h = height // 2
+    center_w = width // 2
+    start_h = center_h - crop_size // 2
+    end_h = start_h + crop_size
+    start_w = center_w - crop_size // 2
+    end_w = start_w + crop_size
+    regions.append((start_h, end_h, start_w, end_w, "中心区域"))
+    
+    return regions
+
+def generate_multiple_visualizations():
+    """
+    生成多组可视化结果
+    """
+    print("=== 生成多组可视化 ===")
+    
+    # 加载数据
+    data_path = r"X:\2025\Graduation_project\Pdebench_input_Transformer\VIVTransformer-1\PDEBench\pdebench\data_download\2D_DarcyFlow_beta0.1_Train.hdf5"
+    
+    try:
+        with h5py.File(data_path, 'r') as f:
+            tensor_data = f['tensor']
+            # 随机抽取10个样本
+            total_samples = tensor_data.shape[0]
+            num_samples = 10
+            random_indices = np.random.choice(total_samples, num_samples, replace=False)
+            random_indices = np.sort(random_indices)  # h5py要求索引按递增顺序
+            original_data = np.array(tensor_data[random_indices], dtype=np.float32)
+            print(f"随机选择的样本索引: {random_indices}")
+            
+            if len(original_data.shape) == 4 and original_data.shape[1] == 1:
+                original_data = original_data.squeeze(1)
+            
+            height, width = original_data.shape[1], original_data.shape[2]
+            print(f"加载了 {num_samples} 个样本，尺寸: {height}x{width}")
+            
+            # 创建多个裁剪区域
+            crop_regions = create_multiple_crop_regions(height, width)
+            
+            # 为每个区域生成可视化
+            for region_idx, (start_h, end_h, start_w, end_w, region_name) in enumerate(crop_regions):
+                print(f"\n=== 处理{region_name} ===")
+                
+                # 对所有样本进行裁剪
+                cropped_data = original_data[:, start_h:end_h, start_w:end_w]
+                crop_region = (start_h, end_h, start_w, end_w)
+                
+                # 为所有10个样本生成可视化
+                for sample_idx in range(num_samples):
+                    save_name = f'crop_{region_name}_sample_{sample_idx+1}.png'
+                    print(f"生成样本 {sample_idx+1} 在{region_name}的可视化...")
+                    
+                    visualize_spatial_crop(original_data, cropped_data, crop_region, 
+                                         sample_idx=sample_idx, save_name=save_name)
+                    
+                    # 打印该样本在该区域的统计信息
+                    orig_sample = original_data[sample_idx]
+                    crop_sample = cropped_data[sample_idx]
+                    print(f"  样本{sample_idx+1} {region_name}: 原始均值={orig_sample.mean():.4f}, 裁剪均值={crop_sample.mean():.4f}")
+            
+            # 生成对比图：同一样本的不同区域
+            print("\n=== 生成同一样本不同区域对比图 ===")
+            sample_idx = 0  # 使用第一个样本
+            fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+            axes = axes.flatten()
+            
+            for i, (start_h, end_h, start_w, end_w, region_name) in enumerate(crop_regions):
+                if i >= 6:  # 最多显示6个区域
+                    break
+                    
+                cropped_sample = original_data[sample_idx, start_h:end_h, start_w:end_w]
+                im = axes[i].imshow(cropped_sample, cmap='viridis')
+                axes[i].set_title(f'{region_name}\n均值: {cropped_sample.mean():.4f}')
+                axes[i].set_xlabel('X坐标')
+                axes[i].set_ylabel('Y坐标')
+                plt.colorbar(im, ax=axes[i], shrink=0.8)
+            
+            # 隐藏多余的子图
+            for i in range(len(crop_regions), 6):
+                axes[i].set_visible(False)
+            
+            plt.tight_layout()
+            comparison_filename = f'sample_{sample_idx+1}_all_regions_comparison.png'
+            plt.savefig(comparison_filename, dpi=300, bbox_inches='tight')
+            plt.show()
+            print(f"对比图已保存: {comparison_filename}")
+            
+            # 生成10个样本网格图
+            print("\n=== 生成10个随机样本网格图 ===")
+            fig, axes = plt.subplots(2, 5, figsize=(25, 10))
+            axes = axes.flatten()
+            
+            # 使用中心区域裁剪
+            center_region = crop_regions[0]  # 中心区域
+            start_h, end_h, start_w, end_w, _ = center_region
+            
+            for i in range(num_samples):
+                cropped_sample = original_data[i, start_h:end_h, start_w:end_w]
+                im = axes[i].imshow(cropped_sample, cmap='viridis')
+                axes[i].set_title(f'样本 {random_indices[i]+1}\n均值: {cropped_sample.mean():.4f}')
+                axes[i].set_xlabel('X坐标')
+                axes[i].set_ylabel('Y坐标')
+                plt.colorbar(im, ax=axes[i], shrink=0.6)
+            
+            plt.tight_layout()
+            grid_filename = 'random_10_samples_grid.png'
+            plt.savefig(grid_filename, dpi=300, bbox_inches='tight')
+            plt.show()
+            print(f"10个随机样本网格图已保存: {grid_filename}")
+            
+    except Exception as e:
+        print(f"生成多组可视化时出错: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
 def demonstrate_spatial_crop():
     """
     演示32x32空间裁剪功能
@@ -190,6 +323,10 @@ def demonstrate_spatial_crop():
     
     # 3. 分析多个样本
     analyze_multiple_samples(original_data, cropped_data)
+    
+    # 4. 生成多组可视化
+    print("\n=== 生成多组可视化 ===")
+    generate_multiple_visualizations()
     
     # 4. 保存裁剪后的数据
     print("\n=== 保存数据 ===")

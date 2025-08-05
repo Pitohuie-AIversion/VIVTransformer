@@ -1,0 +1,128 @@
+# 分辨率降采样器配置文件
+# 用于配置降采样数据集的各种参数
+
+# 数据配置
+data:
+  # 原始数据文件路径
+  path: "X:\2025\Graduation_project\Pdebench_input_Transformer\VIVTransformer-1\PDEBench\pdebench\data_download\2D_DarcyFlow_beta0.1_Train.hdf5"
+  
+  # 分辨率配置（使用降采样而不是裁剪）
+  input_resolution: [32, 32]    # 输入分辨率 (height, width)
+  output_resolution: [64, 64]   # 输出分辨率 (height, width)
+  
+  # 数据集配置
+  num_samples: 200              # 使用的样本数量
+  batch_size: 16                # 批次大小
+  
+  # 数据分割比例
+  train_ratio: 0.7              # 训练集比例
+  valid_ratio: 0.15             # 验证集比例
+  test_ratio: 0.15              # 测试集比例
+  
+  # 数据处理配置
+  normalize_data: true          # 是否归一化数据
+  lazy_loading: false           # 是否启用懒加载（节省内存）
+
+# 降采样配置
+downsampler:
+  # 降采样方法
+  # 可选: 'bilinear', 'nearest', 'bicubic', 'area', 'lanczos'
+  method: 'bilinear'
+  
+  # 是否保持宽高比
+  preserve_aspect_ratio: true
+  
+  # 是否启用抗锯齿
+  anti_aliasing: true
+  
+  # 使用的库 ('opencv' 或 'scipy')
+  backend: 'opencv'
+
+# 训练配置
+training:
+  epochs: 50                    # 训练轮数
+  learning_rate: 0.001          # 学习率
+  weight_decay: 1e-4            # 权重衰减
+  
+  # 早停配置
+  patience: 15                  # 早停耐心值
+  min_delta: 1e-6              # 最小改善阈值
+  
+  # 模型保存
+  save_best_model: true
+  model_save_path: './results/models/downsampled_resolution_model.pth'
+  
+  # 日志配置
+  log_interval: 10              # 日志输出间隔
+
+# 模型配置
+model:
+  # Transformer配置
+  num_layers: 4                 # Transformer层数
+  d_model: 512                  # 模型维度
+  num_heads: 8                  # 注意力头数
+  max_time_steps: 100           # 最大时间步数
+  attention_type: 'sge'         # 注意力类型
+  
+  # 自动计算的维度（由程序计算）
+  # input_dim: 1024             # 输入维度 (32*32)
+  # output_dim: 4096            # 输出维度 (64*64)
+  # seq_len: 1024               # 序列长度
+
+# 日志配置
+logging:
+  level: 'INFO'
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  file: './results/logs/downsampled_resolution_training.log'
+
+# 设备配置
+device: 'auto'                  # 'auto', 'cpu', 'cuda'
+seed: 42                        # 随机种子
+
+# 可视化配置
+visualization:
+  enabled: true                 # 是否启用可视化
+  interval: 10                  # 可视化间隔
+  max_samples: 5                # 最大可视化样本数
+  save_path: './results/visualizations/'
+
+# 实验配置
+experiment:
+  name: 'downsampled_resolution_experiment'
+  description: '使用降采样方法进行分辨率变换的实验'
+  tags: ['downsampling', 'resolution', 'transformer']
+  
+  # 对比实验配置
+  compare_with_crop: true       # 是否与裁剪方法对比
+  save_comparison: true         # 是否保存对比结果
+
+# 高级配置
+advanced:
+  # 梯度配置
+  gradient:
+    clip_enabled: true          # 是否启用梯度裁剪
+    clip_value: 1.0             # 梯度裁剪值
+  
+  # 混合精度训练
+  mixed_precision:
+    enabled: false              # 是否启用混合精度
+    loss_scale: 'dynamic'       # 损失缩放策略
+  
+  # 内存优化
+  memory:
+    clear_cache_interval: 100   # 清理缓存间隔
+    max_memory_usage: 0.8       # 最大内存使用比例
+
+# 输出配置
+output:
+  # 结果保存路径
+  results_dir: './results/'
+  
+  # 保存的文件类型
+  save_formats: ['hdf5', 'numpy']  # 'hdf5', 'numpy', 'pickle'
+  
+  # 是否保存中间结果
+  save_intermediate: true
+  
+  # 是否保存归一化信息
+  save_normalization_info: true

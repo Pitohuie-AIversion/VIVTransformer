@@ -265,8 +265,18 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                 # 保存最佳模型权重
                 if restore_best_weights:
                     best_model_state = model.state_dict().copy()
-                torch.save(model.state_dict(), os.path.join(save_dir, f"best_model_{attention_type}.pt"))
-                print(f"✅ 模型已保存 (Best {monitor}: {current_metric:.6f})")
+                
+                # 使用配置文件中的模型保存路径
+                if cfg and 'training' in cfg and 'model_save_path' in cfg['training']:
+                    model_save_path = cfg['training']['model_save_path']
+                    # 确保目录存在
+                    os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
+                    torch.save(model.state_dict(), model_save_path)
+                    print(f"✅ 模型已保存到: {model_save_path} (Best {monitor}: {current_metric:.6f})")
+                else:
+                    # 回退到原来的保存方式
+                    torch.save(model.state_dict(), os.path.join(save_dir, f"best_model_{attention_type}.pt"))
+                    print(f"✅ 模型已保存 (Best {monitor}: {current_metric:.6f})")
             else:
                 patience_counter += 1
                 print(f"⚠️ 早停计数: {patience_counter}/{patience} (当前{monitor}: {current_metric:.6f}, 最佳: {best_metric:.6f})")
@@ -283,8 +293,18 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
             # 不启用早停时的传统逻辑
             if avg_valid_loss < best_valid_loss:
                 best_valid_loss = avg_valid_loss
-                torch.save(model.state_dict(), os.path.join(save_dir, f"best_model_{attention_type}.pt"))
-                print("✅ 模型已保存 (Best Model Updated)")
+                
+                # 使用配置文件中的模型保存路径
+                if cfg and 'training' in cfg and 'model_save_path' in cfg['training']:
+                    model_save_path = cfg['training']['model_save_path']
+                    # 确保目录存在
+                    os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
+                    torch.save(model.state_dict(), model_save_path)
+                    print(f"✅ 模型已保存到: {model_save_path} (Best Model Updated)")
+                else:
+                    # 回退到原来的保存方式
+                    torch.save(model.state_dict(), os.path.join(save_dir, f"best_model_{attention_type}.pt"))
+                    print("✅ 模型已保存 (Best Model Updated)")
         
         # ========== 保存断点 ==========
         checkpoint = {

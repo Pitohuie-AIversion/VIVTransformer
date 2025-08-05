@@ -1,5 +1,13 @@
 import os
+# 设置无头模式环境变量（必须在任何GUI相关导入之前）
+os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+os.environ.setdefault('MPLBACKEND', 'Agg')
+os.environ.setdefault('DISPLAY', '')
+os.environ.setdefault('HEADLESS', '1')
+
 import torch
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from torch.cuda.amp import autocast, GradScaler
 

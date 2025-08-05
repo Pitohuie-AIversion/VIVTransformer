@@ -6,6 +6,12 @@ location of the output results directory via command-line arguments.
 
 import argparse
 import os
+# 设置无头模式环境变量（必须在任何GUI相关导入之前）
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+os.environ['MPLBACKEND'] = 'Agg'
+os.environ['DISPLAY'] = ''
+os.environ['HEADLESS'] = '1'
+
 import sys
 import random
 from pathlib import Path
@@ -13,10 +19,9 @@ import logging
 
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib
-
 matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 # 设置matplotlib支持中文显示
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']

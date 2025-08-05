@@ -14,7 +14,17 @@
 日期: 2025
 """
 
+# 设置无头模式环境变量（必须在任何GUI相关导入之前）
 import os
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+os.environ['MPLBACKEND'] = 'Agg'
+os.environ['DISPLAY'] = ''
+os.environ['HEADLESS'] = '1'
+
+# 设置matplotlib后端为Agg（无GUI）
+import matplotlib
+matplotlib.use('Agg')
+
 import sys
 import torch
 import numpy as np

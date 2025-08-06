@@ -1,0 +1,166 @@
+# 动态分辨率训练配置文件 - Linux服务器版
+# 适用于Linux服务器环境的配置
+# 服务器规格: 192核CPU + 1TB内存 + 2GPU
+
+# 数据配置
+data:
+  # Linux服务器数据路径 (需要根据实际服务器路径调整)
+  path: "/share/fandixiaLab/suguangsheng/PycharmProjects/VIVTransformer_pdebench/PDEBench/pdebench/data_download/2D_DarcyFlow_beta0.1_Train.hdf5"
+  
+  # 输入分辨率 [height, width]
+  input_resolution: [32, 32]      # 32x32 = 1024维
+  
+  # 输出分辨率 [height, width]
+  output_resolution: [128, 128]   # 128x128 = 16384维
+  
+  # 样本数量 - 针对192核CPU优化
+  num_samples: 20000              # 充分利用192核CPU和1TB内存
+  
+  # 裁剪模式
+  crop_mode: "center"
+  
+  # 数据归一化配置
+  normalize: true                 # 是否归一化数据
+  normalization_method: "global"  # 全局归一化
+  
+  # 懒加载配置（内存优化）
+  lazy_loading: true              # 服务器启用懒加载
+  
+  # 降采样配置
+  downsampling:
+    enabled: true                 # 启用降采样模式
+    method: "bilinear"            # 使用双线性插值
+    antialias: true               # 启用抗锯齿
+  
+  # 批次大小 - 针对2GPU+1TB内存优化
+  batch_size: 128                 # 大批次大小以充分利用GPU
+  
+  # 数据集分割比例
+  train_ratio: 0.8
+  valid_ratio: 0.1
+  test_ratio: 0.1
+
+# 训练配置
+training:
+  epochs: 500                     # 服务器可以运行更多轮次
+  batch_size: 128                 # 与data.batch_size保持一致
+  learning_rate: 0.0005           # 学习率
+  weight_decay: 0.0001            # 权重衰减
+
+# 早停配置
+early_stopping:
+  enabled: true
+  patience: 20                    # 服务器可以等待更长时间
+  min_delta: 0.000001             # 最小改善阈值
+  restore_best_weights: true
+
+# 模型保存配置
+model_save:
+  enabled: true
+  save_best_only: true
+  save_interval: 10               # 每10轮保存一次
+  save_path: "results/models"
+
+# 解码器配置
+decoder:
+  type: "transformer"             # 使用transformer解码器
+  num_layers: 6                   # 服务器可以支持更深的网络
+  hidden_dim: 512                 # 更大的隐藏维度
+  num_heads: 8                    # 多头注意力
+  dropout: 0.1
+
+# 日志配置
+logging:
+  level: "INFO"
+  save_logs: true
+  log_interval: 10
+  log_path: "results/logs"
+
+# 优化器配置
+optimizer:
+  type: "AdamW"
+  betas: [0.9, 0.999]
+  eps: 0.00000001                 # 数值稳定性参数
+  amsgrad: false
+
+# 学习率调度器配置
+scheduler:
+  type: "cosine"                  # 余弦退火调度器
+  T_max: 500                      # 与训练轮数匹配
+  eta_min: 0.0000001              # 最小学习率
+  warmup_epochs: 10               # 预热轮数
+  warmup_start_lr: 0.000001       # 预热起始学习率
+
+# 梯度配置
+gradient:
+  clip_norm: 1.0                  # 梯度裁剪
+  accumulation_steps: 1           # 梯度累积步数
+
+# 混合精度训练配置
+amp:
+  enabled: true                   # 启用混合精度训练
+  opt_level: "O1"                 # 优化级别
+  loss_scale: "dynamic"           # 动态损失缩放
+
+# 设备配置 - Linux服务器环境
+device: "cuda"
+use_dataparallel: true           # 启用数据并行（2GPU）
+max_memory_fraction: 0.95        # 高显存使用率
+gpu_memory_growth: true          # 启用GPU内存动态增长
+
+# 环境配置 - Linux服务器
+environment:
+  headless: true                  # 无头模式
+  backend: "Agg"                  # 使用Agg后端
+  disable_gui: true               # 禁用GUI
+  qt_qpa_platform: "offscreen"    # 离屏渲染
+
+# 可视化配置
+visualization:
+  enabled: false                 # 服务器环境禁用可视化
+  save_plots: true               # 保存图片而不显示
+  plot_interval: 50              # 绘图间隔
+  plot_path: "results/plots"
+
+# 检查点配置
+checkpoint:
+  enabled: true
+  save_interval: 20              # 每20轮保存检查点
+  keep_last_n: 5                # 保留最近5个检查点
+  auto_resume: true              # 自动恢复训练
+  save_optimizer_state: true     # 保存优化器状态
+  save_scheduler_state: true     # 保存调度器状态
+  compress_checkpoints: true     # 压缩检查点文件
+
+# 性能监控配置
+performance:
+  monitor_gpu_memory: true       # 监控GPU内存
+  monitor_cpu_usage: true        # 监控CPU使用率
+  clear_cache_interval: 50       # 清理缓存间隔
+  profile_training: false        # 性能分析（调试时启用）
+
+# 数据加载器配置 - 服务器优化
+dataloader:
+  num_workers: 64                # 充分利用192核CPU
+  pin_memory: true               # 启用内存固定
+  persistent_workers: true       # 持久化工作进程
+  prefetch_factor: 16            # 大预取因子
+  drop_last: true                # 丢弃最后不完整的批次
+
+# 验证配置
+validation:
+  enabled: true
+  interval: 5                    # 每5轮验证一次
+  save_predictions: false        # 不保存预测结果（节省空间）
+  compute_metrics: true          # 计算评估指标
+
+# 随机种子配置
+random_seed: 42
+deterministic: false            # 服务器环境可以不要求完全确定性
+
+# 调试配置
+debug:
+  enabled: false                # 生产环境禁用调试
+  print_model_summary: false    # 不打印模型摘要
+  save_intermediate_outputs: false  # 不保存中间输出
+  log_gradients: false          # 不记录梯度信息

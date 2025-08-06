@@ -35,8 +35,8 @@ data:
     anti_aliasing: false          # 禁用抗锯齿以提高速度
     backend: "torch"              # 使用torch后端（避免opencv依赖问题）
   
-  # 批次大小 - 基于883GB可用内存，可以使用较大批次
-  batch_size: 64                  # 充分利用大内存和双GPU
+  # 批次大小 - 调整为适应GPU内存限制
+  batch_size: 16                  # 减小批次大小以避免GPU内存不足
   
   # 数据集分割比例
   train_ratio: 0.8
@@ -89,14 +89,14 @@ loss_configs:
     svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     topk: 10
 
-# 模型配置 - 平衡版本
+# 模型配置 - GPU内存优化版本
 model:
-  num_layers: 6                   # 适中的层数
-  d_model: 512                    # 适中模型维度
-  num_heads: 8                    # 8个注意力头
+  num_layers: 4                   # 减少层数以节省GPU内存
+  d_model: 256                    # 减小模型维度以节省GPU内存
+  num_heads: 8                    # 保持8个注意力头
   max_time_steps: 100
   dropout: 0.1
-  dim_feedforward: 2048           # 前馈维度
+  dim_feedforward: 1024           # 减小前馈维度以节省GPU内存
   
   attention_type: "sge"
   activation: "relu"
@@ -123,7 +123,12 @@ model:
 # 设备配置 - 双GPU优化
 device: "cuda:0"                   # 主GPU设备
 device_ids: [0, 1]                # 使用双GPU
-mixed_precision: false            # 暂时禁用混合精度
+
+# 混合精度配置
+mixed_precision:
+  enabled: true                   # 启用混合精度以节省GPU内存
+  opt_level: "O1"                 # 混合精度级别
+  loss_scale: "dynamic"           # 动态损失缩放
 
 # 环境配置 - Linux服务器
 environment:
@@ -167,13 +172,13 @@ monitoring:
   monitor_weight_norms: true
   alert_on_anomaly: false
 
-# 数据加载配置 - 基于实际测试结果的最佳配置
+# 数据加载配置 - GPU内存优化版本
 # 测试结果显示: num_workers=8 性能最佳 (0.05秒)
 dataloader:
   num_workers: 8                  # 基于实际测试的最佳值
-  pin_memory: true                # 固定内存以提升GPU传输速度
+  pin_memory: false               # 禁用固定内存以节省GPU内存
   persistent_workers: true        # 持久化工作进程
-  prefetch_factor: 4              # 适中的预取因子，充分利用大内存
+  prefetch_factor: 2              # 减小预取因子以节省内存
   drop_last: true                 # 丢弃最后不完整的批次
 
 # 验证配置

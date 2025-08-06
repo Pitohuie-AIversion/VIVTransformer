@@ -34,9 +34,9 @@ CONFIG_FILE="dynamic_config_server_corrected.yaml"
 TRAINER_SCRIPT="dynamic_resolution_trainer.py"
 LOG_FILE="training.log"
 
-echo "="*60
+echo "=========================================================="
 log_info "🚀 VIVTransformer 服务器部署脚本"
-echo "="*60
+echo "=========================================================="
 
 # 1. 检查环境
 log_info "🔍 检查环境..."
@@ -165,6 +165,6 @@ echo "  查看进程: ps aux | grep python"
 echo "  查看结果: ls -la results/"
 echo "  停止训练: pkill -f $TRAINER_SCRIPT"
 
-echo "="*60
+echo "=========================================================="
 log_success "✨ 祝您训练顺利！"
-echo "="*60
+echo "=========================================================="

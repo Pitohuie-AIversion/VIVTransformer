@@ -121,6 +121,40 @@ def cleanup_memory():
         torch.cuda.empty_cache()
         logger.info("🧹 已清理GPU缓存")
 
+def log_cpu_memory(stage: str = ""):
+    """记录CPU内存使用情况"""
+    try:
+        import psutil
+        memory = psutil.virtual_memory()
+        cpu_percent = psutil.cpu_percent(interval=0.1)  # 快速采样
+        logger.info(f"🔍 CPU状态 {stage}:")
+        logger.info(f"  内存使用: {memory.used/1024**3:.2f}GB/{memory.total/1024**3:.2f}GB ({memory.percent:.1f}%)")
+        logger.info(f"  CPU使用率: {cpu_percent:.1f}%")
+        
+        # 如果内存使用过高，给出建议
+        if memory.percent > 85:
+            logger.warning("⚠️  CPU内存使用较高，建议增加num_workers或启用懒加载")
+    except ImportError:
+        logger.warning("⚠️  psutil未安装，无法监控CPU内存")
+
+def optimize_cpu_for_data_loading():
+    """优化CPU设置以提升数据加载性能"""
+    import os
+    
+    # 设置CPU线程数以充分利用服务器CPU
+    cpu_count = os.cpu_count()
+    # 为数据加载预留一些CPU核心，避免与训练计算竞争
+    optimal_threads = max(1, cpu_count - 2)
+    torch.set_num_threads(optimal_threads)
+    
+    # 设置OpenMP线程数
+    os.environ['OMP_NUM_THREADS'] = str(optimal_threads)
+    os.environ['MKL_NUM_THREADS'] = str(optimal_threads)
+    
+    logger.info(f"🚀 CPU优化设置: 检测到{cpu_count}个CPU核心，设置{optimal_threads}个线程用于计算")
+    
+    return optimal_threads, cpu_count
+
 def validate_config(config: Dict[str, Any]) -> bool:
     """验证配置文件的合理性"""
     warnings = []
@@ -508,11 +542,18 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
             input_flat = self._normalize_data(input_flat, self.input_min, self.input_max)
             output_flat = self._normalize_data(output_flat, self.output_min, self.output_max)
         
-        # 最终tensor创建 - 这里会在DataLoader的pin_memory机制下优化GPU传输
-        # pin_memory=True确保数据在页锁定内存中，加速CPU->GPU传输
+        # 最终tensor创建优化 - 使用torch.from_numpy().contiguous()提升性能
+        # 1. torch.from_numpy()避免数据拷贝，直接共享内存
+        # 2. .contiguous()确保内存布局连续，优化GPU传输
+        # 3. pin_memory=True(在DataLoader中设置)确保数据在页锁定内存中，加速CPU->GPU传输
+        
+        # 确保数据类型为float32并且内存连续
+        input_array = np.ascontiguousarray(input_flat, dtype=np.float32)
+        output_array = np.ascontiguousarray(output_flat, dtype=np.float32)
+        
         return (
-            torch.FloatTensor(input_flat),   # CPU tensor，通过pin_memory优化传输
-            torch.FloatTensor(output_flat),  # CPU tensor，通过pin_memory优化传输
+            torch.from_numpy(input_array).contiguous(),   # 零拷贝tensor创建，内存连续
+            torch.from_numpy(output_array).contiguous(),  # 零拷贝tensor创建，内存连续
             torch.tensor(idx, dtype=torch.float32)
         )
     
@@ -799,7 +840,23 @@ def get_dynamic_loaders(config: Dict[str, Any]):
     persistent_workers = dataloader_config.get('persistent_workers', False) and num_workers > 0
     prefetch_factor = dataloader_config.get('prefetch_factor', 2) if num_workers > 0 else None
     
+    # 服务器优化：自动调整数据加载器参数
+    import os
+    cpu_count = os.cpu_count()
+    
+    # 如果配置的num_workers为0，自动设置为CPU核心数的一半（服务器优化）
+    if num_workers == 0 and cpu_count > 4:
+        num_workers = min(16, cpu_count // 2)  # 最多16个worker，避免过多进程
+        persistent_workers = True
+        logger.info(f"🚀 服务器优化: 自动设置num_workers={num_workers} (CPU核心数: {cpu_count})")
+    
+    # 服务器环境下优化prefetch_factor
+    if num_workers > 8 and prefetch_factor < 4:
+        prefetch_factor = 4
+        logger.info(f"🚀 服务器优化: 增加prefetch_factor={prefetch_factor}以提升数据流水线效率")
+    
     logger.info(f"🔄 数据加载器配置: num_workers={num_workers}, pin_memory={pin_memory}, drop_last={drop_last}, prefetch_factor={prefetch_factor}")
+    logger.info(f"🔄 持久化工作进程: {persistent_workers}, CPU核心数: {cpu_count}")
     
     # 构建 DataLoader 参数
     dataloader_kwargs = {
@@ -1244,6 +1301,13 @@ def main():
             np.random.seed(config['seed'])
             logger.info(f"🎲 设置随机种子: {config['seed']}")
         
+        # 服务器优化：优化CPU设置以提升数据加载性能
+        optimal_threads, cpu_count = optimize_cpu_for_data_loading()
+        
+        # 记录初始系统状态
+        log_cpu_memory("初始状态")
+        log_gpu_memory("初始状态")
+        
         # 设置设备
         if config['device'] == 'auto':
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -1604,9 +1668,17 @@ def main():
         
         logger.info("🎉 === 训练完成 ===")
         
-        # 内存监控和清理
+        # 内存监控和清理 - 服务器优化版本
+        log_cpu_memory("训练完成后")
         log_gpu_memory("训练完成后")
         cleanup_memory()
+        
+        # 服务器资源使用总结
+        logger.info("\n=== 服务器资源使用总结 ===")
+        logger.info(f"💾 CPU内存: 充分利用多进程数据加载 (num_workers={config['dataloader']['num_workers']})")
+        logger.info(f"🚀 GPU计算: 核心模型训练和推理")
+        logger.info(f"📊 数据流水线: pin_memory={config['dataloader']['pin_memory']}, prefetch_factor={config['dataloader']['prefetch_factor']}")
+        logger.info(f"⚡ 持久化工作进程: persistent_workers={config['dataloader']['persistent_workers']}")
         
         # 保存归一化信息（如果启用了归一化）
         if dataset.normalize_data:
@@ -1632,6 +1704,8 @@ def main():
     except torch.cuda.OutOfMemoryError as e:
         logger.error(f"❌ GPU内存不足: {str(e)}")
         logger.error("建议减小batch_size或使用CPU训练")
+        log_gpu_memory("GPU内存不足时")
+        log_cpu_memory("GPU内存不足时")
         cleanup_memory()
     except Exception as e:
         logger.error(f"❌ 训练过程中出错: {str(e)}")

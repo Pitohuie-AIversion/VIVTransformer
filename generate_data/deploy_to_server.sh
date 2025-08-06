@@ -132,16 +132,16 @@ case $choice in
         ;;
     4)
         log_info "✅ 验证配置文件..."
-        python -c "
+        python -c '
 import yaml
-with open('$CONFIG_FILE', 'r') as f:
+with open("$CONFIG_FILE", "r") as f:
     config = yaml.safe_load(f)
-print('配置文件验证通过')
-print(f'数据路径: {config[\"data\"][\"data_path\"]}')
-print(f'批次大小: {config[\"data\"][\"dataloader\"][\"batch_size\"]}')
-print(f'训练轮数: {config[\"training\"][\"epochs\"]}')
-print(f'样本数量: {config[\"data\"][\"num_samples\"]}')
-"
+print("配置文件验证通过")
+print(f"数据路径: {config[\"data\"][\"data_path\"]}")
+print(f"批次大小: {config[\"data\"][\"dataloader\"][\"batch_size\"]}")
+print(f"训练轮数: {config[\"training\"][\"epochs\"]}")
+print(f"样本数量: {config[\"data\"][\"num_samples\"]}")
+'
         ;;
     5)
         log_info "👋 退出部署脚本"

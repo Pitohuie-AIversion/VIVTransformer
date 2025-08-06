@@ -96,7 +96,7 @@ log_success "结果目录已创建"
 # 5. 显示系统资源
 log_info "💻 系统资源信息:"
 echo "  CPU核心数: $(nproc)"
-echo "  内存信息: $(free -h | grep '^Mem:' | awk '{print $2" 总计, "$7" 可用'}")"
+echo "  内存信息: $(free -h | grep '^Mem:' | awk '{print $2" 总计, "$7" 可用'}')")"
 if command -v nvidia-smi &> /dev/null; then
     echo "  GPU信息:"
     nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits | nl -v0 -s': '

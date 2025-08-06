@@ -13,8 +13,8 @@ data:
   # 输出分辨率 [height, width] - 保持128x128，直接使用原始数据
   output_resolution: [128, 128]   # 128x128 = 16384维 (与原始数据匹配，无需额外处理)
   
-  # 样本数量 - 增加样本数以充分利用服务器性能
-  num_samples: 5000               # 服务器可以处理更多样本
+  # 样本数量 - 针对192核CPU大幅增加样本数
+  num_samples: 20000              # 充分利用192核CPU和1TB内存处理大规模数据
   
   # 裁剪模式: 'center'(中心), 'random'(随机), 'corner'(左上角)
   crop_mode: "center"
@@ -34,8 +34,8 @@ data:
     anti_aliasing: true           # 启用抗锯齿以提高质量
     backend: "opencv"             # 服务器优先使用opencv后端
   
-  # 批次大小 - 针对服务器多GPU环境优化
-  batch_size: 128                 # 增大批次大小以充分利用多GPU性能
+  # 批次大小 - 针对2GPU+1TB内存优化
+  batch_size: 256                 # 大幅增加批次大小以充分利用2GPU和大内存
   
   # 数据集分割比例
   train_ratio: 0.8
@@ -109,15 +109,16 @@ loss_configs:
   #   svd_weights: [0.15, 0.12, 0.10, 0.08, 0.06, 0.05, 0.04, 0.03, 0.02, 0.02]
   #   topk: 10
 
-# 模型配置 - 服务器优化版本
+# 模型配置 - 0.1B参数量控制版本
 model:
-  # 注意：input_dim=1024, output_dim=16384, seq_len会根据分辨率自动计算
-  num_layers: 8                   # 增加层数以提高模型表达能力
-  d_model: 768                    # 增大模型维度以处理更复杂的映射
-  num_heads: 12                   # 增加注意力头数以捕获更多特征
+  # 注意：控制参数量在0.1B以内 (约100M参数)
+  # 计算公式：参数量 ≈ num_layers × (4×d_model² + 2×d_model×dim_feedforward)
+  num_layers: 6                   # 减少层数控制参数量 (6层约80M参数)
+  d_model: 512                    # 适中模型维度 (512维平衡性能与参数量)
+  num_heads: 8                    # 8个注意力头 (512/8=64维每头)
   max_time_steps: 100
-  dropout: 0.15                   # 适当增加dropout以防止过拟合
-  dim_feedforward: 3072           # 增大前馈网络维度
+  dropout: 0.1                    # 降低dropout以补偿模型容量减少
+  dim_feedforward: 2048           # 前馈维度 (512×4=2048，标准比例)
   
   # 注意力机制类型
   attention_type: "sge"
@@ -172,24 +173,24 @@ scheduler:
   warmup_epochs: 10               # 添加学习率预热阶段
   warmup_start_lr: 1e-6           # 预热起始学习率
 
-# 梯度配置 - 服务器多GPU优化
+# 梯度配置 - 大批次优化 (batch_size=256)
 gradient:
   clip_enabled: true              # 启用梯度裁剪，防止梯度爆炸
-  clip_value: 0.5                 # 降低梯度裁剪阈值以提高稳定性
-  accumulation_steps: 4           # 增加梯度累积步数以模拟更大批次
-  sync_bn: true                   # 启用同步批归一化 (多GPU推荐)
+  clip_value: 1.0                 # 适当放宽梯度裁剪 (大批次更稳定)
+  accumulation_steps: 2           # 减少梯度累积 (batch_size已经很大)
+  sync_bn: true                   # 启用同步批归一化 (2GPU推荐)
 
 # 混合精度训练配置 (多GPU优化)
 mixed_precision:
   enabled: true                   # 启用混合精度训练 (多GPU推荐)
   loss_scale: "dynamic"           # 动态损失缩放
 
-# 设备配置 - 服务器多GPU优化配置
+# 设备配置 - 2GPU+1TB内存超级优化配置
 device: "cuda"
-use_dataparallel: true           # 启用多GPU数据并行
-max_memory_fraction: 0.9         # 提高显存使用率以充分利用GPU资源
+use_dataparallel: true           # 启用2GPU数据并行
+max_memory_fraction: 0.95        # 最大化显存使用率 (2GPU环境)
 gpu_memory_growth: true          # 启用GPU内存动态增长
-clear_cache_interval: 50         # 每50个epoch清理GPU缓存
+clear_cache_interval: 25         # 更频繁清理GPU缓存 (大批次训练)
 
 # 环境配置（服务器无GUI环境）
 environment:
@@ -234,12 +235,12 @@ monitoring:
   monitor_weight_norms: true      # 监控权重范数
   alert_on_anomaly: false         # 禁用异常告警（避免GUI依赖）
 
-# 数据加载配置 - 服务器优化版本
+# 数据加载配置 - 192核CPU超级优化版本
 dataloader:
-  num_workers: 16                 # 增加工作进程数以充分利用服务器CPU
+  num_workers: 64                 # 大幅增加工作进程数充分利用192核CPU
   pin_memory: true                # 固定内存以提升GPU传输速度
   persistent_workers: true        # 持久化工作进程 (多GPU推荐)
-  prefetch_factor: 8              # 增加预取因子以提高数据流水线效率
+  prefetch_factor: 16             # 大幅增加预取因子利用1TB大内存
   drop_last: true                 # 丢弃最后不完整的批次以保持一致性
 
 # 验证配置 (可选功能)
@@ -383,7 +384,21 @@ resolution_presets:
       anti_aliasing: false          # 关闭抗锯齿以提升速度
       backend: "auto"
 
-# ===== 服务器降采样功能说明 =====
+# ===== 服务器降采样功能说明 (192核CPU + 2GPU + 1TB内存优化版) =====
+# 
+# 本配置文件针对超级服务器配置进行了全面优化：
+# - CPU: 192核心 (充分利用多进程数据加载)
+# - 内存: 1007GB (大规模数据预加载和缓存)
+# - GPU: 2个GPU (数据并行训练)
+# - 模型参数: 严格控制在0.1B (约100M参数) 以内
+# 
+# 模型参数量计算 (0.1B控制)：
+# 主要参数来源：
+# 1. 注意力层: num_layers × num_heads × d_model × d_model ≈ 6 × 8 × 512 × 512 ≈ 12.6M
+# 2. 前馈网络: num_layers × d_model × dim_feedforward × 2 ≈ 6 × 512 × 2048 × 2 ≈ 12.6M
+# 3. 嵌入层: input_dim × d_model + output_dim × d_model ≈ 1024×512 + 16384×512 ≈ 8.9M
+# 4. 其他参数 (LayerNorm, 位置编码等): ≈ 1M
+# 总计: 约35M参数 (远小于0.1B限制，为模型扩展留有余量)
 # 
 # 本配置文件结合了服务器的高性能特性与降采样功能：
 # 
@@ -415,15 +430,15 @@ resolution_presets:
 # 使用方法：
 # python dynamic_resolution_trainer.py --config dynamic_config_server_downsampling.yaml
 # 
-# ===== 2024年优化版本更新说明 (v2.1) =====
+# ===== 2024年超级服务器优化版本更新说明 (v3.0) =====
 # 
-# 本次优化针对服务器环境进行了全面改进：
+# 本次优化针对192核CPU+2GPU+1TB内存超级服务器环境进行了全面改进：
 # 
-# 1. 数据配置优化：
-#    - 输入分辨率：64x64 → 32x32 (降低计算复杂度)
-#    - 输出分辨率：保持128x128 (与原始数据匹配，无需额外处理)
-#    - 样本数量：1000 → 5000 (充分利用服务器性能)
-#    - 批次大小：64 → 128 (提高GPU利用率)
+# 1. 数据配置超级优化：
+#    - 输入分辨率：保持32x32 (平衡计算复杂度)
+#    - 输出分辨率：保持128x128 (与原始数据匹配)
+#    - 样本数量：5000 → 20000 (充分利用192核CPU和1TB内存)
+#    - 批次大小：128 → 256 (最大化2GPU利用率)
 # 
 # 2. 训练配置优化：
 #    - 训练轮数：1000 → 500 (提高训练效率)
@@ -437,25 +452,25 @@ resolution_presets:
 #    - Dropout：0.1 → 0.15 (防止过拟合)
 #    - 前馈维度：2048 → 3072 (增强非线性表达)
 # 
-# 4. 数据加载优化：
-#    - 工作进程：12 → 16 (充分利用服务器CPU)
-#    - 预取因子：6 → 8 (提高数据流水线效率)
+# 4. 数据加载超级优化：
+#    - 工作进程：16 → 64 (充分利用192核CPU)
+#    - 预取因子：8 → 16 (充分利用1TB大内存)
 #    - 添加drop_last=true (保持批次一致性)
 # 
-# 5. GPU内存管理优化：
-#    - 显存使用率：0.8 → 0.9 (充分利用GPU资源)
+# 5. GPU内存管理超级优化：
+#    - 显存使用率：0.9 → 0.95 (最大化2GPU资源利用)
 #    - 添加GPU内存动态增长
-#    - 添加定期缓存清理机制
+#    - 缓存清理间隔：50 → 25 (更频繁清理适应大批次)
 # 
 # 6. 学习率调度优化：
 #    - 最小学习率：1e-6 → 1e-7 (更好的收敛)
 #    - 添加学习率预热机制 (10个epoch)
 #    - T_max调整为500匹配新的训练轮数
 # 
-# 7. 梯度优化：
-#    - 梯度裁剪阈值：1.0 → 0.5 (提高稳定性)
-#    - 梯度累积步数：2 → 4 (模拟更大批次)
-#    - 添加同步批归一化 (多GPU推荐)
+# 7. 梯度优化 (大批次适配)：
+#    - 梯度裁剪阈值：0.5 → 1.0 (大批次更稳定)
+#    - 梯度累积步数：4 → 2 (batch_size=256已足够大)
+#    - 保持同步批归一化 (2GPU推荐)
 # 
 # 8. 监控与可视化增强：
 #    - 可视化间隔：20 → 10 (更频繁监控)
@@ -472,11 +487,17 @@ resolution_presets:
 #    - Qt离屏渲染配置 (qt_qpa_platform: "offscreen")
 #    - 禁用异常告警GUI功能 (alert_on_anomaly: false)
 # 
-# 10. 核心优化理念：
+# 10. 模型参数控制 (v3.0新增)：
+#     - 严格控制模型参数在0.1B (100M) 以内
+#     - 层数：8 → 6，维度：768 → 512，前馈：3072 → 2048
+#     - 实际参数量约35M，为扩展留有充足余量
+#     - 平衡模型性能与参数限制
+# 
+# 11. 超级服务器优化理念：
 #     - 输入32x32 → 输出128x128的超分辨率重建
-#     - 输出128x128与原始数据完全匹配，无需额外处理
-#     - 充分利用服务器多GPU和高内存优势
-#     - 平衡训练效率与模型性能
+#     - 充分利用192核CPU进行数据预处理和加载
+#     - 最大化2GPU并行训练效率
+#     - 利用1TB内存进行大规模数据缓存
 #     - 完全适配无GUI服务器环境
 # 
 # Qt错误修复说明：

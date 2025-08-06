@@ -11,7 +11,7 @@ data:
   output_resolution: [128, 128]  # 输出分辨率 128x128
   
   # 样本数量 - 本地测试用较小数量
-  num_samples: 5000              # 增加样本数量（大内存支持）
+  num_samples: 500              # 增加样本数量（大内存支持）
   
   # 裁剪模式
   crop_mode: "center"            # 中心裁剪
@@ -111,7 +111,7 @@ mixed_precision:
   loss_scale: "dynamic"          # 动态损失缩放
 
 # 设备配置 - 本地环境（CPU模式以避免显存不足）
-device: "cpu"
+device: "cuda"
 use_dataparallel: false          # 禁用数据并行
 max_memory_fraction: 0.8         # 保守的显存使用率
 gpu_memory_growth: true          # 启用GPU内存动态增长

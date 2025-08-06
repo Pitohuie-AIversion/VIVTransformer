@@ -1,0 +1,237 @@
+# 服务器环境优化配置文件
+# 专门解决服务器上程序启动缓慢的问题
+# 使用方法: python dynamic_resolution_trainer.py --config dynamic_config_server_optimized.yaml
+
+# ===== 数据配置 (优化版) =====
+data:
+  path: "/path/to/your/data.h5"  # 请修改为实际数据路径
+  input_resolution: [32, 32]     # 输入分辨率
+  output_resolution: [128, 128]  # 输出分辨率
+  num_samples: 200              # 减少样本数量用于快速测试
+  crop_mode: "center"           # 裁剪模式
+  
+  # 关键优化设置
+  normalize_data: false         # 🚀 禁用归一化以加快启动
+  lazy_loading: true           # 🚀 启用懒加载节省内存
+  
+  batch_size: 16               # 适中的批次大小
+  train_ratio: 0.7
+  valid_ratio: 0.2
+  
+  # 降采样配置 (如果需要)
+  downsampling:
+    enabled: false             # 暂时禁用降采样
+    method: "bilinear"
+    preserve_aspect_ratio: true
+    anti_aliasing: true
+    backend: "auto"
+
+# ===== 数据加载器配置 (服务器优化) =====
+dataloader:
+  num_workers: 16              # 🚀 适中的worker数量
+  pin_memory: true             # 启用内存锁定
+  drop_last: false
+  persistent_workers: false    # 🚀 禁用持久化worker以加快启动
+  prefetch_factor: 4           # 🚀 降低预取因子
+
+# ===== 训练配置 (快速测试) =====
+training:
+  epochs: 5                    # 🚀 减少训练轮数用于测试
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  
+  # 早停配置
+  patience: 10
+  min_delta: 0.0001
+  
+  # 模型保存
+  save_path: "./results/models/server_optimized_model.pth"
+  save_best_only: true
+  
+  # 日志配置
+  log_interval: 10
+  log_path: "./results/logs/server_optimized_training.log"
+
+# ===== 模型配置 =====
+model:
+  # Transformer配置
+  d_model: 256
+  nhead: 8
+  num_encoder_layers: 4
+  num_decoder_layers: 4
+  dim_feedforward: 1024
+  dropout: 0.1
+  
+  # 注意力机制
+  attention_type: "standard"   # 使用标准注意力
+  
+  # 位置编码
+  positional_encoding: true
+  max_seq_length: 1024
+
+# ===== 损失函数配置 (简化版) =====
+loss:
+  # 基础损失
+  base_loss_weight: 1.0
+  base_loss_type: "mse"        # 使用简单的MSE损失
+  
+  # SVD损失 (暂时禁用以加快启动)
+  svd_loss_weight: 0.0         # 🚀 禁用SVD损失
+  svd_loss_enabled: false
+  
+  # 多损失配置
+  multi_loss:
+    enabled: false             # 🚀 禁用多损失
+
+# ===== 优化器配置 =====
+optimizer:
+  type: "adam"
+  lr: 0.001
+  weight_decay: 0.0001
+  betas: [0.9, 0.999]
+  eps: 1e-8
+
+# ===== 学习率调度器配置 =====
+scheduler:
+  type: "step"                 # 使用简单的步长调度器
+  step_size: 10
+  gamma: 0.5
+  
+# ===== 设备配置 =====
+device:
+  use_cuda: true
+  cuda_device: 0
+  
+  # GPU内存管理
+  memory_fraction: 0.8         # 限制GPU内存使用
+  allow_growth: true
+  
+  # 多GPU配置 (如果需要)
+  use_dataparallel: false      # 🚀 暂时禁用多GPU
+  gpu_ids: [0, 1]
+
+# ===== 高级功能配置 (全部禁用以加快启动) =====
+# 梯度配置
+gradient:
+  clip_enabled: false          # 🚀 禁用梯度裁剪
+  clip_value: 1.0
+  accumulation_steps: 1
+
+# 混合精度训练
+mixed_precision:
+  enabled: false              # 🚀 禁用混合精度
+  loss_scale: "dynamic"
+
+# 可视化配置
+visualization:
+  enabled: false              # 🚀 禁用可视化
+  save_plots: false
+  plot_interval: 50
+  plot_path: "./results/plots/"
+  
+  # 服务器环境适配
+  headless_mode: true          # 无头模式
+  backend: "Agg"               # 使用Agg后端
+  disable_gui: true            # 禁用GUI
+
+# ===== 检查点配置 =====
+checkpoint:
+  enabled: true
+  save_interval: 10
+  save_path: "./results/checkpoints/"
+  resume_from: null            # 不从检查点恢复
+  save_optimizer: false       # 🚀 不保存优化器状态
+
+# ===== 性能监控配置 =====
+monitoring:
+  enabled: false              # 🚀 禁用性能监控
+  log_system_stats: false
+  log_gpu_stats: false
+  memory_profiling: false
+
+# ===== 验证配置 =====
+validation:
+  enabled: true
+  interval: 5                  # 每5个epoch验证一次
+  metrics: ["mse", "mae"]
+  save_predictions: false      # 🚀 不保存预测结果
+
+# ===== 测试配置 =====
+test:
+  enabled: false              # 🚀 禁用测试阶段
+  save_results: false
+  metrics: ["mse", "mae", "r2"]
+
+# ===== 评估指标配置 =====
+metrics:
+  compute_additional: false    # 🚀 不计算额外指标
+  save_detailed: false
+  
+# ===== 数据增强配置 =====
+data_augmentation:
+  enabled: false              # 🚀 禁用数据增强
+  
+# ===== 分布式训练配置 =====
+distributed:
+  enabled: false              # 🚀 禁用分布式训练
+  
+# ===== 服务器环境特定配置 =====
+server:
+  # 环境检测
+  auto_detect_resources: true
+  
+  # CPU优化
+  cpu_optimization: true
+  set_num_threads: true
+  
+  # 内存管理
+  memory_optimization: true
+  gc_interval: 100             # 垃圾回收间隔
+  
+  # I/O优化
+  io_optimization: true
+  buffer_size: 8192
+  
+  # 日志优化
+  log_level: "INFO"            # 减少日志输出
+  quiet_mode: false
+  
+  # 错误处理
+  continue_on_error: true
+  max_retries: 3
+
+# ===== 调试配置 =====
+debug:
+  enabled: false              # 🚀 禁用调试模式
+  verbose: false
+  profile_code: false
+  save_intermediate: false
+
+# ===== 实验配置 =====
+experiment:
+  name: "server_optimized_test"
+  description: "服务器环境优化测试"
+  tags: ["server", "optimized", "fast_start"]
+  
+# ===== 随机种子 =====
+seed: 42
+
+# ===== 配置元信息 =====
+config_info:
+  version: "1.0"
+  created_for: "服务器环境快速启动"
+  optimizations:
+    - "禁用归一化计算"
+    - "启用懒加载模式"
+    - "减少worker数量"
+    - "禁用持久化worker"
+    - "降低预取因子"
+    - "禁用SVD损失"
+    - "禁用可视化"
+    - "禁用性能监控"
+    - "简化模型配置"
+  usage_notes:
+    - "首次测试请使用较小的数据集"
+    - "确认基本功能正常后再启用高级功能"
+    - "根据服务器性能调整num_workers和batch_size"
+    - "成功运行后可逐步启用被禁用的功能"

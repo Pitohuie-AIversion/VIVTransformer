@@ -87,6 +87,7 @@ class ServerEnvironmentSetup:
         
         # 常见的数据路径模式
         possible_paths = [
+            "/share/fandixiaLab/suguangsheng/PycharmProjects/Sparse_to_Dense_Transformer/VIVTransformer-4sh2r1-codex/pdebench_extended/PDEBench/pdebench/data_download",
             "/share/fandixiaLab/suguangsheng/PycharmProjects/VIVTransformer_pdebench/PDEBench/pdebench/data_download",
             "/data/PDEBench/pdebench/data_download",
             "/home/*/PDEBench/pdebench/data_download",

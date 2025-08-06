@@ -1,0 +1,129 @@
+# 服务器训练配置文件 - 使用正确的数据路径
+# 适用于Linux服务器环境 (192核CPU + 1TB内存 + 2x NVIDIA L40 GPU)
+
+data:
+  # 服务器数据路径 (用户提供的正确路径)
+  data_path: "/share/fandixiaLab/suguangsheng/PycharmProjects/Sparse_to_Dense_Transformer/VIVTransformer-4sh2r1-codex/pdebench_extended/PDEBench/pdebench/data_download/2D_DarcyFlow_beta10.0_Train.hdf5"
+  
+  # 输入分辨率 [height, width]
+  input_resolution: [32, 32]
+  
+  # 输出分辨率 [height, width] 
+  output_resolution: [128, 128]
+  
+  # 样本数量 (服务器资源充足，可以使用更多样本)
+  num_samples: 20000
+  
+  # 启用懒加载以节省内存
+  lazy_loading: true
+  
+  # 启用降采样
+  enable_downsampling: true
+  
+  # 数据加载器配置 (针对服务器优化)
+  dataloader:
+    batch_size: 128  # 服务器GPU内存充足，可以使用较大批次
+    num_workers: 48  # 利用192核CPU的优势
+    pin_memory: true  # GPU训练时启用内存固定
+    persistent_workers: true  # 保持工作进程活跃
+    prefetch_factor: 4  # 预取因子
+    drop_last: true  # 丢弃最后不完整的批次
+
+training:
+  # 训练轮数
+  epochs: 500
+  
+  # 学习率
+  learning_rate: 0.0005
+  
+  # 权重衰减
+  weight_decay: 0.0001
+  
+  # 设备配置
+  device: "cuda"  # 使用GPU训练
+  
+  # 多GPU训练
+  use_data_parallel: true
+  
+  # 梯度裁剪
+  gradient_clip_norm: 1.0
+  
+  # 早停配置
+  early_stopping:
+    patience: 50
+    min_delta: 0.0001
+    
+  # 学习率调度器
+  scheduler:
+    type: "CosineAnnealingLR"
+    T_max: 500
+    eta_min: 0.0000001
+    
+  # 优化器配置
+  optimizer:
+    type: "AdamW"
+    betas: [0.9, 0.999]
+    eps: 0.00000001
+    amsgrad: false
+
+model:
+  # 模型配置
+  d_model: 512
+  nhead: 8
+  num_encoder_layers: 6
+  num_decoder_layers: 6
+  dim_feedforward: 2048
+  dropout: 0.1
+  
+  # 位置编码
+  max_seq_length: 1024
+  
+  # 输入输出维度
+  input_dim: 1024  # 32*32
+  output_dim: 16384  # 128*128
+
+logging:
+  # 日志配置
+  log_level: "INFO"
+  log_interval: 10
+  save_interval: 100
+  
+  # 结果保存路径
+  save_dir: "./results"
+  
+  # 模型检查点
+  checkpoint:
+    save_best: true
+    save_last: true
+    monitor: "val_loss"
+    
+  # 可视化
+  visualization:
+    enabled: true
+    save_plots: true
+    plot_interval: 50
+
+# 全局归一化配置
+normalization:
+  enabled: true
+  method: "global"  # 全局归一化
+  save_stats: true
+  stats_file: "normalization_info.json"
+
+# 性能优化配置
+optimization:
+  # 内存优化
+  memory_efficient: true
+  
+  # 混合精度训练
+  mixed_precision: true
+  
+  # 编译优化
+  compile_model: false  # 服务器环境可能不支持
+  
+  # 数据预处理优化
+  cache_dataset: false  # 数据集太大，不缓存
+  
+  # GPU优化
+  cudnn_benchmark: true
+  cudnn_deterministic: false

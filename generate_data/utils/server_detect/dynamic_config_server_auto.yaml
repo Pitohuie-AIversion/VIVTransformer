@@ -1,0 +1,67 @@
+checkpoint:
+  auto_resume: true
+  enabled: true
+  keep_last_n: 5
+  save_interval: 20
+  save_optimizer_state: true
+  save_scheduler_state: true
+data:
+  batch_size: 16
+  crop_mode: center
+  downsampling:
+    antialias: true
+    enabled: true
+    method: bilinear
+  input_resolution:
+  - 32
+  - 32
+  lazy_loading: true
+  normalization_method: global
+  normalize: true
+  num_samples: 5000
+  output_resolution:
+  - 128
+  - 128
+  path: ./PDEBench/pdebench/data_download\2D_DarcyFlow_beta0.1_Train.hdf5
+  test_ratio: 0.1
+  train_ratio: 0.8
+  valid_ratio: 0.1
+dataloader:
+  num_workers: 8
+  persistent_workers: true
+  pin_memory: true
+  prefetch_factor: 4
+deterministic: false
+device: cuda
+early_stopping:
+  enabled: true
+  min_delta: 1.0e-06
+  patience: 20
+  restore_best_weights: true
+environment:
+  backend: Agg
+  disable_gui: true
+  headless: true
+logging:
+  level: INFO
+  log_interval: 10
+  log_path: results/logs
+  save_logs: true
+max_memory_fraction: 0.95
+model_save:
+  enabled: true
+  save_best_only: true
+  save_interval: 10
+  save_path: results/models
+random_seed: 42
+training:
+  batch_size: 16
+  epochs: 200
+  learning_rate: 0.0005
+  weight_decay: 0.0001
+use_dataparallel: false
+visualization:
+  enabled: false
+  plot_interval: 50
+  plot_path: results/plots
+  save_plots: true

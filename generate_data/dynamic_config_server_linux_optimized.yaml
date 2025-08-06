@@ -1,0 +1,249 @@
+# 动态分辨率训练配置文件 - Linux服务器优化版
+# 专门针对Linux服务器环境的系统限制和特性优化
+# 解决高并发num_workers在Linux上的限制问题
+
+# 数据配置
+data:
+  # 原始数据文件路径 (服务器路径)
+  path: "/share/fandixiaLab/suguangsheng/PycharmProjects/Sparse_to_Dense_Transformer/VIVTransformer-4sh2r1-codex/pdebench_extended/PDEBench/pdebench/data_download/2D_DarcyFlow_beta10.0_Train.hdf5"
+  
+  # 输入分辨率 [height, width] - 优化为32x32以减少计算量
+  input_resolution: [32, 32]      # 32x32 = 1024维 (降低输入复杂度)
+  
+  # 输出分辨率 [height, width] - 保持128x128，直接使用原始数据
+  output_resolution: [128, 128]   # 128x128 = 16384维 (与原始数据匹配，无需额外处理)
+  
+  # 样本数量 - 逐步增加以测试系统承载能力
+  num_samples: 1000               # 先用较小数量测试，确认无问题后可增加到20000
+  
+  # 裁剪模式: 'center'(中心), 'random'(随机), 'corner'(左上角)
+  crop_mode: "center"
+  
+  # 数据归一化配置 - Linux服务器优化
+  normalize_data: false           # 禁用归一化以避免计算瓶颈
+  normalize: false                # 禁用归一化数据
+  
+  # 懒加载配置（内存优化）
+  lazy_loading: true              # 启用懒加载以处理大数据集
+  
+  # 降采样配置（核心功能）
+  downsampling:
+    enabled: true                 # 启用降采样模式
+    method: "bilinear"            # 使用更快的bilinear插值（Linux服务器优化）
+    preserve_aspect_ratio: true   # 保持宽高比
+    anti_aliasing: false          # 禁用抗锯齿以提高速度
+    backend: "torch"              # 使用torch后端（避免opencv依赖问题）
+  
+  # 批次大小 - Linux服务器保守配置
+  batch_size: 32                  # 保守的批次大小，避免内存问题
+  
+  # 数据集分割比例
+  train_ratio: 0.8
+  valid_ratio: 0.1
+  test_ratio: 0.1
+  shuffle: true                   # 是否打乱数据
+
+# 训练配置
+training:
+  epochs: 5                       # 测试用少量epoch
+  learning_rate: 0.001            # 标准学习率
+  weight_decay: 0.0001            # 权重衰减
+  
+  # 早停配置
+  enable_early_stopping: false   # 测试阶段禁用早停
+  patience: 50
+  min_delta: 0.000001
+  monitor: "val_loss"
+  mode: "min"
+  restore_best_weights: true
+  
+  save_best_model: true
+  save_path: "./results/models/server_linux_optimized_model.pth"
+  model_save_path: "./results/models/server_linux_optimized_model.pth"
+  save_best_only: true
+  log_interval: 1                 # 频繁日志以监控进度
+
+# 损失函数配置 - 简化版
+loss:
+  base_weight: 1.0                # 仅使用MSE损失
+  svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  topk: 10
+  loss_type: "mse"                # 使用基础MSE损失
+  svd_loss_enabled: false         # 禁用SVD损失
+  normalize_svd_weights: false
+  
+  enhanced:
+    enabled: false                # 禁用增强版SVD损失函数
+    mixed_precision_mode: false
+    adaptive_weights: false
+    fallback_level: 2
+    enable_monitoring: false
+    adaptation_interval: 10
+    evaluation_mode: false
+    force_svd: false
+
+# 多损失配置
+loss_configs:
+  - base_weight: 1.0
+    svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    topk: 10
+
+# 模型配置 - 轻量化版本
+model:
+  num_layers: 4                   # 减少层数以降低计算复杂度
+  d_model: 256                    # 减小模型维度
+  num_heads: 8                    # 8个注意力头
+  max_time_steps: 100
+  dropout: 0.1
+  dim_feedforward: 1024           # 减小前馈维度
+  
+  attention_type: "sge"
+  activation: "relu"
+  
+  weight_init:
+    method: "xavier_uniform"
+    gain: 1.0
+    std: 0.02
+  
+  normalization:
+    type: "layer_norm"
+    eps: 1e-5
+    elementwise_affine: true
+  
+  positional_encoding:
+    type: "learnable"
+    max_len: 5000
+    dropout: 0.1
+  
+  feedforward:
+    activation: "relu"
+    dropout: 0.1
+
+# 设备配置 - Linux服务器环境
+device:
+  use_cuda: true                  # 使用CUDA
+  device_ids: [0]                 # 使用单GPU避免分布式复杂性
+  mixed_precision: false          # 禁用混合精度避免兼容性问题
+
+# 环境配置 - Linux服务器
+environment:
+  backend: "Agg"                  # matplotlib后端
+  disable_gui: true               # 禁用所有GUI功能
+  qt_qpa_platform: "offscreen"    # Qt离屏渲染
+
+# 随机种子和确定性
+seed: 42
+deterministic: false
+
+# 可视化配置 - 完全禁用
+visualization:
+  enabled: false                  # 禁用可视化
+  interval: 10
+  max_samples: 12
+  save_format: "png"
+  dpi: 300
+  save_comparison: false
+  save_error_maps: false
+
+# 检查点配置
+checkpoint:
+  enabled: true
+  save_interval: 5                # 频繁保存检查点
+  keep_last_n: 3                  # 减少保留数量
+  auto_resume: true
+  save_optimizer_state: true
+  save_scheduler_state: true
+  compress_checkpoints: true
+
+# 性能监控配置
+monitoring:
+  enabled: true
+  log_memory_usage: true
+  log_gpu_usage: true
+  profile_enabled: false
+  log_interval: 1                 # 每个epoch都监控
+  save_system_stats: true
+  monitor_gradient_norms: true
+  monitor_weight_norms: true
+  alert_on_anomaly: false
+
+# 数据加载配置 - Linux服务器优化版本
+# 关键：解决Linux系统对高并发进程的限制
+dataloader:
+  num_workers: 0                  # 设为0触发自动优化逻辑
+  pin_memory: true                # 固定内存
+  persistent_workers: false       # 初始禁用，由自动优化决定
+  prefetch_factor: 2              # 保守的预取因子
+  drop_last: true                 # 丢弃最后不完整的批次
+
+# 验证配置
+validation:
+  enabled: true
+  interval: 1
+  metrics: ["mse", "mae", "rmse"]
+  save_predictions: false
+  max_samples_to_save: 5
+
+# 测试配置
+test:
+  enabled: true
+  metrics: ["mse", "mae", "rmse", "psnr"]
+  save_predictions: false         # 禁用以节省存储
+  save_visualizations: false      # 禁用可视化
+  output_dir: "./results/test_server_linux_optimized"
+
+# 评估指标配置
+evaluation:
+  regression_metrics:
+    mse: true
+    mae: true
+    rmse: true
+    r2_score: false               # 禁用以减少计算
+  
+  image_metrics:
+    psnr: true
+    ssim: false                   # 禁用以减少计算
+    lpips: false
+  
+  physics_metrics:
+    energy_conservation: false    # 禁用物理指标以减少计算
+    mass_conservation: false
+    vorticity_error: false
+
+# 数据增强配置
+data_augmentation:
+  enabled: false                  # 禁用数据增强
+  rotation: false
+  flip: false
+  noise: false
+  brightness: false
+  contrast: false
+
+# 分布式训练配置
+distributed:
+  enabled: false                  # 禁用分布式训练
+  backend: "nccl"
+  init_method: "env://"
+  world_size: 1
+  rank: 0
+
+# Linux服务器特殊配置说明
+# =====================================
+# 1. num_workers设为0：触发自动优化逻辑，避免手动设置高并发导致的系统限制
+# 2. 禁用归一化：避免计算瓶颈，特别是在大数据集上
+# 3. 使用torch后端：避免opencv等外部依赖的兼容性问题
+# 4. 保守的批次大小：避免GPU内存溢出
+# 5. 禁用可视化和GUI：适应无头服务器环境
+# 6. 频繁的监控和检查点：便于调试和恢复
+# 7. 简化的损失函数：减少计算复杂度
+# 8. 轻量化模型：降低内存和计算需求
+
+# 使用说明
+# ========
+# 1. 首次运行建议使用此配置进行测试
+# 2. 确认运行正常后，可以逐步增加：
+#    - num_samples: 1000 -> 5000 -> 20000
+#    - batch_size: 32 -> 64 -> 128
+#    - epochs: 5 -> 50 -> 500
+# 3. 监控系统资源使用情况，根据实际情况调整参数
+# 4. 如果遇到"too many open files"错误，需要增加ulimit值

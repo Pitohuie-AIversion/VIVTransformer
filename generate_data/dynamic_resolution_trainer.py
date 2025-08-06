@@ -848,10 +848,12 @@ def get_dynamic_loaders(config: Dict[str, Any]):
     if num_workers == 0 and cpu_count > 4:
         num_workers = min(16, cpu_count // 2)  # 最多16个worker，避免过多进程
         persistent_workers = True
+        # 重新设置prefetch_factor，因为num_workers已经改变
+        prefetch_factor = dataloader_config.get('prefetch_factor', 2)
         logger.info(f"🚀 服务器优化: 自动设置num_workers={num_workers} (CPU核心数: {cpu_count})")
     
     # 服务器环境下优化prefetch_factor
-    if num_workers > 8 and prefetch_factor < 4:
+    if num_workers > 8 and prefetch_factor is not None and prefetch_factor < 4:
         prefetch_factor = 4
         logger.info(f"🚀 服务器优化: 增加prefetch_factor={prefetch_factor}以提升数据流水线效率")
     

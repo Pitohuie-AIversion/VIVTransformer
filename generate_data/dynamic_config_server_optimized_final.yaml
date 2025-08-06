@@ -1,0 +1,253 @@
+# 动态分辨率训练配置文件 - Linux服务器最终优化版
+# 基于实际服务器性能测试结果的最佳配置
+# 服务器规格: 192核CPU + 1007GB内存 + 2x NVIDIA L40 GPU
+# 优化测试结果: 最佳num_workers=8
+
+# 数据配置
+data:
+  # 原始数据文件路径 (服务器路径)
+  path: "/share/fandixiaLab/suguangsheng/PycharmProjects/Sparse_to_Dense_Transformer/VIVTransformer-4sh2r1-codex/pdebench_extended/PDEBench/pdebench/data_download/2D_DarcyFlow_beta10.0_Train.hdf5"
+  
+  # 输入分辨率 [height, width] - 优化为32x32以减少计算量
+  input_resolution: [32, 32]      # 32x32 = 1024维 (降低输入复杂度)
+  
+  # 输出分辨率 [height, width] - 保持128x128，直接使用原始数据
+  output_resolution: [128, 128]   # 128x128 = 16384维 (与原始数据匹配，无需额外处理)
+  
+  # 样本数量 - 基于1TB内存可以处理大规模数据
+  num_samples: 10000              # 适中的样本数量，可根据需要调整到20000
+  
+  # 裁剪模式: 'center'(中心), 'random'(随机), 'corner'(左上角)
+  crop_mode: "center"
+  
+  # 数据归一化配置 - 基于之前的测试结果，归一化有125%开销
+  normalize_data: false           # 禁用归一化以避免计算瓶颈
+  normalize: false                # 禁用归一化数据
+  
+  # 懒加载配置（内存优化）
+  lazy_loading: true              # 启用懒加载以处理大数据集
+  
+  # 降采样配置（核心功能）
+  downsampling:
+    enabled: true                 # 启用降采样模式
+    method: "bilinear"            # 使用快速的bilinear插值
+    preserve_aspect_ratio: true   # 保持宽高比
+    anti_aliasing: false          # 禁用抗锯齿以提高速度
+    backend: "torch"              # 使用torch后端（避免opencv依赖问题）
+  
+  # 批次大小 - 基于883GB可用内存，可以使用较大批次
+  batch_size: 64                  # 充分利用大内存和双GPU
+  
+  # 数据集分割比例
+  train_ratio: 0.8
+  valid_ratio: 0.1
+  test_ratio: 0.1
+  shuffle: true                   # 是否打乱数据
+
+# 训练配置
+training:
+  epochs: 50                      # 适中的训练轮数
+  learning_rate: 0.001            # 标准学习率
+  weight_decay: 0.0001            # 权重衰减
+  
+  # 早停配置
+  enable_early_stopping: true     # 启用早停
+  patience: 10                    # 早停耐心值
+  min_delta: 0.000001             # 最小改善阈值
+  monitor: "val_loss"             # 监控指标
+  mode: "min"                     # 监控模式
+  restore_best_weights: true      # 恢复最佳权重
+  
+  save_best_model: true
+  save_path: "./results/models/server_optimized_final_model.pth"
+  model_save_path: "./results/models/server_optimized_final_model.pth"
+  save_best_only: true
+  log_interval: 5                 # 适中的日志间隔
+
+# 损失函数配置 - 简化版
+loss:
+  base_weight: 1.0                # 仅使用MSE损失
+  svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  topk: 10
+  loss_type: "mse"                # 使用基础MSE损失
+  svd_loss_enabled: false         # 禁用SVD损失
+  normalize_svd_weights: false
+  
+  enhanced:
+    enabled: false                # 禁用增强版SVD损失函数
+    mixed_precision_mode: false
+    adaptive_weights: false
+    fallback_level: 2
+    enable_monitoring: false
+    adaptation_interval: 10
+    evaluation_mode: false
+    force_svd: false
+
+# 多损失配置
+loss_configs:
+  - base_weight: 1.0
+    svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    topk: 10
+
+# 模型配置 - 平衡版本
+model:
+  num_layers: 6                   # 适中的层数
+  d_model: 512                    # 适中模型维度
+  num_heads: 8                    # 8个注意力头
+  max_time_steps: 100
+  dropout: 0.1
+  dim_feedforward: 2048           # 前馈维度
+  
+  attention_type: "sge"
+  activation: "relu"
+  
+  weight_init:
+    method: "xavier_uniform"
+    gain: 1.0
+    std: 0.02
+  
+  normalization:
+    type: "layer_norm"
+    eps: 1e-5
+    elementwise_affine: true
+  
+  positional_encoding:
+    type: "learnable"
+    max_len: 5000
+    dropout: 0.1
+  
+  feedforward:
+    activation: "relu"
+    dropout: 0.1
+
+# 设备配置 - 双GPU优化
+device:
+  use_cuda: true                  # 使用CUDA
+  device_ids: [0, 1]              # 使用双GPU
+  mixed_precision: false          # 暂时禁用混合精度
+
+# 环境配置 - Linux服务器
+environment:
+  backend: "Agg"                  # matplotlib后端
+  disable_gui: true               # 禁用所有GUI功能
+  qt_qpa_platform: "offscreen"    # Qt离屏渲染
+
+# 随机种子和确定性
+seed: 42
+deterministic: false
+
+# 可视化配置 - 完全禁用
+visualization:
+  enabled: false                  # 禁用可视化
+  interval: 10
+  max_samples: 12
+  save_format: "png"
+  dpi: 300
+  save_comparison: false
+  save_error_maps: false
+
+# 检查点配置
+checkpoint:
+  enabled: true
+  save_interval: 10               # 定期保存检查点
+  keep_last_n: 5                  # 保留最近5个检查点
+  auto_resume: true
+  save_optimizer_state: true
+  save_scheduler_state: true
+  compress_checkpoints: true
+
+# 性能监控配置
+monitoring:
+  enabled: true
+  log_memory_usage: true
+  log_gpu_usage: true
+  profile_enabled: false
+  log_interval: 5                 # 每5个epoch监控一次
+  save_system_stats: true
+  monitor_gradient_norms: true
+  monitor_weight_norms: true
+  alert_on_anomaly: false
+
+# 数据加载配置 - 基于实际测试结果的最佳配置
+# 测试结果显示: num_workers=8 性能最佳 (0.05秒)
+dataloader:
+  num_workers: 8                  # 基于实际测试的最佳值
+  pin_memory: true                # 固定内存以提升GPU传输速度
+  persistent_workers: true        # 持久化工作进程
+  prefetch_factor: 4              # 适中的预取因子，充分利用大内存
+  drop_last: true                 # 丢弃最后不完整的批次
+
+# 验证配置
+validation:
+  enabled: true
+  interval: 1
+  metrics: ["mse", "mae", "rmse", "psnr"]
+  save_predictions: false
+  max_samples_to_save: 10
+
+# 测试配置
+test:
+  enabled: true
+  metrics: ["mse", "mae", "rmse", "psnr", "ssim"]
+  save_predictions: true
+  save_visualizations: false      # 禁用可视化
+  output_dir: "./results/test_server_optimized_final"
+
+# 评估指标配置
+evaluation:
+  regression_metrics:
+    mse: true
+    mae: true
+    rmse: true
+    r2_score: true
+  
+  image_metrics:
+    psnr: true
+    ssim: true
+    lpips: false
+  
+  physics_metrics:
+    energy_conservation: false    # 禁用以减少计算
+    mass_conservation: false
+    vorticity_error: false
+
+# 数据增强配置
+data_augmentation:
+  enabled: false                  # 禁用数据增强
+  rotation: false
+  flip: false
+  noise: false
+  brightness: false
+  contrast: false
+
+# 分布式训练配置
+distributed:
+  enabled: false                  # 暂时禁用分布式训练
+  backend: "nccl"
+  init_method: "env://"
+  world_size: 1
+  rank: 0
+
+# 服务器优化配置说明
+# =====================================
+# 基于实际测试结果的优化:
+# 1. 系统限制检查: 文件描述符262144，进程数4124711 - 充足
+# 2. 最佳num_workers: 8 (测试结果0.05秒，优于其他配置)
+# 3. 内存充足: 883GB可用，支持大批次和预取
+# 4. 双GPU配置: 2x NVIDIA L40，支持并行训练
+# 5. 禁用归一化: 避免125%的计算开销
+# 6. 懒加载: 处理大数据集的最佳选择
+
+# 性能预期
+# ========
+# - CPU利用率: 通过8个workers充分利用192核CPU
+# - 内存利用率: 通过大批次和预取充分利用1TB内存
+# - GPU利用率: 双GPU并行训练，提升训练速度
+# - 数据加载: 优化的worker配置，减少I/O瓶颈
+
+# 使用建议
+# ========
+# 1. 首次使用此配置进行完整训练
+# 2. 监控资源使用情况，根据需要调整批次大小
+# 3. 如果需要更高精度，可以考虑启用归一化（但会增加计算开销）
+# 4. 可以根据训练进度调整样本数量和训练轮数

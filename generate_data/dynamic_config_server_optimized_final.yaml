@@ -121,10 +121,9 @@ model:
     dropout: 0.1
 
 # 设备配置 - 双GPU优化
-device:
-  use_cuda: true                  # 使用CUDA
-  device_ids: [0, 1]              # 使用双GPU
-  mixed_precision: false          # 暂时禁用混合精度
+device: "cuda:0"                   # 主GPU设备
+device_ids: [0, 1]                # 使用双GPU
+mixed_precision: false            # 暂时禁用混合精度
 
 # 环境配置 - Linux服务器
 environment:

@@ -1,0 +1,189 @@
+# 本地环境动态分辨率训练配置
+# 适用于本地开发和测试环境
+
+# 数据配置 - 本地环境优化
+data:
+  # 数据路径 - 使用本地可用的数据文件
+  data_path: "X:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/PDEBench/pdebench/data_download/2D_DarcyFlow_beta0.1_Train.hdf5"
+  
+  # 输入输出分辨率配置
+  input_resolution: [32, 32]     # 输入分辨率 32x32
+  output_resolution: [128, 128]  # 输出分辨率 128x128
+  
+  # 样本数量 - 本地测试用较小数量
+  num_samples: 5000              # 增加样本数量（大内存支持）
+  
+  # 裁剪模式
+  crop_mode: "center"            # 中心裁剪
+  
+  # 数据归一化
+  normalize: true                # 启用数据归一化
+  normalization_method: "global" # 全局归一化
+  
+  # 懒加载
+  lazy_loading: true             # 启用懒加载以节省内存
+  
+  # 降采样配置
+  downsampling:
+    enabled: true                # 启用降采样
+    method: "bilinear"           # 双线性插值
+    antialias: true              # 启用抗锯齿
+
+# 训练配置 - 本地环境优化
+training:
+  epochs: 100                    # 适中的训练轮数
+  batch_size: 1                  # 最小批次大小以适应GPU显存限制
+  learning_rate: 0.0001          # 学习率
+  weight_decay: 0.00001          # 权重衰减
+  
+  # 早停配置
+  early_stopping:
+    enabled: true                # 启用早停
+    patience: 10                 # 早停耐心值
+    min_delta: 0.000001          # 最小改善阈值
+    monitor: "val_loss"          # 监控验证损失
+    mode: "min"                  # 最小化模式
+    restore_best_weights: true   # 恢复最佳权重
+  
+  # 模型保存
+  save_best_model: true          # 保存最佳模型
+  save_last_model: true          # 保存最后模型
+  model_save_path: "./results/models/local_best_model.pth"
+
+# 损失函数配置
+loss:
+  type: "mse"                    # 均方误差损失
+  reduction: "mean"              # 平均化
+
+# 模型配置 - 轻量化版本
+model:
+  type: "transformer"
+  
+  # 编码器配置 - 减少复杂度
+  encoder:
+    num_layers: 4                # 减少层数
+    hidden_dim: 256              # 减少隐藏维度
+    num_heads: 8                 # 减少注意力头数
+    dropout: 0.1
+    bias: true
+  
+  # 解码器配置 - 减少复杂度
+  decoder:
+    num_layers: 4                # 减少层数
+    hidden_dim: 256              # 减少隐藏维度
+    num_heads: 8                 # 减少注意力头数
+    dropout: 0.1
+    bias: true
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./results/logs/local_training.log"
+  verbose: true
+
+# 优化器配置
+optimizer:
+  type: "adam"
+  betas: [0.9, 0.999]
+  eps: 0.00000001
+  amsgrad: false
+
+# 学习率调度器配置 - 本地优化版本
+scheduler:
+  enabled: true
+  type: "cosine"                 # 余弦退火调度器
+  T_max: 50                      # 与训练轮数匹配
+  eta_min: 0.0000001             # 最小学习率
+  warmup_epochs: 5               # 减少预热轮数
+  warmup_start_lr: 0.000001      # 预热起始学习率
+
+# 梯度配置 - 本地环境优化
+gradient:
+  clip_enabled: true             # 启用梯度裁剪
+  clip_value: 1.0                # 梯度裁剪值
+  accumulation_steps: 4          # 增加梯度累积以补偿小批次
+  sync_bn: false                 # 禁用同步批归一化（单GPU）
+
+# 混合精度训练配置
+mixed_precision:
+  enabled: true                  # 启用混合精度训练
+  loss_scale: "dynamic"          # 动态损失缩放
+
+# 设备配置 - 本地环境（CPU模式以避免显存不足）
+device: "cpu"
+use_dataparallel: false          # 禁用数据并行
+max_memory_fraction: 0.8         # 保守的显存使用率
+gpu_memory_growth: true          # 启用GPU内存动态增长
+clear_cache_interval: 50         # 减少缓存清理频率
+
+# 环境配置（本地GUI环境）
+environment:
+  headless: false                # 启用GUI模式
+  backend: "Qt5Agg"              # 使用Qt5Agg后端
+  qt_qpa_platform: "windows"     # Windows平台
+  disable_gui: false             # 启用GUI功能
+
+# 随机种子和确定性
+seed: 42
+deterministic: false
+
+# 可视化配置 - 本地环境
+visualization:
+  enabled: true                  # 启用可视化
+  interval: 10                   # 可视化间隔
+  max_samples: 4                 # 减少可视化样本数
+  save_format: "png"             # 保存格式
+  dpi: 150                       # 降低图像分辨率
+  save_comparison: true          # 启用对比图
+  save_error_maps: true          # 启用误差热力图
+
+# 检查点配置 - 本地环境
+checkpoint:
+  enabled: true                  # 启用检查点保存
+  save_interval: 20              # 增加检查点保存间隔
+  keep_last_n: 3                 # 减少保留检查点数量
+  auto_resume: true              # 自动恢复训练
+  save_optimizer_state: true     # 保存优化器状态
+  save_scheduler_state: true     # 保存学习率调度器状态
+  compress_checkpoints: false    # 禁用压缩以提高速度
+
+# 性能监控配置 - 本地环境
+monitoring:
+  enabled: true                  # 启用性能监控
+  log_memory_usage: true         # 记录内存使用情况
+  log_gpu_usage: true            # 记录GPU使用情况
+  profile_enabled: false         # 禁用性能分析
+  log_interval: 10               # 监控日志间隔
+  save_system_stats: false       # 禁用系统统计信息保存
+  monitor_gradient_norms: true   # 监控梯度范数
+  monitor_weight_norms: true     # 监控权重范数
+  alert_on_anomaly: false        # 禁用异常告警
+
+# 数据加载配置 - 本地环境优化（32核CPU + 39.8GB内存）
+dataloader:
+  num_workers: 8                 # 优化后的工作进程数（推荐值）
+  pin_memory: true               # 固定内存以提升GPU传输速度
+  persistent_workers: true       # 启用持久化工作进程（大内存支持）
+  prefetch_factor: 4             # 增加预取因子利用大内存
+  drop_last: true                # 丢弃最后不完整的批次
+
+# 验证配置
+validation:
+  enabled: true                  # 启用验证
+  interval: 5                    # 验证间隔（每5个epoch）
+  metrics: ["mse", "mae", "rmse"] # 验证指标
+
+# 测试配置
+test:
+  enabled: true                  # 启用测试
+  batch_size: 4                  # 测试批次大小
+  save_predictions: true         # 保存预测结果
+  save_path: "./results/predictions/"
+
+# 调试配置
+debug:
+  enabled: false                 # 禁用调试模式
+  print_model_summary: true      # 打印模型摘要
+  log_gradients: false           # 禁用梯度日志
+  save_intermediate_outputs: false # 禁用中间输出保存

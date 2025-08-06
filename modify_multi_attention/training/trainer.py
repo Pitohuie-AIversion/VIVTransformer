@@ -9,7 +9,7 @@ import torch
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 
 # 设置matplotlib支持中文显示
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
@@ -30,7 +30,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
     mixed_precision_config = cfg.get('mixed_precision', {})
     device_str = str(device) if hasattr(device, 'type') else str(device)
     use_amp = mixed_precision_config.get('enabled', False) and 'cuda' in device_str
-    scaler = GradScaler() if use_amp else None
+    scaler = GradScaler('cuda') if use_amp else None
     
     if use_amp:
         print(f"🚀 启用混合精度训练 (AMP)，损失缩放: {mixed_precision_config.get('loss_scale', 'dynamic')}")
@@ -150,7 +150,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
             
             # 混合精度训练
             if use_amp:
-                with autocast():
+                with autocast('cuda'):
                     model_out = model(in_press, time_steps)
                     loss_value = criterion(model_out, out_pressure)  # 训练用自定义loss
                     # 梯度累积：损失需要除以累积步数

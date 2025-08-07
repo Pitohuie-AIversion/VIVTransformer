@@ -234,7 +234,7 @@ class SimpleTrainer:
     
     def setup_model(self):
         """
-        设置模型
+        设置模型 - 强制使用VIVTransformer网络
         """
         # 获取数据形状信息
         sample_input, sample_output = self.train_dataset[0]
@@ -246,14 +246,19 @@ class SimpleTrainer:
         
         if HAS_MODULES:
             # 使用VIVTransformer模型
+            logger.info("✅ 使用VIVTransformer网络")
             self.model = VIVTransformer(
                 input_resolution=input_shape,
                 output_resolution=output_shape,
                 **self.model_config
             )
         else:
-            # 使用简单的CNN模型作为备选
-            self.model = self.create_simple_cnn(input_shape, output_shape)
+            # 如果VIVTransformer模块不可用，抛出错误而不是使用CNN备选
+            logger.error("❌ VIVTransformer模块未成功导入")
+            logger.error("请检查以下路径是否正确:")
+            logger.error(f"  - modify_multi_attention路径: {modify_multi_attention_path}")
+            logger.error(f"  - VIVTransformer模块: modify_multi_attention.mymodels.transformer")
+            raise ImportError("VIVTransformer模块不可用，无法创建模型。请确保所有依赖模块正确安装。")
         
         self.model = self.model.to(self.device)
         
@@ -270,38 +275,9 @@ class SimpleTrainer:
         logger.info(f"  总参数: {total_params:,}")
         logger.info(f"  可训练参数: {trainable_params:,}")
     
-    def create_simple_cnn(self, input_shape: Tuple[int, ...], output_shape: Tuple[int, ...]) -> nn.Module:
-        """
-        创建简单的CNN模型作为备选
-        
-        Args:
-            input_shape: 输入形状
-            output_shape: 输出形状
-            
-        Returns:
-            CNN模型
-        """
-        class SimpleCNN(nn.Module):
-            def __init__(self, input_channels, output_channels, hidden_dim=64):
-                super().__init__()
-                self.encoder = nn.Sequential(
-                    nn.Conv2d(input_channels, hidden_dim, 3, padding=1),
-                    nn.ReLU(),
-                    nn.Conv2d(hidden_dim, hidden_dim * 2, 3, padding=1),
-                    nn.ReLU(),
-                    nn.Conv2d(hidden_dim * 2, hidden_dim, 3, padding=1),
-                    nn.ReLU(),
-                    nn.Conv2d(hidden_dim, output_channels, 3, padding=1)
-                )
-            
-            def forward(self, x):
-                return self.encoder(x)
-        
-        input_channels = input_shape[0] if len(input_shape) == 3 else 1
-        output_channels = output_shape[0] if len(output_shape) == 3 else 1
-        
-        logger.info(f"使用简单CNN模型: {input_channels} -> {output_channels} 通道")
-        return SimpleCNN(input_channels, output_channels)
+    # 注意：已移除 create_simple_cnn 方法
+    # 现在强制使用VIVTransformer网络，不再提供CNN备选方案
+    # 如需CNN模型，请确保VIVTransformer模块正确导入或使用其他训练脚本
     
     def setup_optimizer(self):
         """

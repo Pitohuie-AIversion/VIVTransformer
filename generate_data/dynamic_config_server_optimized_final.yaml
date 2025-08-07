@@ -142,6 +142,7 @@ model:
 # 设备配置 - 双GPU优化
 device: "cuda:0"                   # 主GPU设备
 device_ids: [0, 1]                # 使用双GPU
+use_dataparallel: true            # 启用多GPU并行训练
 
 # 混合精度配置
 mixed_precision:

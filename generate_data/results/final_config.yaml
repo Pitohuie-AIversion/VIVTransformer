@@ -1,0 +1,215 @@
+checkpoint:
+  auto_resume: true
+  compress_checkpoints: true
+  enabled: true
+  keep_last_n: 5
+  save_interval: 10
+  save_optimizer_state: true
+  save_scheduler_state: true
+data:
+  batch_size: 4
+  crop_mode: center
+  downsampling:
+    anti_aliasing: false
+    backend: torch
+    enabled: true
+    method: bilinear
+    preserve_aspect_ratio: true
+  input_resolution:
+  - 32
+  - 32
+  lazy_loading: true
+  normalize: false
+  normalize_data: false
+  num_samples: 10000
+  output_resolution:
+  - 128
+  - 128
+  path: X:\2025\Graduation_project\Pdebench_input_Transformer\VIVTransformer-1\PDEBench\pdebench\data_download\2D_DarcyFlow_beta0.1_Train.hdf5
+  shuffle: true
+  test_ratio: 0.1
+  train_ratio: 0.8
+  valid_ratio: 0.1
+data_augmentation:
+  brightness: false
+  contrast: false
+  enabled: false
+  flip: false
+  noise: false
+  rotation: false
+dataloader:
+  drop_last: true
+  num_workers: 8
+  persistent_workers: true
+  pin_memory: false
+  prefetch_factor: 2
+deterministic: false
+device: cuda:0
+device_ids:
+- 0
+- 1
+distributed:
+  backend: nccl
+  enabled: false
+  init_method: env://
+  rank: 0
+  world_size: 1
+environment:
+  backend: Agg
+  disable_gui: true
+  qt_qpa_platform: offscreen
+evaluation:
+  image_metrics:
+    lpips: false
+    psnr: true
+    ssim: true
+  physics_metrics:
+    energy_conservation: false
+    mass_conservation: false
+    vorticity_error: false
+  regression_metrics:
+    mae: true
+    mse: true
+    r2_score: true
+    rmse: true
+loss:
+  base_weight: 1.0
+  enhanced:
+    adaptation_interval: 10
+    adaptive_weights: false
+    enable_monitoring: false
+    enabled: false
+    evaluation_mode: false
+    fallback_level: 2
+    force_svd: false
+    mixed_precision_mode: false
+  loss_type: mse
+  normalize_svd_weights: false
+  svd_loss_enabled: false
+  svd_weights:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  topk: 10
+loss_configs:
+- base_weight: 1.0
+  svd_weights:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  topk: 10
+mixed_precision:
+  enabled: true
+  loss_scale: dynamic
+  opt_level: O1
+model:
+  activation: relu
+  attention_type: self
+  d_model: 1
+  dim_feedforward: 256
+  dropout: 0.1
+  feedforward:
+    activation: relu
+    dropout: 0.1
+  input_dim: 1024
+  max_time_steps: 100
+  normalization:
+    elementwise_affine: true
+    eps: 1e-5
+    type: layer_norm
+  num_heads: 1
+  num_layers: 2
+  output_dim: 16384
+  positional_encoding:
+    dropout: 0.1
+    max_len: 5000
+    type: learnable
+  seq_len: 1024
+  weight_init:
+    gain: 1.0
+    method: xavier_uniform
+    std: 0.02
+monitoring:
+  alert_on_anomaly: false
+  enabled: true
+  log_gpu_usage: true
+  log_interval: 5
+  log_memory_usage: true
+  monitor_gradient_norms: true
+  monitor_weight_norms: true
+  profile_enabled: false
+  save_system_stats: true
+optimizer:
+  amsgrad: false
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1e-8
+  lr: 0.001
+  type: adam
+  weight_decay: 0.0001
+scheduler:
+  enabled: true
+  gamma: 0.5
+  step_size: 10
+  type: step
+seed: 42
+test:
+  enabled: true
+  metrics:
+  - mse
+  - mae
+  - rmse
+  - psnr
+  - ssim
+  output_dir: ./results/test_server_optimized_final
+  save_predictions: true
+  save_visualizations: false
+training:
+  enable_early_stopping: true
+  epochs: 50
+  learning_rate: 0.001
+  log_interval: 5
+  min_delta: 1.0e-06
+  mode: min
+  model_save_path: ./results/models/server_optimized_final_model.pth
+  monitor: val_loss
+  patience: 10
+  restore_best_weights: true
+  save_best_model: true
+  save_best_only: true
+  save_path: ./results/models/server_optimized_final_model.pth
+  weight_decay: 0.0001
+use_dataparallel: true
+validation:
+  enabled: true
+  interval: 1
+  max_samples_to_save: 10
+  metrics:
+  - mse
+  - mae
+  - rmse
+  - psnr
+  save_predictions: false
+visualization:
+  dpi: 300
+  enabled: false
+  interval: 10
+  max_samples: 12
+  save_comparison: false
+  save_error_maps: false
+  save_format: png

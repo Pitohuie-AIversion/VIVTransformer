@@ -20,12 +20,22 @@ os.environ['MPLBACKEND'] = 'Agg'
 os.environ['DISPLAY'] = ''
 os.environ['HEADLESS'] = '1'
 
+# CPU多线程优化设置 - 充分利用192核CPU
+os.environ["OMP_NUM_THREADS"] = "64"
+os.environ["MKL_NUM_THREADS"] = "64"
+os.environ["OPENBLAS_NUM_THREADS"] = "64"
+os.environ["NUMEXPR_NUM_THREADS"] = "64"
+
 import matplotlib
 matplotlib.use('Agg')
 
 import sys
 import torch
 import numpy as np
+
+# PyTorch多线程优化设置 - 充分利用192核CPU
+torch.set_num_threads(64)  # 设置PyTorch使用的线程数
+torch.set_num_interop_threads(8)  # 设置内部线程池数量
 import h5py
 import yaml
 import argparse

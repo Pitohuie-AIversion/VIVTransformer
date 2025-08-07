@@ -842,15 +842,60 @@ def get_dynamic_loaders(config: Dict[str, Any]):
     
     # 服务器优化：自动调整数据加载器参数
     import os
+    import multiprocessing as mp
     cpu_count = os.cpu_count()
     
-    # 如果配置的num_workers为0，自动设置为CPU核心数的一半（服务器优化）
+    # 设置多进程启动方法（Linux服务器优化）
+    try:
+        if mp.get_start_method(allow_none=True) != 'spawn':
+            mp.set_start_method('spawn', force=True)
+            logger.info(f"🔧 设置多进程启动方法为spawn以提高稳定性")
+    except RuntimeError:
+        logger.warning("⚠️ 无法设置多进程启动方法，使用默认设置")
+    
+    # 智能worker数量优化
     if num_workers == 0 and cpu_count > 4:
-        num_workers = min(16, cpu_count // 2)  # 最多16个worker，避免过多进程
-        persistent_workers = True
-        # 重新设置prefetch_factor，因为num_workers已经改变
-        prefetch_factor = dataloader_config.get('prefetch_factor', 2)
-        logger.info(f"🚀 服务器优化: 自动设置num_workers={num_workers} (CPU核心数: {cpu_count})")
+        # 检查是否启用智能优化
+        enable_smart_workers = dataloader_config.get('enable_smart_workers', True)
+        min_workers = dataloader_config.get('min_workers', 0)
+        max_workers = dataloader_config.get('max_workers', 32)
+        
+        if enable_smart_workers:
+            # 根据数据处理复杂度智能设置worker数量
+            use_downsampling = data_config.get('downsampling', {}).get('enabled', False)
+            batch_size = data_config.get('batch_size', 16)
+            
+            if use_downsampling:
+                # 降采样需要更多CPU计算，使用更多worker
+                if cpu_count >= 64:  # 超级服务器
+                    num_workers = min(max_workers, max(8, cpu_count // 6))  # 使用1/6核心，最少8个
+                else:  # 普通服务器
+                    num_workers = min(max_workers, max(4, cpu_count // 4))  # 使用1/4核心，最少4个
+                logger.info(f"🎯 智能优化(降采样): 设置num_workers={num_workers}")
+            else:
+                # 简单裁剪操作，使用较少worker避免进程开销
+                if batch_size >= 64:  # 大批次可以受益于并行
+                    num_workers = min(max_workers, max(2, cpu_count // 8))  # 使用1/8核心，最少2个
+                else:  # 小批次使用单进程
+                    num_workers = max(min_workers, 0)
+                logger.info(f"🎯 智能优化(裁剪): 设置num_workers={num_workers}")
+        else:
+            # 传统优化策略
+            if cpu_count >= 64:  # 超级服务器
+                num_workers = min(max_workers, cpu_count // 3)  # 使用1/3的核心
+            else:  # 普通服务器
+                num_workers = min(max_workers, cpu_count // 2)  # 使用1/2的核心
+            logger.info(f"🚀 传统优化: 设置num_workers={num_workers}")
+        
+        # 确保在合理范围内
+        num_workers = max(min_workers, min(max_workers, num_workers))
+        
+        if num_workers > 0:
+            persistent_workers = True
+            # 重新设置prefetch_factor
+            prefetch_factor = dataloader_config.get('prefetch_factor', 2)
+        
+        logger.info(f"🚀 最终设置: num_workers={num_workers} (CPU核心数: {cpu_count})")
     
     # 服务器环境下优化prefetch_factor
     if num_workers > 8 and prefetch_factor is not None and prefetch_factor < 4:

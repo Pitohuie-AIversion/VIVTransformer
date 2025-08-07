@@ -147,8 +147,8 @@ class PreprocessedDataset(torch.utils.data.Dataset):
         
         # 加载数据
         with h5py.File(data_path, 'r') as f:
-            self.inputs = torch.from_numpy(f['inputs'][:]).float()
-            self.outputs = torch.from_numpy(f['outputs'][:]).float()
+            self.inputs = torch.from_numpy(f['input'][:]).float()
+            self.outputs = torch.from_numpy(f['output'][:]).float()
             
         logger.info(f"加载预处理数据: {data_path}")
         logger.info(f"输入形状: {self.inputs.shape}")
@@ -158,7 +158,13 @@ class PreprocessedDataset(torch.utils.data.Dataset):
         return len(self.inputs)
         
     def __getitem__(self, idx):
-        return self.inputs[idx], self.outputs[idx]
+        # 将二维数据展平为一维
+        input_flat = self.inputs[idx].flatten()  # 32x32 -> 1024
+        output_flat = self.outputs[idx].flatten()  # 128x128 -> 16384
+        
+        # 生成虚拟时间步（单个时间步）
+        time_steps = torch.tensor(0, dtype=torch.long)  # 单个时间步
+        return input_flat, output_flat, time_steps
 
 def create_data_loaders(data_source: str, config: Dict[str, Any]):
     """
@@ -191,10 +197,15 @@ def create_data_loaders(data_source: str, config: Dict[str, Any]):
         valid_dataset = PreprocessedDataset(str(valid_path))
         test_dataset = PreprocessedDataset(str(test_path))
         
+        # 获取数据集大小
+        train_size = len(train_dataset)
+        valid_size = len(valid_dataset)
+        test_size = len(test_dataset)
+        
         logger.info(f"从目录加载预处理数据: {data_source}")
-        logger.info(f"训练集大小: {len(train_dataset)}")
-        logger.info(f"验证集大小: {len(valid_dataset)}")
-        logger.info(f"测试集大小: {len(test_dataset)}")
+        logger.info(f"训练集大小: {train_size}")
+        logger.info(f"验证集大小: {valid_size}")
+        logger.info(f"测试集大小: {test_size}")
         
     else:
         # 文件模式：从单个文件分割数据集（兼容模式）

@@ -5,8 +5,8 @@
 
 # 数据配置
 data:
-  # 原始数据文件路径 (服务器路径)
-  path: "/share/fandixiaLab/suguangsheng/PycharmProjects/Sparse_to_Dense_Transformer/VIVTransformer-4sh2r1-codex/pdebench_extended/PDEBench/pdebench/data_download/2D_DarcyFlow_beta10.0_Train.hdf5"
+  # 原始数据文件路径 (本地路径)
+  path: "X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\PDEBench\\pdebench\\data_download\\2D_DarcyFlow_beta0.1_Train.hdf5"
   
   # 输入分辨率 [height, width] - 优化为32x32以减少计算量
   input_resolution: [32, 32]      # 32x32 = 1024维 (降低输入复杂度)
@@ -36,7 +36,7 @@ data:
     backend: "torch"              # 使用torch后端（避免opencv依赖问题）
   
   # 批次大小 - 调整为适应GPU内存限制
-  batch_size: 16                  # 减小批次大小以避免GPU内存不足
+  batch_size: 4                   # 进一步减小批次大小以避免GPU内存不足
   
   # 数据集分割比例
   train_ratio: 0.8
@@ -63,6 +63,22 @@ training:
   model_save_path: "./results/models/server_optimized_final_model.pth"
   save_best_only: true
   log_interval: 5                 # 适中的日志间隔
+
+# ===== 优化器配置 =====
+optimizer:
+  type: "adam"
+  lr: 0.001
+  weight_decay: 0.0001
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  amsgrad: false
+
+# ===== 学习率调度器配置 =====
+scheduler:
+  enabled: true
+  type: "step"                 # 使用简单的步长调度器
+  step_size: 10
+  gamma: 0.5
 
 # 损失函数配置 - 简化版
 loss:
@@ -91,14 +107,17 @@ loss_configs:
 
 # 模型配置 - GPU内存优化版本
 model:
-  num_layers: 4                   # 减少层数以节省GPU内存
-  d_model: 256                    # 减小模型维度以节省GPU内存
-  num_heads: 8                    # 保持8个注意力头
+  input_dim: 1024                 # 输入维度 (32*32)
+  output_dim: 16384               # 输出维度 (128*128)
+  seq_len: 1024                   # 序列长度 (展平后的数据维度)
+  num_layers: 2                   # 进一步减少层数以节省GPU内存
+  d_model: 1                      # 匹配输入数据的特征维度
+  num_heads: 1                    # 减少注意力头数以节省内存
   max_time_steps: 100
   dropout: 0.1
-  dim_feedforward: 1024           # 减小前馈维度以节省GPU内存
+  dim_feedforward: 256            # 进一步减小前馈维度以节省GPU内存
   
-  attention_type: "sge"
+  attention_type: "self"
   activation: "relu"
   
   weight_init:

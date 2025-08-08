@@ -761,7 +761,7 @@ def load_config_from_yaml(config_path: str) -> Dict[str, Any]:
             
             config['model']['input_dim'] = input_h * input_w
             config['model']['output_dim'] = output_h * output_w
-            config['model']['seq_len'] = int(np.sqrt(input_h * input_w))
+            config['model']['seq_len'] = input_h * input_w
     
     return config
 

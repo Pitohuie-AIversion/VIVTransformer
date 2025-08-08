@@ -41,22 +41,25 @@ class ResolutionDownsampler:
     分辨率降采样器类
     专门用于对整张图进行分辨率降低处理
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                  downsample_method: str = 'bilinear',
                  preserve_aspect_ratio: bool = True,
-                 anti_aliasing: bool = True):
+                 anti_aliasing: bool = True,
+                 backend: str = 'opencv'):
         """
         初始化分辨率降采样器
-        
+
         Args:
             downsample_method: 降采样方法 ('bilinear', 'nearest', 'bicubic', 'area', 'lanczos')
             preserve_aspect_ratio: 是否保持宽高比
             anti_aliasing: 是否启用抗锯齿
+            backend: 底层实现后端 ('opencv' 或 'scipy')
         """
         self.downsample_method = downsample_method
         self.preserve_aspect_ratio = preserve_aspect_ratio
         self.anti_aliasing = anti_aliasing
+        self.backend = backend
         
         # 验证降采样方法
         valid_methods = ['bilinear', 'nearest', 'bicubic', 'area', 'lanczos']
@@ -67,6 +70,7 @@ class ResolutionDownsampler:
         logger.info(f"  降采样方法: {downsample_method}")
         logger.info(f"  保持宽高比: {preserve_aspect_ratio}")
         logger.info(f"  抗锯齿: {anti_aliasing}")
+        logger.info(f"  后端: {backend}")
     
     def _get_opencv_interpolation(self) -> int:
         """获取OpenCV插值方法"""
@@ -180,21 +184,24 @@ class ResolutionDownsampler:
         else:
             raise ValueError(f"不支持的数据形状: {data.shape}")
     
-    def downsample_data(self, 
-                       data: np.ndarray, 
+    def downsample_data(self,
+                       data: np.ndarray,
                        target_size: Tuple[int, int],
-                       method: str = 'opencv') -> np.ndarray:
+                       method: Optional[str] = None) -> np.ndarray:
         """
         降采样数据的主要接口
-        
+
         Args:
             data: 输入数据
             target_size: 目标尺寸 (height, width)
-            method: 使用的库 ('opencv' 或 'scipy')
+            method: 使用的库 ('opencv' 或 'scipy')，默认为初始化时指定的后端
             
         Returns:
             降采样后的数据
         """
+        if method is None:
+            method = self.backend
+
         if method == 'opencv':
             if HAS_OPENCV:
                 try:
@@ -259,6 +266,7 @@ class ResolutionDownsampler:
             'downsample_method': self.downsample_method,
             'preserve_aspect_ratio': self.preserve_aspect_ratio,
             'anti_aliasing': self.anti_aliasing,
+            'backend': self.backend,
             'supported_methods': ['bilinear', 'nearest', 'bicubic', 'area', 'lanczos']
         }
 
@@ -268,7 +276,7 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
     使用降采样而不是裁剪来生成不同分辨率的数据
     """
     
-    def __init__(self, 
+    def __init__(self,
                  data_path: str,
                  input_resolution: Tuple[int, int],
                  output_resolution: Tuple[int, int],
@@ -276,7 +284,9 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
                  downsample_method: str = 'bilinear',
                  preserve_aspect_ratio: bool = True,
                  normalize_data: bool = True,
-                 lazy_loading: bool = False):
+                 lazy_loading: bool = False,
+                 backend: str = 'opencv',
+                 anti_aliasing: bool = True):
         """
         初始化降采样分辨率数据集
         
@@ -289,6 +299,8 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
             preserve_aspect_ratio: 是否保持宽高比
             normalize_data: 是否对数据进行归一化
             lazy_loading: 是否启用懒加载
+            backend: 底层实现后端 ('opencv', 'scipy' 或 'auto')
+            anti_aliasing: 是否启用抗锯齿
         """
         self.data_path = Path(data_path)
         self.input_resolution = input_resolution
@@ -296,11 +308,19 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
         self.num_samples = num_samples
         self.normalize_data = normalize_data
         self.lazy_loading = lazy_loading
-        
+
+        # 选择后端
+        backend = backend.lower()
+        if backend == 'auto':
+            backend = 'opencv' if HAS_OPENCV else 'scipy'
+        self.backend = backend
+
         # 初始化降采样器
         self.downsampler = ResolutionDownsampler(
             downsample_method=downsample_method,
-            preserve_aspect_ratio=preserve_aspect_ratio
+            preserve_aspect_ratio=preserve_aspect_ratio,
+            anti_aliasing=anti_aliasing,
+            backend=self.backend
         )
         
         # 归一化相关属性
@@ -333,6 +353,8 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
         logger.info(f"  降采样方法: {downsample_method}")
         logger.info(f"  数据归一化: {normalize_data}")
         logger.info(f"  懒加载模式: {lazy_loading}")
+        logger.info(f"  抗锯齿: {anti_aliasing}")
+        logger.info(f"  后端: {self.backend}")
     
     def _init_lazy_loading(self):
         """初始化懒加载模式"""
@@ -455,7 +477,11 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
             input_data = original_sample[0]
         else:
             # 使用降采样而不是裁剪
-            input_downsampled = self.downsampler.downsample_data(original_sample, self.input_resolution)
+            input_downsampled = self.downsampler.downsample_data(
+                original_sample,
+                self.input_resolution,
+                method=self.backend
+            )
             input_data = input_downsampled[0]
         
         # 生成输出数据（降采样到输出分辨率）
@@ -463,7 +489,11 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
             output_data = original_sample[0]
         else:
             # 使用降采样
-            output_downsampled = self.downsampler.downsample_data(original_sample, self.output_resolution)
+            output_downsampled = self.downsampler.downsample_data(
+                original_sample,
+                self.output_resolution,
+                method=self.backend
+            )
             output_data = output_downsampled[0]
         
         # 展平为1D

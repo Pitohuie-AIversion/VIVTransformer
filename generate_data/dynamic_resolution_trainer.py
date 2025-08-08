@@ -792,7 +792,9 @@ def get_dynamic_loaders(config: Dict[str, Any]):
             downsample_method=downsampling_config.get('method', 'bilinear'),
             preserve_aspect_ratio=downsampling_config.get('preserve_aspect_ratio', True),
             normalize_data=data_config.get('normalize_data', True),
-            lazy_loading=data_config.get('lazy_loading', False)
+            lazy_loading=data_config.get('lazy_loading', False),
+            backend=downsampling_config.get('backend', 'auto'),
+            anti_aliasing=downsampling_config.get('anti_aliasing', True)
         )
         
         # 记录降采样配置信息

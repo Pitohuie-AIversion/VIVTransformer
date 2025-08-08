@@ -514,7 +514,7 @@ class DynamicResolutionDataset(torch.utils.data.Dataset):
             original_sample = self.original_data[idx:idx+1]  # 保持3D形状
         
         # 生成输入数据（裁剪到输入分辨率） - CPU计算
-        original_shape = self.data_shape if self.lazy_loading else self.original_data.shape[1:]
+        original_shape = self.data_shape[1:] if self.lazy_loading else self.original_data.shape[1:]
         if self.input_resolution == original_shape:
             input_data = original_sample[0]
         else:

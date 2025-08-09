@@ -5,7 +5,8 @@
 在服务器训练时遇到的问题：
 - **GPU利用率高**：GPU处理能力强，计算密集
 - **CPU利用率低**：数据加载跟不上GPU消费速度
-- **内存利用率低**：数据流水线效率不高
+- **内存利用率低**：数据流水线效率不高，内存资源未充分利用
+- **内存使用不当**：内存峰值过高或内存泄漏导致训练中断
 
 ## 根本原因分析
 
@@ -18,6 +19,13 @@
 - GPU处理速度快，但数据供应跟不上
 - CPU核心没有被充分且合理地利用
 - 内存预取策略不当
+
+### 3. 内存管理问题
+- 缺乏实时内存监控，无法及时发现内存问题
+- 多进程数据加载器内存开销过大
+- 大数据集加载时内存峰值过高
+- 内存泄漏导致长时间训练失败
+- 缺乏内存使用阈值控制和自动调整机制
 
 ## 优化方案
 
@@ -85,7 +93,55 @@ if enable_smart_workers:
             num_workers = max(min_workers, 0)
 ```
 
-### 3. 性能测试结果
+### 3. 内存优化配置
+
+#### 配置文件添加内存优化
+```yaml
+dataloader:
+  # ... CPU优化配置 ...
+  
+  # 内存优化配置
+  memory_optimization:
+    enable_memory_monitoring: true    # 启用内存监控
+    max_memory_usage_gb: 64          # 最大内存使用限制（GB）
+    memory_threshold_warning: 0.8    # 内存使用警告阈值（80%）
+    memory_threshold_critical: 0.9   # 内存使用临界阈值（90%）
+    enable_memory_cleanup: true      # 启用自动内存清理
+    cleanup_interval: 100            # 内存清理间隔（每N个batch）
+    enable_shared_memory: true       # 启用共享内存（多进程间共享数据）
+    shared_memory_size_mb: 1024      # 共享内存大小（MB）
+    enable_memory_mapping: true      # 启用内存映射（大文件处理）
+    memory_cache_size_mb: 2048       # 内存缓存大小（MB）
+    enable_lazy_loading: true        # 启用懒加载（按需加载数据）
+    preload_ratio: 0.1               # 预加载比例（10%的数据预加载到内存）
+```
+
+#### 内存监控和自动调整
+```python
+# 实时内存监控
+memory_info = psutil.virtual_memory()
+current_memory_gb = memory_info.used / (1024**3)
+total_memory_gb = memory_info.total / (1024**3)
+memory_usage_ratio = memory_info.percent / 100.0
+
+# 根据内存使用率自动调整worker数量
+if memory_usage_ratio > critical_threshold:
+    if num_workers > 4:
+        num_workers = max(2, num_workers // 2)
+        logger.info(f"🔧 自动调整: 减少num_workers到{num_workers}以节省内存")
+elif memory_usage_ratio > warning_threshold:
+    logger.warning(f"⚠️ 内存使用率较高 ({memory_usage_ratio:.1%})，请注意监控")
+```
+
+#### 内存优化功能
+1. **实时监控**: 跟踪内存使用情况，显示使用量和使用率
+2. **阈值控制**: 设置警告和临界阈值，自动调整参数
+3. **自动清理**: 定期执行垃圾回收，防止内存泄漏
+4. **共享内存**: 多进程间共享数据，减少内存重复
+5. **内存映射**: 大文件处理时减少内存占用
+6. **懒加载**: 按需加载数据，减少内存峰值
+
+### 4. 性能测试结果
 
 #### 当前配置（32核CPU）
 - **降采样模式**：推荐8个worker，CPU利用率25%

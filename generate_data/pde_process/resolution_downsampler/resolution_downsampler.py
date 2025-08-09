@@ -478,7 +478,7 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
         return (
             torch.FloatTensor(input_flat),
             torch.FloatTensor(output_flat),
-            torch.tensor(idx, dtype=torch.float32)
+            torch.tensor(idx, dtype=torch.long)
         )
     
     def get_data_statistics(self):

@@ -50,12 +50,13 @@ training:
   weight_decay: 0.0001            # 权重衰减 (L2正则化)
   
   # 早停配置 - 启用早停以避免过拟合
-  enable_early_stopping: true    # 启用早停机制
-  patience: 200                    # 早停耐心值
-  min_delta: 0.000001             # 最小改善阈值
-  monitor: "val_loss"             # 监控指标
-  mode: "min"                     # 监控模式
-  restore_best_weights: true      # 是否恢复最佳权重
+  early_stopping:
+    enable_early_stopping: true    # 启用早停机制
+    patience: 200                    # 早停耐心值
+    min_delta: 0.000001             # 最小改善阈值
+    monitor: "val_loss"             # 监控指标
+    mode: "min"                     # 监控模式
+    restore_best_weights: true      # 是否恢复最佳权重
   
   save_best_model: true
   save_path: "./results/models/server_downsampling_model.pth"
@@ -235,17 +236,13 @@ monitoring:
   monitor_weight_norms: true      # 监控权重范数
   alert_on_anomaly: false         # 禁用异常告警（避免GUI依赖）
 
-# 数据加载配置 - 智能多核优化版本
+# 数据加载配置 - 192核CPU超级优化版本
 dataloader:
-  num_workers: 0                  # 设为0启用自动优化，让代码根据数据复杂度智能设置
+  num_workers: 64                 # 大幅增加工作进程数充分利用192核CPU
   pin_memory: true                # 固定内存以提升GPU传输速度
-  persistent_workers: false       # 将由代码自动设置
-  prefetch_factor: 2              # 保守的预取因子，避免内存浪费
+  persistent_workers: true        # 持久化工作进程 (多GPU推荐)
+  prefetch_factor: 16             # 大幅增加预取因子利用1TB大内存
   drop_last: true                 # 丢弃最后不完整的批次以保持一致性
-  # 智能优化配置
-  enable_smart_workers: true      # 启用智能worker数量检测
-  min_workers: 0                  # 最小worker数量
-  max_workers: 32                 # 最大worker数量（避免过度并行）
 
 # 验证配置 (可选功能)
 validation:

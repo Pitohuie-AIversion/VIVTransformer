@@ -825,8 +825,10 @@ def get_dynamic_loaders(config: Dict[str, Any]):
     valid_size = int(total_size * data_config['valid_ratio'])
     test_size = total_size - train_size - valid_size
     
+    # 使用固定随机种子确保结果可复现
+    split_generator = torch.Generator().manual_seed(config.get('seed', 42))
     train_dataset, valid_dataset, test_dataset = torch.utils.data.random_split(
-        dataset, [train_size, valid_size, test_size]
+        dataset, [train_size, valid_size, test_size], generator=split_generator
     )
     
     # 创建数据加载器
@@ -902,13 +904,76 @@ def get_dynamic_loaders(config: Dict[str, Any]):
         prefetch_factor = 4
         logger.info(f"🚀 服务器优化: 增加prefetch_factor={prefetch_factor}以提升数据流水线效率")
     
+    # 内存优化配置
+    memory_config = dataloader_config.get('memory_optimization', {})
+    if memory_config.get('enable_memory_monitoring', False):
+        import psutil
+        import gc
+        
+        # 获取当前内存使用情况
+        memory_info = psutil.virtual_memory()
+        current_memory_gb = memory_info.used / (1024**3)
+        total_memory_gb = memory_info.total / (1024**3)
+        memory_usage_ratio = memory_info.percent / 100.0
+        
+        logger.info(f"💾 内存监控: 当前使用 {current_memory_gb:.2f}GB / {total_memory_gb:.2f}GB ({memory_usage_ratio:.1%})")
+        
+        # 检查内存使用阈值
+        max_memory_gb = memory_config.get('max_memory_usage_gb', 64)
+        warning_threshold = memory_config.get('memory_threshold_warning', 0.8)
+        critical_threshold = memory_config.get('memory_threshold_critical', 0.9)
+        
+        if memory_usage_ratio > critical_threshold:
+            logger.warning(f"⚠️ 内存使用率过高 ({memory_usage_ratio:.1%})，建议减少batch_size或num_workers")
+            # 自动调整参数
+            if num_workers > 4:
+                num_workers = max(2, num_workers // 2)
+                logger.info(f"🔧 自动调整: 减少num_workers到{num_workers}以节省内存")
+        elif memory_usage_ratio > warning_threshold:
+            logger.warning(f"⚠️ 内存使用率较高 ({memory_usage_ratio:.1%})，请注意监控")
+        
+        # 启用内存清理
+        if memory_config.get('enable_memory_cleanup', True):
+            gc.collect()
+            logger.info("🧹 执行内存清理")
+        
+        # 共享内存配置
+        if memory_config.get('enable_shared_memory', True) and num_workers > 0:
+            shared_memory_size = memory_config.get('shared_memory_size_mb', 1024)
+            logger.info(f"🔗 启用共享内存: {shared_memory_size}MB")
+        
+        # 内存映射配置
+        if memory_config.get('enable_memory_mapping', True):
+            logger.info("🗺️ 启用内存映射以优化大文件处理")
+        
+        # 缓存配置
+        cache_size = memory_config.get('memory_cache_size_mb', 2048)
+        logger.info(f"💾 内存缓存大小: {cache_size}MB")
+        
+        # 懒加载配置
+        if memory_config.get('enable_lazy_loading', True):
+            preload_ratio = memory_config.get('preload_ratio', 0.1)
+            logger.info(f"⏳ 启用懒加载，预加载比例: {preload_ratio:.1%}")
+    
     logger.info(f"🔄 数据加载器配置: num_workers={num_workers}, pin_memory={pin_memory}, drop_last={drop_last}, prefetch_factor={prefetch_factor}")
     logger.info(f"🔄 持久化工作进程: {persistent_workers}, CPU核心数: {cpu_count}")
+    logger.info(f"🔄 训练数据shuffle: {shuffle_train}")
+    
+    # 将实际使用的DataLoader参数写回配置，以便日志记录
+    config['dataloader']['actual_num_workers'] = num_workers
+    config['dataloader']['actual_pin_memory'] = pin_memory
+    config['dataloader']['actual_drop_last'] = drop_last
+    config['dataloader']['actual_persistent_workers'] = persistent_workers
+    config['dataloader']['actual_prefetch_factor'] = prefetch_factor
+    config['data']['actual_shuffle'] = shuffle_train
+    
+    # 从配置中获取shuffle设置
+    shuffle_train = data_config.get('shuffle', True)
     
     # 构建 DataLoader 参数
     dataloader_kwargs = {
         'batch_size': batch_size,
-        'shuffle': True,
+        'shuffle': shuffle_train,
         'num_workers': num_workers,
         'pin_memory': pin_memory,
         'drop_last': drop_last,

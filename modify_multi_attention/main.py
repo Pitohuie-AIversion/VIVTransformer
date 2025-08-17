@@ -24,8 +24,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # 设置matplotlib支持中文显示
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
+# 中文字体支持已通过全局 sitecustomize.py 配置，无需重复设置
+# plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+# plt.rcParams['axes.unicode_minus'] = False
 
 from data.dataloader import get_loaders
 from mymodels.transformer import TransformerFlowReconstructionModel

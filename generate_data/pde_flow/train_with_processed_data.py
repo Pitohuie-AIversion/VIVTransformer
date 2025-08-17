@@ -268,7 +268,7 @@ class ProcessedPDEBenchDataset(torch.utils.data.Dataset):
     
     def __getitem__(self, idx):
         # 返回 (input, output, time_step)
-        return self.inputs[idx], self.outputs[idx], torch.tensor(idx, dtype=torch.float32)
+        return self.inputs[idx], self.outputs[idx], torch.tensor(idx, dtype=torch.long)
     
     def get_data_statistics(self):
         """获取数据统计信息"""

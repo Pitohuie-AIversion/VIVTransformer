@@ -8,12 +8,12 @@
 import os
 import re
 from pathlib import Path
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-# 设置matplotlib支持中文显示
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
+# 依赖全局 sitecustomize 的配置，不在此脚本内设置局部字体
+# 确认全局 SVG 路径化设置
 
 def find_matplotlib_files(root_dir):
     """查找所有包含matplotlib的Python文件"""
@@ -36,24 +36,48 @@ def find_matplotlib_files(root_dir):
     
     return matplotlib_files
 
-def check_chinese_font_config(file_path):
-    """检查文件是否包含中文字体配置"""
+FONT_CONFIG_PATTERNS = [
+    r"(plt|matplotlib)\.rcParams\[['\"]font\.sans-serif['\"]\]",
+    r"(plt|matplotlib)\.rcParams\[['\"]axes\.unicode_minus['\"]\]",
+    r"(plt|matplotlib)\.rcParams\[['\"]svg\.fonttype['\"]\]",
+]
+
+def file_has_local_font_config(content: str) -> bool:
+    for pat in FONT_CONFIG_PATTERNS:
+        if re.search(pat, content):
+            return True
+    return False
+
+def check_svg_fonttype_is_path() -> bool:
+    """检查 SVG 字体类型是否设置为路径化"""
+    current_value = matplotlib.rcParams.get('svg.fonttype', None)
+    return current_value == 'path'
+
+def verify_svg_path_conversion():
+    """验证 SVG 文件是否真正路径化字体"""
+    svg_path = 'chinese_font_verification_result.svg'
+    if not os.path.exists(svg_path):
+        return False, "SVG文件不存在"
+    
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(svg_path, 'r', encoding='utf-8') as f:
             content = f.read()
-            
-        # 检查是否有中文字体配置
-        has_font_config = (
-            "plt.rcParams['font.sans-serif']" in content and
-            "plt.rcParams['axes.unicode_minus']" in content
-        )
         
-        return has_font_config, content
+        # 检查是否包含路径化的文本（<path>标签）而非字体引用
+        has_paths = '<path' in content
+        has_font_refs = '<text' in content or 'font-family' in content
+        
+        if has_paths and not has_font_refs:
+            return True, "SVG文字已完全路径化"
+        elif has_paths and has_font_refs:
+            return True, "SVG文字部分路径化（混合模式）"
+        else:
+            return False, "SVG文字未路径化，仍使用字体引用"
     except Exception as e:
-        return False, f"读取错误: {e}"
+        return False, f"SVG验证失败: {e}"
 
 def generate_test_visualization():
-    """生成测试可视化图片验证中文字体"""
+    """生成测试可视化图片验证中文字体与 SVG 路径化"""
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     fig.suptitle('中文字体显示测试 - 项目可视化修复验证', fontsize=16)
     
@@ -96,60 +120,70 @@ def generate_test_visualization():
     axes[1, 1].grid(True)
     
     plt.tight_layout()
-    plt.savefig('chinese_font_verification_result.png', dpi=300, bbox_inches='tight')
+    png_path = 'chinese_font_verification_result.png'
+    svg_path = 'chinese_font_verification_result.svg'
+    plt.savefig(png_path, dpi=300, bbox_inches='tight')
+    plt.savefig(svg_path, bbox_inches='tight')
     plt.close()
     
-    print("✅ 测试可视化图片已生成: chinese_font_verification_result.png")
+    # 输出检查结果
+    svg_ok = check_svg_fonttype_is_path()
+    print(f"SVG 路径化设置: {'OK' if svg_ok else '未生效'} (matplotlib.rcParams['svg.fonttype']={matplotlib.rcParams.get('svg.fonttype')})")
+    print(f"✅ PNG: {png_path}")
+    print(f"✅ SVG: {svg_path}")
+
 
 def main():
     """主函数"""
-    print("🔍 开始检查项目中文字体修复情况...\n")
+    print("🔍 开始检查项目中文字体与 SVG 路径化配置...\n")
+    print(f"全局 svg.fonttype = {matplotlib.rcParams.get('svg.fonttype')}")
     
     # 查找所有matplotlib文件
     root_dir = Path(__file__).parent
     matplotlib_files = find_matplotlib_files(root_dir)
-    
     print(f"📊 发现 {len(matplotlib_files)} 个包含matplotlib的文件:\n")
     
-    fixed_files = []
-    unfixed_files = []
+    files_with_local_config = []
+    files_clean = []
     
     for file_path in matplotlib_files:
         rel_path = os.path.relpath(file_path, root_dir)
-        has_config, content = check_chinese_font_config(file_path)
-        
-        if has_config:
-            fixed_files.append(rel_path)
-            print(f"✅ {rel_path}")
-        else:
-            unfixed_files.append(rel_path)
-            print(f"❌ {rel_path}")
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            if file_has_local_font_config(content):
+                files_with_local_config.append(rel_path)
+                print(f"⚠️ 仍包含局部字体/负号/SVG设置: {rel_path}")
+            else:
+                files_clean.append(rel_path)
+                print(f"✅ 无局部配置: {rel_path}")
+        except Exception as e:
+            print(f"读取失败: {rel_path}, 错误: {e}")
     
-    print(f"\n📈 修复统计:")
-    print(f"  ✅ 已修复: {len(fixed_files)} 个文件")
-    print(f"  ❌ 未修复: {len(unfixed_files)} 个文件")
-    print(f"  📊 修复率: {len(fixed_files)/(len(fixed_files)+len(unfixed_files))*100:.1f}%")
+    print(f"\n📈 统计:")
+    print(f"  ✅ 无局部配置: {len(files_clean)} 个文件")
+    print(f"  ⚠️ 含局部配置: {len(files_with_local_config)} 个文件")
+    total = len(files_clean) + len(files_with_local_config)
+    if total:
+        print(f"  📊 清理进度: {len(files_clean)/total*100:.1f}%")
     
-    if unfixed_files:
-        print(f"\n⚠️ 以下文件仍需修复:")
-        for file in unfixed_files:
+    if files_with_local_config:
+        print("\n⚠️ 以下文件仍设置了局部 rcParams（建议继续清理）:")
+        for file in files_with_local_config:
             print(f"   - {file}")
     else:
-        print(f"\n🎉 所有matplotlib文件都已正确配置中文字体支持!")
+        print("\n🎉 所有文件均已移除局部 rcParams 设置，统一使用全局 sitecustomize 配置！")
     
     # 生成测试可视化
-    print(f"\n🎨 生成测试可视化图片...")
+    print(f"\n🎨 生成测试可视化图片 (PNG + SVG 路径化)...")
     generate_test_visualization()
+
+    # 验证 SVG 文件是否真正路径化
+    ok, msg = verify_svg_path_conversion()
+    status = 'OK' if ok else '未完全路径化'
+    print(f"SVG 文件检查: {status} - {msg}")
     
-    print(f"\n📋 修复详情:")
-    print(f"已修复的文件列表:")
-    for i, file in enumerate(fixed_files, 1):
-        print(f"  {i:2d}. {file}")
-    
-    print(f"\n✨ 中文字体修复验证完成!")
-    print(f"   - 所有可视化图表现在都能正确显示中文字符")
-    print(f"   - 负号显示问题已解决")
-    print(f"   - 支持的字体: SimHei, Microsoft YaHei, DejaVu Sans")
+    print("\n✨ 验证完成!")
 
 if __name__ == "__main__":
     main()

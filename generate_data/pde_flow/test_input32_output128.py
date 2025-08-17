@@ -29,8 +29,9 @@ from mymodels.transformer import TransformerFlowReconstructionModel
 from train_with_processed_data import ProcessedPDEBenchDataset
 
 # 设置中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
+# 统一使用全局 sitecustomize.py 的中文字体和负号设置
+# plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+# plt.rcParams['axes.unicode_minus'] = False
 
 # 设置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

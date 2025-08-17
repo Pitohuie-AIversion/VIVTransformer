@@ -2,8 +2,9 @@ import os
 import matplotlib.pyplot as plt
 
 # 设置matplotlib支持中文显示
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
+# 统一使用全局 sitecustomize.py 的中文字体和负号设置
+# plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+# plt.rcParams['axes.unicode_minus'] = False
 
 # 两个目录和它们的label
 dirs = [

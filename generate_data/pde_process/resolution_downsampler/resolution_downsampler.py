@@ -266,6 +266,7 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
     """
     降采样分辨率数据集类
     使用降采样而不是裁剪来生成不同分辨率的数据
+    支持SVD模态投影，将输入输出数据投影到统一的潜在空间
     """
     
     def __init__(self, 
@@ -276,7 +277,9 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
                  downsample_method: str = 'bilinear',
                  preserve_aspect_ratio: bool = True,
                  normalize_data: bool = True,
-                 lazy_loading: bool = False):
+                 lazy_loading: bool = False,
+                 use_svd_projection: bool = False,
+                 svd_projector=None):
         """
         初始化降采样分辨率数据集
         
@@ -289,6 +292,8 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
             preserve_aspect_ratio: 是否保持宽高比
             normalize_data: 是否对数据进行归一化
             lazy_loading: 是否启用懒加载
+            use_svd_projection: 是否启用SVD模态投影
+            svd_projector: SVD投影器实例（SVDModalProjector）
         """
         self.data_path = Path(data_path)
         self.input_resolution = input_resolution
@@ -475,11 +480,27 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
             input_flat = self._normalize_data(input_flat, self.input_min, self.input_max)
             output_flat = self._normalize_data(output_flat, self.output_min, self.output_max)
         
-        return (
-            torch.FloatTensor(input_flat),
-            torch.FloatTensor(output_flat),
-            torch.tensor(idx, dtype=torch.long)
-        )
+        # 应用SVD投影
+        if self.use_svd_projection:
+            # 确保数据格式为numpy数组
+            input_flat = np.ascontiguousarray(input_flat, dtype=np.float32)
+            output_flat = np.ascontiguousarray(output_flat, dtype=np.float32)
+            
+            # 投影到潜在空间
+            input_projected = self.svd_projector.transform_input(input_flat.reshape(1, -1))[0]
+            output_projected = self.svd_projector.transform_output(output_flat.reshape(1, -1))[0]
+            
+            return (
+                torch.from_numpy(input_projected).contiguous().float(),
+                torch.from_numpy(output_projected).contiguous().float(),
+                torch.tensor(idx, dtype=torch.long)
+            )
+        else:
+            return (
+                torch.FloatTensor(input_flat),
+                torch.FloatTensor(output_flat),
+                torch.tensor(idx, dtype=torch.long)
+            )
     
     def get_data_statistics(self):
         """获取数据统计信息"""

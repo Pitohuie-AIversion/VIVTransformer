@@ -52,8 +52,9 @@ def load_config():
     }
 
 # 设置matplotlib支持中文
-plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
+# 统一使用全局 sitecustomize.py 的中文字体和负号设置
+# plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
+# plt.rcParams['axes.unicode_minus'] = False
 
 def create_test_data(shape: Tuple[int, int, int] = (10, 128, 128)) -> np.ndarray:
     """

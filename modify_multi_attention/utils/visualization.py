@@ -11,8 +11,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # 设置matplotlib支持中文显示
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
+# 统一使用全局 sitecustomize.py 的中文字体和负号设置
+# plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+# plt.rcParams['axes.unicode_minus'] = False
 def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, time_step, epoch, attention_type, idx, parent_dir="attention_results", mode="test"):
     # 创建对应注意力机制的子文件夹
     result_dir = os.path.join(parent_dir, attention_type, "visualization_results")

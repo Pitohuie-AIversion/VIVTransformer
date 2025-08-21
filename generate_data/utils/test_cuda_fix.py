@@ -11,7 +11,12 @@ import sys
 from pathlib import Path
 
 # 添加路径
-sys.path.append(str(Path(__file__).parent.parent / 'modify_multi_attention'))
+# 原有：sys.path.append(str(Path(__file__).parent.parent / 'modify_multi_attention'))
+# 修复：定位到项目根目录，再追加 modify_multi_attention 以便导入 mymodels
+project_root = Path(__file__).parents[2]
+modify_multi_attention_path = project_root / 'modify_multi_attention'
+sys.path.insert(0, str(modify_multi_attention_path))
+sys.path.insert(0, str(project_root))
 
 from mymodels.transformer import TransformerFlowReconstructionModel
 

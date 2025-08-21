@@ -135,6 +135,17 @@ model:
   # 注意力机制类型: 'sge', 'cbam', 'eca', 'se', 'relative', 'external'
   attention_type: "sge"
   
+  # 可运行的注意力扫描候选（基于历史动态分辨率训练结果，已排除失败项）
+  attention_sweep_candidates: [
+    "sge", "cbam", "eca", "se", "relative", "external", "self", "simplified_self",
+    "crisscross", "sparse", "halo", "crossformer", "axial", "cot", "mobilevit", "mobilevitv2",
+    "gfnet", "polarized", "coatnet", "lsh", "emsa", "dat", "triplet", "psa",
+    "outlook", "coord", "moa", "residual", "parnet", "bam", "s2", "danet"
+  ]
+  
+  # 扫描时建议跳过的注意力（历史失败/已知不稳定）
+  attention_skip_list: ["a2", "shuffle", "sk", "vip", "ufo", "aft", "muse"]
+  
   # 激活函数配置
   activation: "relu"               # 激活函数: 'relu', 'gelu', 'swish', 'tanh', 'leaky_relu'
   

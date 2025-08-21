@@ -102,7 +102,9 @@ def main():
                 num_layers=cfg["model"]["num_layers"],
                 d_model=cfg["model"]["d_model"],
                 max_time_steps=cfg["model"]["max_time_steps"],
-                attention_type=attn_type
+                attention_type=attn_type,
+                seq_len=cfg["model"].get("seq_len", 32),
+                input_hw=tuple(cfg["model"].get("input_hw")) if cfg["model"].get("input_hw") else None
             ).to(device)
 
             criterion = torch.nn.MSELoss()

@@ -167,7 +167,19 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                         scaler.unscale_(optimizer)
                         torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
                     
-                    scaler.step(optimizer)
+                    # 仅在存在有效梯度时才调用 step，避免 GradScaler 警告
+                    has_grad = False
+                    for group in optimizer.param_groups:
+                        for p in group['params']:
+                            if p.grad is not None:
+                                has_grad = True
+                                break
+                        if has_grad:
+                            break
+                    if has_grad:
+                        scaler.step(optimizer)
+                    else:
+                        print("⚠️ AMP: 本step未检测到有效梯度，跳过 optimizer.step() 以避免 GradScaler 警告")
                     scaler.update()
             else:
                 model_out = model(in_press, time_steps)

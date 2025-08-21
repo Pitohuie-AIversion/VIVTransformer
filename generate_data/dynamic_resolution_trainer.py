@@ -5,7 +5,7 @@
 
 功能:
 1. 根据配置文件动态设置输入输出分辨率
-2. 实时生成训练数据，无需预先生成大文件
+2. 实时生成训练数据，无需预生成分量
 3. 支持SVD模态投影，将不同分辨率数据投影到统一潜在空间
 4. 支持命令行参数和YAML配置文件
 5. 灵活的数据集生成和加载
@@ -34,6 +34,7 @@ import yaml
 import argparse
 import logging
 import gc
+import copy
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any
 
@@ -761,8 +762,7 @@ def create_dynamic_config(args=None):
         default_config['model']['input_dim'] = input_res[0] * input_res[1]
         default_config['model']['output_dim'] = output_res[0] * output_res[1]
     
-    # 设置序列长度（假设单时间步）
-    default_config['model']['seq_len'] = 1
+    # seq_len 将由模型根据 input_dim 自适应推断
     
     return default_config
 
@@ -924,6 +924,11 @@ def parse_arguments():
     parser.add_argument('--epochs', type=int, help='训练轮数')
     parser.add_argument('--learning-rate', type=float, help='学习率')
     
+    # 模型注意力相关参数
+    parser.add_argument('--attention-type', type=str, help='覆盖配置的注意力类型（单次运行）')
+    parser.add_argument('--attention-sweep', type=str, help='批量扫描注意力类型，逗号分隔，例如: "sge,cbam,eca,se,relative,external"')
+    parser.add_argument('--smoke-test', action='store_true', help='仅执行前向传播的冒烟测试（不训练、不写入磁盘）')
+    
     # SVD投影参数
     parser.add_argument('--svd-projection', action='store_true', help='启用SVD投影')
     parser.add_argument('--svd-modes', type=int, help='SVD模态数量')
@@ -972,14 +977,34 @@ def load_config_with_args(config_path, args):
         config['device'] = args.device
     if args.seed:
         config['seed'] = args.seed
-    if args.svd_projection:
+
+    # 确保必要节点存在
+    if 'data' not in config:
+        config['data'] = {}
+    if 'svd_projection' not in config['data'] or not isinstance(config['data']['svd_projection'], dict):
+        config['data']['svd_projection'] = {
+            'enabled': False,
+            'n_modes': 128
+        }
+    if 'model' not in config:
+        config['model'] = {}
+
+    # 命令行覆盖 SVD 相关
+    if getattr(args, 'svd_projection', False):
         config['data']['svd_projection']['enabled'] = True
-    if args.svd_modes:
+    if getattr(args, 'svd_modes', None) is not None:
         config['data']['svd_projection']['n_modes'] = args.svd_modes
+
+    # 注意力单次覆盖（优先于 YAML）
+    if hasattr(args, 'attention_type') and args.attention_type:
+        if 'model' not in config:
+            config['model'] = {}
+        config['model']['attention_type'] = str(args.attention_type).lower()
     
-    # 重新计算模型维度
-    if config['data']['svd_projection']['enabled']:
-        latent_dim = config['data']['svd_projection']['n_modes']
+    # 重新计算模型维度（安全访问）
+    svd_cfg = config.get('data', {}).get('svd_projection', {})
+    if svd_cfg.get('enabled', False):
+        latent_dim = int(svd_cfg.get('n_modes', 128))
         config['model']['input_dim'] = latent_dim
         config['model']['output_dim'] = latent_dim
     else:
@@ -1076,6 +1101,216 @@ def validate_config_detailed(config):
     
     return errors
 
+# === 新增：封装训练流程 ===
+
+def run_training_with_config(config: Dict[str, Any], results_root: Optional[Path] = None):
+    """
+    按给定配置运行一次训练与测试，并将产物写入 results_root。
+    """
+    # 结果目录
+    results_dir = Path(results_root) if results_root is not None else Path('./results')
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    # 设置日志（若配置了日志文件，则会写入对应目录）
+    try:
+        setup_enhanced_logging(config)
+    except Exception as _e:
+        logger.warning(f"日志系统配置失败，使用默认设置: {_e}")
+
+    # 设备
+    device_opt = str(config.get('device', 'auto')).lower()
+    if device_opt == 'auto':
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device(device_opt)
+    logger.info(f"使用设备: {device}")
+
+    # 数据加载器
+    logger.info("=== 创建数据加载器 ===")
+    train_loader, valid_loader, test_loader, dataset = get_dynamic_loaders(config)
+
+    # 数据统计
+    try:
+        stats = dataset.get_data_statistics()
+        logger.info(f"数据统计: {stats}")
+    except Exception:
+        pass
+
+    # 模型
+    logger.info("=== 创建模型 ===")
+    model = TransformerFlowReconstructionModel(
+        input_dim=config['model']['input_dim'],
+        output_dim=config['model']['output_dim'],
+        num_heads=config['model']['num_heads'],
+        num_layers=config['model']['num_layers'],
+        d_model=config['model']['d_model'],
+        max_time_steps=config['model'].get('max_time_steps', 1),
+        attention_type=config['model'].get('attention_type', 'sge')
+    ).to(device)
+    logger.info(f"模型参数数量: {sum(p.numel() for p in model.parameters())}")
+
+    # Multi-GPU（可选）
+    use_dp = config.get('use_dataparallel', False)
+    if use_dp and torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        logger.info(f"启用多GPU训练，GPU数: {torch.cuda.device_count()}")
+        try:
+            torch.cuda.set_device(0)
+            model = model.cuda(0)
+        except Exception:
+            pass
+        torch.cuda.empty_cache()
+        model = torch.nn.DataParallel(model)
+    else:
+        logger.info("单GPU/CPU训练模式")
+
+    # 损失函数
+    loss_cfg = config.get('loss', {})
+    base_weight = loss_cfg.get('base_weight', 0.8)
+    svd_weights = loss_cfg.get('svd_weights', [0.05, 0.04, 0.03, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01])
+    topk = loss_cfg.get('topk', 10)
+    svd_loss_enabled = loss_cfg.get('svd_loss_enabled', True)
+
+    enh_cfg = loss_cfg.get('enhanced', {})
+    mp_cfg = config.get('mixed_precision', {})
+    use_enhanced = enh_cfg.get('enabled', True)
+    mixed_precision_mode = enh_cfg.get('mixed_precision_mode', mp_cfg.get('enabled', False))
+    adaptive_weights = enh_cfg.get('adaptive_weights', True)
+    fallback_level = enh_cfg.get('fallback_level', 2)
+    enable_monitoring = enh_cfg.get('enable_monitoring', True)
+    force_svd = enh_cfg.get('force_svd', False)
+
+    if svd_loss_enabled:
+        if use_enhanced:
+            logger.info("使用增强版SVD损失函数")
+            if enable_monitoring:
+                try:
+                    reset_global_svd_stats()
+                except Exception:
+                    pass
+            criterion = create_enhanced_svd_loss(
+                base_weight=base_weight,
+                svd_weights=svd_weights,
+                topk=topk,
+                mixed_precision=mixed_precision_mode,
+                adaptive_weights=adaptive_weights,
+                monitoring=enable_monitoring,
+                fallback_level=fallback_level,
+                force_svd=force_svd
+            )
+        else:
+            logger.info("使用标准SVD损失函数")
+            criterion = TotalLossWithSVD(base_weight=base_weight, svd_weights=svd_weights, topk=topk)
+    else:
+        logger.info("使用标准MSE损失")
+        criterion = torch.nn.MSELoss()
+
+    # 优化器
+    optim_cfg = config.get('optimizer', {"type": "adam"})
+    train_cfg = config.get('training', {"learning_rate": 1e-3, "weight_decay": 0.0})
+    opt_type = str(optim_cfg.get('type', 'adam')).lower()
+
+    if opt_type == 'adam':
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr=train_cfg.get('learning_rate', 1e-3),
+            weight_decay=train_cfg.get('weight_decay', 0.0),
+            betas=tuple(optim_cfg.get('betas', (0.9, 0.999))),
+            eps=float(optim_cfg.get('eps', 1e-8)),
+            amsgrad=bool(optim_cfg.get('amsgrad', False))
+        )
+    elif opt_type == 'adamw':
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=train_cfg.get('learning_rate', 1e-3),
+            weight_decay=train_cfg.get('weight_decay', 0.0),
+            betas=tuple(optim_cfg.get('betas', (0.9, 0.999))),
+            eps=float(optim_cfg.get('eps', 1e-8)),
+            amsgrad=bool(optim_cfg.get('amsgrad', False))
+        )
+    elif opt_type == 'sgd':
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=train_cfg.get('learning_rate', 1e-3),
+            weight_decay=train_cfg.get('weight_decay', 0.0),
+            momentum=optim_cfg.get('momentum', 0.9)
+        )
+    else:
+        logger.warning(f"不支持的优化器类型: {opt_type}，回退到Adam")
+        optimizer = torch.optim.Adam(
+            model.parameters(), lr=train_cfg.get('learning_rate', 1e-3), weight_decay=train_cfg.get('weight_decay', 0.0)
+        )
+
+    # 学习率调度器
+    scheduler = None
+    sch_cfg = config.get('scheduler', {"enabled": False})
+    if sch_cfg.get('enabled', False):
+        sch_type = str(sch_cfg.get('type', 'cosine')).lower()
+        if sch_type == 'cosine':
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=sch_cfg.get('T_max', 50))
+        elif sch_type == 'step':
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=sch_cfg.get('step_size', 20), gamma=sch_cfg.get('gamma', 0.5))
+        elif sch_type == 'exponential':
+            scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=sch_cfg.get('gamma', 0.95))
+        else:
+            logger.warning(f"不支持的调度器类型: {sch_type}")
+
+    # 训练
+    log_gpu_memory("训练开始前")
+    model, train_losses, valid_losses, test_losses = train_model(
+        model=model,
+        train_loader=train_loader,
+        valid_loader=valid_loader,
+        test_loader=test_loader,
+        criterion=criterion,
+        optimizer=optimizer,
+        num_epochs=train_cfg.get('epochs', 50),
+        device=device,
+        early_stop_patience=train_cfg.get('patience', 15),
+        attention_type=config['model'].get('attention_type', 'sge'),
+        result_dir=str(results_dir),
+        cfg=config,
+        scheduler=scheduler,
+        no_pretrained=config.get('no_pretrained', False)
+    )
+
+    # 测试
+    logger.info("=== 开始测试 ===")
+    try:
+        final_test_loss = test_model(
+            model=model,
+            test_loader=test_loader,
+            criterion=criterion,
+            device=device,
+            attention_type=config['model'].get('attention_type', 'sge'),
+            parent_dir=str(results_dir),
+            cfg=config
+        )
+        logger.info(f"最终测试损失: {final_test_loss:.6f}")
+    except Exception as _e:
+        logger.warning(f"测试阶段执行失败: {_e}")
+
+    # 可视化损失
+    vis_cfg = config.get('visualization', {"enabled": True})
+    if vis_cfg.get('enabled', True):
+        try:
+            loss_plot_path = results_dir / 'dynamic_resolution_losses.png'
+            plot_losses(train_losses, valid_losses, test_losses, save_path=str(loss_plot_path))
+        except Exception as _e:
+            logger.warning(f"绘制损失失败: {_e}")
+
+    # 保存配置
+    try:
+        final_cfg_path = results_dir / 'final_config.yaml'
+        with open(final_cfg_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(config, f, sort_keys=False, allow_unicode=True)
+        logger.info(f"配置已保存: {final_cfg_path}")
+    except Exception as _e:
+        logger.warning(f"保存配置失败: {_e}")
+
+    # 清理
+    log_gpu_memory("训练完成后")
+    cleanup_memory()
+
 def main():
     """主函数"""
     try:
@@ -1084,238 +1319,81 @@ def main():
         
         # 加载配置
         config_path = args.config if args.config else 'dynamic_config.yaml'
-        
-        # 加载和合并配置
         config = load_config_with_args(config_path, args)
-        
-        # 设置日志
-        logger = setup_enhanced_logging(config)
-        
-        # 验证配置
-        config_errors = validate_config_detailed(config)
-        if config_errors:
-            logger.error("❌ 配置验证失败:")
-            for error in config_errors:
-                logger.error(f"  - {error}")
+
+        # 新增：冒烟测试模式（前向-only，不训练、不写盘）
+        if getattr(args, 'smoke_test', False):
+            if getattr(args, 'attention_sweep', None):
+                attn_list = [s.strip() for s in args.attention_sweep.split(',') if s.strip()]
+            else:
+                attn_list = [config.get('model', {}).get('attention_type', 'sge')]
+            logger.info(f"[SMOKE] 启动冒烟测试，注意力列表: {attn_list}")
+            run_smoke_forward_attentions(config, attn_list, batch_size=min(2, int(config.get('data', {}).get('batch_size', 2) or 2)))
             return
-        
-        logger.info("✅ 配置验证通过")
-        
-        # 输出配置信息
-        logger.info("=== 配置信息 ===")
-        logger.info(f"输入分辨率: {config['data']['input_resolution']} -> {config['model']['input_dim']}维")
-        logger.info(f"输出分辨率: {config['data']['output_resolution']} -> {config['model']['output_dim']}维")
-        logger.info(f"样本数量: {config['data']['num_samples']}")
-        logger.info(f"批次大小: {config['data']['batch_size']}")
-        logger.info(f"训练轮数: {config['training']['epochs']}")
-        logger.info(f"注意力机制: {config['model']['attention_type']}")
-        
-        # SVD投影信息
-        svd_config = config['data'].get('svd_projection', {})
-        if svd_config.get('enabled', False):
-            logger.info(f"SVD投影: 启用")
-            logger.info(f"  模态数量: {svd_config.get('n_modes', 'auto')}")
-            logger.info(f"  能量阈值: {svd_config.get('energy_threshold', 'N/A')}")
-            logger.info(f"  SVD方法: {svd_config.get('svd_method', 'svd')}")
-        else:
-            logger.info("SVD投影: 禁用")
-        
-        # 设置随机种子
-        if config.get('seed'):
-            torch.manual_seed(config['seed'])
-            np.random.seed(config['seed'])
-            logger.info(f"🎲 设置随机种子: {config['seed']}")
-        
-        # 设备配置
-        if config['device'] == 'auto':
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        else:
-            device = torch.device(config['device'])
-        logger.info(f"🖥️ 使用设备: {device}")
-        
-        # 内存管理
-        log_gpu_memory("初始状态")
-        
-        # 创建结果目录
-        results_dir = Path('./results')
-        results_dir.mkdir(exist_ok=True)
-        model_save_path = config['training']['model_save_path']
-        model_dir = os.path.dirname(model_save_path)
-        if model_dir:
-            os.makedirs(model_dir, exist_ok=True)
-            logger.info(f"📁 模型保存目录: {model_dir}")
-        
-        # 验证配置
-        logger.info("=== 验证配置 ===")
-        if not validate_config(config):
-            logger.error("配置验证失败，请修正配置后重试")
-            return
-        
-        # 创建数据加载器
-        logger.info("=== 创建数据加载器 ===")
-        train_loader, valid_loader, test_loader, dataset = get_dynamic_loaders(config)
-        
-        # 获取数据统计信息
-        stats = dataset.get_data_statistics()
-        logger.info(f"数据统计: {stats}")
-        
-        # 归一化信息
-        if dataset.normalize_data:
-            norm_info = dataset.get_normalization_info()
-            logger.info("=== 归一化信息 ===")
-            logger.info(f"归一化方法: {norm_info['normalization_method']}")
-            logger.info(f"全局数据范围: [{norm_info['global_min']:.6f}, {norm_info['global_max']:.6f}]")
-            logger.info(f"原始数据形状: {norm_info['original_data_shape']}")
-            logger.info(f"输入分辨率: {norm_info['input_resolution']}")
-            logger.info(f"输出分辨率: {norm_info['output_resolution']}")
-            logger.info("✅ 数据已归一化到[0,1]范围，可用于反归一化恢复物理信息")
-        else:
-            logger.info("ℹ️  归一化已禁用，使用原始数据范围")
-        
-        # 创建模型
-        logger.info("=== 创建模型 ===")
-        model = TransformerFlowReconstructionModel(
-            input_dim=config['model']['input_dim'],
-            output_dim=config['model']['output_dim'],
-            num_heads=config['model']['num_heads'],
-            num_layers=config['model']['num_layers'],
-            d_model=config['model']['d_model'],
-            max_time_steps=config['model']['max_time_steps'],
-            attention_type=config['model']['attention_type'],
-            seq_len=config['model']['seq_len']
-        ).to(device)
-        
-        logger.info(f"模型参数数量: {sum(p.numel() for p in model.parameters())}")
-        
-        # 多GPU支持
-        use_dataparallel = config.get('use_dataparallel', False)
-        if use_dataparallel and torch.cuda.is_available() and torch.cuda.device_count() > 1:
-            logger.info(f"🚀 启用多GPU训练: 检测到 {torch.cuda.device_count()} 张GPU")
-            model = torch.nn.DataParallel(model)
-            logger.info(f"   使用的GPU设备: {list(range(torch.cuda.device_count()))}")
-        
-        # 创建损失函数
-        logger.info("=== 创建损失函数 ===")
-        loss_config = config.get('loss', {})
-        
-        if loss_config.get('use_enhanced_svd', False):
-            logger.info("使用增强版SVD损失函数")
-            criterion = create_enhanced_svd_loss(config)
-        else:
-            logger.info("使用标准SVD损失函数")
-            criterion = TotalLossWithSVD(
-                base_weight=loss_config.get('base_weight', 1.0),
-                svd_weights=loss_config.get('svd_weights', [0.1] * 5),
-                device=device
-            )
-        
-        # 创建优化器
-        optimizer = torch.optim.Adam(
-            model.parameters(),
-            lr=config['training']['learning_rate'],
-            weight_decay=config['training'].get('weight_decay', 1e-4)
-        )
-        
-        # 学习率调度器
-        scheduler_config = config.get('scheduler')
-        scheduler = None
-        if scheduler_config and scheduler_config.get('enabled', False):
-            if scheduler_config['type'].lower() == 'step':
-                scheduler = torch.optim.lr_scheduler.StepLR(
-                    optimizer,
-                    step_size=scheduler_config['step_size'],
-                    gamma=scheduler_config['gamma']
-                )
-            elif scheduler_config['type'].lower() == 'plateau':
-                scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                    optimizer,
-                    mode='min',
-                    factor=scheduler_config['factor'],
-                    patience=scheduler_config['patience']
-                )
-        
-        log_gpu_memory("训练开始前")
-        
-        # 开始训练
-        logger.info("=== 开始训练 ===")
-        model, train_losses, valid_losses, test_losses = train_model(
-            model=model,
-            train_loader=train_loader,
-            valid_loader=valid_loader,
-            test_loader=test_loader,
-            criterion=criterion,
-            optimizer=optimizer,
-            num_epochs=config['training']['epochs'],
-            device=device,
-            early_stop_patience=config['training'].get('patience', 15),
-            attention_type=config['model']['attention_type'],
-            result_dir='./results',
-            cfg=config,
-            scheduler=scheduler,
-            no_pretrained=config.get('no_pretrained', False)
-        )
-        
-        log_gpu_memory("训练完成后")
-        
-        # 测试模型
-        logger.info("=== 开始测试 ===")
-        test_loss = test_model(
-            model=model,
-            test_loader=test_loader,
-            criterion=criterion,
-            device=device,
-            attention_type=config['model']['attention_type'],
-            parent_dir='./results',
-            cfg=config
-        )
-        
-        logger.info(f"最终测试损失: {test_loss:.6f}")
-        
-        # 增强版SVD损失函数的性能报告
-        svd_config = config.get('loss', {})
-        if svd_config.get('use_enhanced_svd', False):
-            logger.info("\n=== SVD损失函数性能报告 ===")
-            try:
-                print_global_svd_stats()
-            except Exception as e:
-                logger.warning(f"SVD性能报告生成失败: {e}")
-        
-        # 显示归一化反投影提示
-        if dataset.normalize_data:
-            logger.info("\n=== 数据预处理和后处理提示 ===")
-            logger.info("✅ 训练时使用了归一化数据，测试输出也为归一化结果")
-            logger.info("💡 若需获得物理意义的结果，请调用 dataset.denormalize_predictions() 进行反归一化")
-            logger.info("📄 归一化信息已保存，可用于生产环境的数据预处理和后处理")
+
+        # 批量扫描逻辑
+        if getattr(args, 'attention_sweep', None):
+            raw_list = [s.strip() for s in args.attention_sweep.split(',') if s.strip()]
+            # 去重并保持顺序
+            seen = set()
+            attn_list = []
+            for x in raw_list:
+                xl = x.lower()
+                if xl not in seen:
+                    seen.add(xl)
+                    attn_list.append(xl)
             
-            # 保存归一化信息到文件
-            norm_save_path = './results/normalization_info.json'
-            dataset.save_normalization_info(norm_save_path)
-            logger.info(f"📂 归一化信息已保存到: {norm_save_path}")
+            exclude_fail = {"sk", "vip", "ufo", "muse", "aft"}
+            success, failed = [], []
+            base_sweep_dir = Path('./results') / 'attention_sweep'
+            base_sweep_dir.mkdir(parents=True, exist_ok=True)
+            
+            logger.info(f"🔍 启动批量注意力扫描，共 {len(attn_list)} 个候选: {attn_list}")
+            
+            for attn in attn_list:
+                if attn in exclude_fail:
+                    logger.warning(f"⏭️ 跳过已知失败注意力: {attn}")
+                    continue
+                try:
+                    # 为本次注意力构建独立结果与日志目录
+                    attn_root = base_sweep_dir / attn
+                    attn_models = attn_root / 'models'
+                    attn_logs = attn_root / 'logs'
+                    attn_models.mkdir(parents=True, exist_ok=True)
+                    attn_logs.mkdir(parents=True, exist_ok=True)
+                    
+                    # 深拷贝配置并覆盖相关字段
+                    conf = copy.deepcopy(config)
+                    conf['model']['attention_type'] = attn
+                    conf['training']['model_save_path'] = str(attn_models / f'model_{attn}.pth')
+                    # 将日志文件写入该注意力目录
+                    if 'logging' not in conf:
+                        conf['logging'] = {}
+                    conf['logging']['file'] = str(attn_logs / f'training_{attn}.log')
+                    conf['logging']['level'] = conf.get('logging', {}).get('level', 'INFO')
+                    conf['logging']['format'] = conf.get('logging', {}).get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                    
+                    run_training_with_config(conf, results_root=attn_root)
+                    success.append(attn)
+                except Exception as e:
+                    logger.error(f"❌ 注意力 {attn} 运行失败: {e}")
+                    failed.append(attn)
+            
+            # 汇总
+            summary_path = base_sweep_dir / 'sweep_summary.txt'
+            with open(summary_path, 'w', encoding='utf-8') as f:
+                f.write("=== Attention Sweep Summary ===\n")
+                f.write(f"Total candidates: {len(attn_list)}\n")
+                f.write(f"Excluded (known fails): {sorted(list(exclude_fail))}\n")
+                f.write(f"Success ({len(success)}): {success}\n")
+                f.write(f"Failed ({len(failed)}): {failed}\n")
+            logger.info(f"📄 扫描汇总已保存: {summary_path}")
+            return
         
-        # SVD投影信息
-        svd_config = config['data'].get('svd_projection', {})
-        if svd_config.get('enabled', False) and dataset.svd_projector:
-            logger.info("\n=== SVD投影结果总结 ===")
-            logger.info(f"✅ SVD投影已启用")
-            logger.info(f"   输入/输出数据已投影到共同的潜在空间")
-            logger.info(f"   SVD方法: {svd_config.get('svd_method', 'svd')}")
-            logger.info(f"   保留模态数量: {svd_config.get('n_modes', 'auto')}")
-            if svd_config.get('energy_threshold'):
-                logger.info(f"   能量阈值: {svd_config.get('energy_threshold')}")
-            logger.info("💡 模型输出为潜在空间表示，可通过反投影恢复原始空间")
-        
-        logger.info("\n=== 训练完成 ===")
-        logger.info(f"✅ 训练顺利完成，总耗时: {'-'}")
-        logger.info(f"📊 最终训练损失: {train_losses[-1] if train_losses else 'N/A':.6f}")
-        logger.info(f"📊 最终验证损失: {valid_losses[-1] if valid_losses else 'N/A':.6f}")
-        logger.info(f"📊 最终测试损失: {test_loss:.6f}")
-        logger.info(f"💾 模型已保存到: {config['training']['model_save_path']}")
-        logger.info(f"📁 结果文件目录: ./results/")
-        
-        # 清理GPU内存
-        cleanup_memory()
-        log_gpu_memory("程序结束")
-        
+        # 非批量模式：直接运行一次
+        run_training_with_config(config, results_root=Path('./results'))
+        return
+    
     except KeyboardInterrupt:
         logger.warning("⚠️ 用户中断训练")
         cleanup_memory()
@@ -1326,6 +1404,61 @@ def main():
         traceback.print_exc()
         cleanup_memory()
         raise
+
+if __name__ == "__main__":
+    # main 调用已移动到文件末尾，确保函数已定义
+    pass
+
+def run_smoke_forward_attentions(config, attentions, batch_size=2):
+    """
+    运行冒烟测试（前向-only，不训练、不写入磁盘），seq_len 由模型根据 input_dim 自适应推断
+    """
+    # 设备
+    device_opt = str(config.get('device', 'auto')).lower()
+    device = torch.device('cuda' if (device_opt == 'auto' and torch.cuda.is_available()) else (device_opt if device_opt != 'auto' else 'cpu'))
+
+    # 维度
+    input_dim = int(config['model']['input_dim'])
+    output_dim = int(config['model']['output_dim'])
+
+    logger.info(f"[SMOKE] 设备: {device}, input_dim={input_dim}, output_dim={output_dim}, batch_size={batch_size}")
+
+    results = {}
+    for attn in attentions:
+        attn_name = str(attn).lower().strip()
+        logger.info(f"[SMOKE] 测试注意力: {attn_name}")
+        try:
+            model = TransformerFlowReconstructionModel(
+                input_dim=input_dim,
+                output_dim=output_dim,
+                num_heads=config['model'].get('num_heads', 1),
+                num_layers=config['model'].get('num_layers', 1),
+                d_model=config['model'].get('d_model', 8),
+                max_time_steps=config['model'].get('max_time_steps', 100),
+                attention_type=attn_name
+            ).to(device)
+
+            x_in = torch.randn(batch_size, input_dim, device=device)
+            x_time = torch.randint(0, int(config['model'].get('max_time_steps', 100)), (batch_size,), device=device)
+            with torch.no_grad():
+                y = model(x_in, x_time)
+            ok = (y is not None) and (tuple(y.shape) == (batch_size, output_dim))
+            results[attn_name] = bool(ok)
+            if ok:
+                logger.info(f"[SMOKE] {attn_name}: ✅ 通过，输出形状 {tuple(y.shape)}")
+            else:
+                logger.error(f"[SMOKE] {attn_name}: ❌ 失败，输出形状 {tuple(y.shape) if y is not None else None}")
+        except Exception as e:
+            logger.error(f"[SMOKE] {attn_name}: ❌ 异常 - {e}")
+            results[attn_name] = False
+            continue
+
+    passed = [k for k, v in results.items() if v]
+    failed = [k for k, v in results.items() if not v]
+    logger.info(f"[SMOKE] 总结：通过 {len(passed)} 个，失败 {len(failed)} 个")
+    logger.info(f"[SMOKE] 通过: {passed}")
+    logger.info(f"[SMOKE] 失败: {failed}")
+    return results
 
 if __name__ == "__main__":
     main()

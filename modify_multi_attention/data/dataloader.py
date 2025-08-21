@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, Subset, Dataset
 from .dataset import PressureDataset
 from .pdebench_dataset import PDEBenchDataset
 from pathlib import Path
@@ -13,6 +13,30 @@ def collate_fn(batch):
     return torch.utils.data.dataloader.default_collate(batch) if batch else None
 
 
+class ToyDataset(Dataset):
+    """
+    一个用于冒烟测试的轻量级随机数据集。
+    - 输入维度默认 400，与默认配置的 model.input_dim 一致
+    - 输出维度默认 40000，与默认配置的 model.output_dim 一致
+    - 样本数量默认 64，可通过 max_samples 控制
+    - 时间步为简单的循环整数标量
+    """
+    def __init__(self, input_dim: int = 400, output_dim: int = 40000, length: int = 64, time_steps: int = 10):
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.length = length
+        self.time_steps = max(1, int(time_steps))
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        x = torch.randn(self.input_dim, dtype=torch.float32)
+        y = torch.randn(self.output_dim, dtype=torch.float32)
+        t = torch.tensor(idx % self.time_steps, dtype=torch.long)
+        return x, y, t
+
+
 def get_loaders(data_path, batch_size, train_ratio=0.7, valid_ratio=0.15, test_ratio=0.15, 
                 dataset_type='auto', max_samples=None):
     """
@@ -24,8 +48,8 @@ def get_loaders(data_path, batch_size, train_ratio=0.7, valid_ratio=0.15, test_r
         train_ratio: 训练集比例
         valid_ratio: 验证集比例
         test_ratio: 测试集比例
-        dataset_type: 数据集类型 ('auto', 'pressure', 'pdebench')
-        max_samples: 最大样本数量限制
+        dataset_type: 数据集类型 ('auto', 'pressure', 'pdebench', 'toy')
+        max_samples: 最大样本数量限制（对任意数据集生效；若为None则不限制）
     """
     
     # 自动检测数据集类型
@@ -46,14 +70,26 @@ def get_loaders(data_path, batch_size, train_ratio=0.7, valid_ratio=0.15, test_r
         dataset = PressureDataset(data_path)
     elif dataset_type == 'pdebench':
         dataset = PDEBenchDataset(data_path, max_samples=max_samples)
+    elif dataset_type == 'toy':
+        toy_len = max_samples if (max_samples is not None and max_samples > 0) else 64
+        dataset = ToyDataset(length=toy_len)
+        logger.info(f"使用 ToyDataset 进行冒烟测试，长度={len(dataset)}，输入维度={dataset.input_dim}，输出维度={dataset.output_dim}")
     else:
         raise ValueError(f"不支持的数据集类型: {dataset_type}")
     
-    logger.info(f"数据集大小: {len(dataset)}")
+    logger.info(f"数据集大小: {len(dataset)} (type={dataset_type})")
+    
+    # 通用的 max_samples 支持：对任意数据集进行子集限制
+    if max_samples is not None and max_samples > 0 and len(dataset) > max_samples:
+        indices = list(range(max_samples))
+        dataset = Subset(dataset, indices)
+        logger.info(f"已应用 max_samples={max_samples}，限制后数据集大小: {len(dataset)}")
     
     # 如果是PDEBench数据集，打印统计信息
-    if isinstance(dataset, PDEBenchDataset):
-        stats = dataset.get_data_statistics()
+    if isinstance(getattr(dataset, 'dataset', dataset), PDEBenchDataset):
+        # 兼容 Subset 包裹的情况
+        base_ds = dataset.dataset if isinstance(dataset, Subset) else dataset
+        stats = base_ds.get_data_statistics()
         logger.info(f"数据集统计: {stats}")
     
     total_size = len(dataset)

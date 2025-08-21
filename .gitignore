@@ -59,3 +59,25 @@ __pycache__/
 *.gz
 *.rar
 *.7z
+
+
+# 忽略输出模态分析目录（自动生成的可视化结果）
+# 注：Git 的 .gitignore 使用正斜杠作为分隔符
+
+generate_data/utils/output_modality_analysis/
+output_modality_analysis/
+output_modality_analysis_darcy/
+output_modality_analysis_darcy_beta0.1/
+output_modality_analysis_darcy_n9/
+output_modality_analysis_new/
+output_modality_analysis_new2/
+output_modality_analysis_per_sample/
+output_modality_analysis_per_sample_v2/
+output_modality_analysis_per_sample_v3/
+output_modality_analysis_per_sample_v4/
+results/
+test_per_mode_output/
+tools/
+
+# 训练分辨率降采样分析输出（自动生成）
+generate_data/utils/train_resolution_downsampler/analysis_outputs/

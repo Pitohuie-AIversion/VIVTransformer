@@ -51,19 +51,30 @@ def plot_heatmap(mat: np.ndarray, title: str, save_png: str, save_svg: str, vmin
     os.makedirs(os.path.dirname(save_png), exist_ok=True)
     sns.set(style="whitegrid", font_scale=1.0)
     import matplotlib
-    # 统一使用全局 sitecustomize.py 的中文字体和负号设置
-# matplotlib.rcParams["font.sans-serif"] = ["SimHei", "Arial"]
-# matplotlib.rcParams["axes.unicode_minus"] = False
+    
+    # 暂时保存原始设置
+    original_svg_fonttype = matplotlib.rcParams.get('svg.fonttype', 'none')
+    
     plt.figure(figsize=(6, 5))
     ax = sns.heatmap(mat, vmin=vmin, vmax=vmax, cmap="coolwarm", annot=False,
                      xticklabels=[f"{i+1}" for i in range(mat.shape[1])],
                      yticklabels=[f"{i+1}" for i in range(mat.shape[0])])
     ax.set_title(title)
-    ax.set_xlabel("模式")
-    ax.set_ylabel("模式")
+    # 使用英文标签避免字体问题
+    ax.set_xlabel("Mode")
+    ax.set_ylabel("Mode")
     plt.tight_layout()
+    
+    # 保存PNG格式
     plt.savefig(save_png, dpi=200)
-    plt.savefig(save_svg)
+    
+    # 保存SVG格式时设置字体路径化
+    matplotlib.rcParams['svg.fonttype'] = 'path'
+    plt.savefig(save_svg, format='svg')
+    
+    # 恢复原始设置
+    matplotlib.rcParams['svg.fonttype'] = original_svg_fonttype
+    
     plt.close()
 
 
@@ -126,12 +137,12 @@ def main():
         C_u = correlation_matrix_columns(U_in_k, U_out_k)
 
     # 保存热力图
-    plot_heatmap(S_in_in, f"输入模态余弦相似度 (Top-{k})", os.path.join(out_dir, "sim_input_input.png"), os.path.join(out_dir, "sim_input_input.svg"))
-    plot_heatmap(S_out_out, f"输出模态余弦相似度 (Top-{k})", os.path.join(out_dir, "sim_output_output.png"), os.path.join(out_dir, "sim_output_output.svg"))
+    plot_heatmap(S_in_in, f"Input Modal Cosine Similarity (Top-{k})", os.path.join(out_dir, "sim_input_input.png"), os.path.join(out_dir, "sim_input_input.svg"))
+    plot_heatmap(S_out_out, f"Output Modal Cosine Similarity (Top-{k})", os.path.join(out_dir, "sim_output_output.png"), os.path.join(out_dir, "sim_output_output.svg"))
     if S_in_out is not None:
-        plot_heatmap(S_in_out, f"输入-输出 模态余弦相似度 (Top-{k})", os.path.join(out_dir, "sim_input_output.png"), os.path.join(out_dir, "sim_input_output.svg"))
+        plot_heatmap(S_in_out, f"Input-Output Modal Cosine Similarity (Top-{k})", os.path.join(out_dir, "sim_input_output.png"), os.path.join(out_dir, "sim_input_output.svg"))
     if C_u is not None:
-        plot_heatmap(C_u, f"输入-输出 时间系数相关 (Top-{k})", os.path.join(out_dir, "corr_U_input_output.png"), os.path.join(out_dir, "corr_U_input_output.svg"))
+        plot_heatmap(C_u, f"Input-Output U Coefficient Correlation (Top-{k})", os.path.join(out_dir, "corr_U_input_output.png"), os.path.join(out_dir, "corr_U_input_output.svg"))
 
     # 统计摘要
     def top_matches(sim_mat: np.ndarray, topn: int = 1):

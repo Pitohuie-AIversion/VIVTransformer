@@ -123,11 +123,11 @@ loss_configs:
 model:
   # 注意：input_dim, output_dim, seq_len 会根据分辨率自动计算
   num_layers: 4
-  d_model: 512
+  d_model: 64
   num_heads: 8
   max_time_steps: 100
   dropout: 0.1                     # Dropout率
-  dim_feedforward: 2048            # 前馈网络维度
+  dim_feedforward: 512            # 前馈网络维度（从 2048 降到 512，提升速度，参数更接近 0.1B）
   
   # 注意力机制类型: 'sge', 'cbam', 'eca', 'se', 'relative', 'external'
   attention_type: "sge"

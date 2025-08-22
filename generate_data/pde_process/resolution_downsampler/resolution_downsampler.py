@@ -301,6 +301,15 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
         self.num_samples = num_samples
         self.normalize_data = normalize_data
         self.lazy_loading = lazy_loading
+        # 新增：初始化 SVD 相关属性，避免 AttributeError
+        self.svd_projector = svd_projector
+        self.use_svd_projection = bool(use_svd_projection and svd_projector is not None)
+        if self.use_svd_projection:
+            logger.info("已启用 SVD 投影，并检测到有效的 svd_projector 实例")
+        else:
+            if use_svd_projection and svd_projector is None:
+                logger.warning("请求启用 SVD 投影但未提供 svd_projector，将回退为禁用状态")
+            logger.info("未启用 SVD 投影")
         
         # 初始化降采样器
         self.downsampler = ResolutionDownsampler(
@@ -445,6 +454,12 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
             return len(self.original_data)
     
     def __getitem__(self, idx):
+        # 兼容性防护：确保旧版本实例也有这两个属性，避免 AttributeError
+        if not hasattr(self, 'use_svd_projection'):
+            self.use_svd_projection = False
+        if not hasattr(self, 'svd_projector'):
+            self.svd_projector = None
+        
         # 获取原始样本
         if self.lazy_loading:
             original_sample = self._load_sample_data(idx)

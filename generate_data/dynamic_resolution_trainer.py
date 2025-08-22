@@ -1004,6 +1004,9 @@ def load_config_with_args(config_path, args):
         logger.info("使用默认配置")
         config = create_dynamic_config()
     
+    # 确保 device 有默认值（若 YAML 未指定）
+    if 'device' not in config:
+        config['device'] = 'auto'
     # 合并命令行参数
     if args.input_resolution:
         config['data']['input_resolution'] = args.input_resolution
@@ -1017,7 +1020,8 @@ def load_config_with_args(config_path, args):
         config['training']['epochs'] = args.epochs
     if args.learning_rate:
         config['training']['learning_rate'] = args.learning_rate
-    if args.device:
+    # 仅在用户显式传入 cpu/cuda 时覆盖 YAML，避免默认 auto 意外覆盖
+    if getattr(args, 'device', None) in ('cpu', 'cuda'):
         config['device'] = args.device
     if args.seed:
         config['seed'] = args.seed

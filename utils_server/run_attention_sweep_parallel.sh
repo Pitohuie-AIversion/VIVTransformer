@@ -19,7 +19,7 @@ CONFIG_PATH="$PROJECT_ROOT/generate_data/dynamic_config_server_attention_sweep.y
 # 训练参数
 EPOCHS=${EPOCHS:-1000}
 GPUS_CSV=${GPUS_CSV:-"0,1"}       # 可通过环境变量覆盖，如 GPUS_CSV="0,1,2,3"
-MAX_PER_GPU=${MAX_PER_GPU:-2}
+MAX_PER_GPU=${MAX_PER_GPU:-1}
 
 # ================== 参数解析（可选覆盖） ==================
 usage() {
@@ -65,6 +65,16 @@ if [[ ${#GPUS[@]} -eq 0 ]]; then
 fi
 
 mkdir -p "$PROJECT_ROOT/results/attention_sweep"
+
+# ================== CPU 线程上限，避免过量并行导致崩溃 ==================
+# 该设置会被子进程继承。可通过环境变量自行覆盖，例如 OMP_NUM_THREADS=6 ./run_attention_sweep_parallel.sh
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
+export MKL_NUM_THREADS="${MKL_NUM_THREADS:-4}"
+export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-4}"
+export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-4}"
+export VECLIB_MAXIMUM_THREADS="${VECLIB_MAXIMUM_THREADS:-4}"
+export BLIS_NUM_THREADS="${BLIS_NUM_THREADS:-4}"
+export PYTORCH_NUM_THREADS="${PYTORCH_NUM_THREADS:-4}"
 
 # ================== 读取 YAML 中的候选与跳过 ==================
 read_yaml_lists() {

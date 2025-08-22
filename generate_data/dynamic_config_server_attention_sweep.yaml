@@ -50,7 +50,7 @@ data:
     batch_size: 1000
     cache_projection: true
     save_statistics: true
-  num_samples: 800
+  num_samples: 10000
   output_resolution: [128, 128]
   path: /share/fandixiaLab/suguangsheng/PycharmProjects/Sparse_to_Dense_Transformer/VIVTransformer-4sh2r1-codex/pdebench_extended/PDEBench/pdebench/data_download/2D_DarcyFlow_beta10.0_Train.hdf5
   shuffle: false

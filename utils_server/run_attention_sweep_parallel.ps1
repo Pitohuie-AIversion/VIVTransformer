@@ -1,6 +1,8 @@
 param(
-    [string]$ConfigPath = "x:\2025\Graduation_project\Pdebench_input_Transformer\VIVTransformer-1\generate_data\dynamic_config_server_attention_sweep.yaml",
-    [string]$ProjectRoot = "x:\2025\Graduation_project\Pdebench_input_Transformer\VIVTransformer-1",
+    # 默认使用脚本所在目录的上一级作为项目根目录（跨平台，适用于服务器）
+    [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+    # 默认配置文件位于项目根目录下的 generate_data 目录
+    [string]$ConfigPath  = (Join-Path $ProjectRoot "generate_data/dynamic_config_server_attention_sweep.yaml"),
     [int]$Epochs = 1000,
     [int[]]$GPUs = @(0,1),
     [int]$MaxPerGPU = 2

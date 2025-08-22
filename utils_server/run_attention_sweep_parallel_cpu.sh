@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 并行注意力训练调度器 (Bash 版)
+# 并行注意力训练调度器 (CPU 版)
 # - 读取 YAML 中的 attention_sweep_candidates / attention_skip_list
-# - 在多张 GPU 上并行调度，每张卡最多同时运行若干进程
-# - 每个子进程通过 CUDA_VISIBLE_DEVICES 绑定到单卡，避免 DataParallel 抢占
+# - 在 CPU 上并行调度，使用“槽位”限制并发数（原 GPUS_CSV 作为并发槽位列表）
+# - 不设置 CUDA_VISIBLE_DEVICES，训练脚本通过 --device cpu 强制使用 CPU
 # - 训练完成后汇总绘制验证集 loss 曲线图
 
 # ================== 可配置默认值（按你的服务器路径） ==================
@@ -14,12 +14,12 @@ PYTHON_BIN="/share/fandixiaLab/suguangsheng/anaconda3/bin/python"
 # 训练脚本与项目根目录（固定服务器路径）
 PROJECT_ROOT="/share/fandixiaLab/suguangsheng/PycharmProjects/VIVTransformer_pdebench"
 TRAINER="/share/fandixiaLab/suguangsheng/PycharmProjects/VIVTransformer_pdebench/generate_data/dynamic_resolution_trainer.py"
-CONFIG_PATH="$PROJECT_ROOT/generate_data/dynamic_config_server_attention_sweep.yaml"
+CONFIG_PATH="$PROJECT_ROOT/generate_data/dynamic_config_server_attention_sweep_cpu.yaml"
 
 # 训练参数
 EPOCHS=${EPOCHS:-1000}
-GPUS_CSV=${GPUS_CSV:-"0,1"}       # GPU 列表，用于绑定子进程（例如 GPUS_CSV="0,1,2,3"）
-MAX_PER_GPU=${MAX_PER_GPU:-1}      # 同卡并发上限
+GPUS_CSV=${GPUS_CSV:-"0,1"}       # 在 CPU 模式下，该列表代表并发槽位；可通过 GPUS_CSV="0,1,2,3" 扩容
+MAX_PER_GPU=${MAX_PER_GPU:-1}      # 在 CPU 模式下代表每个槽位的并发上限
 
 # ================== 参数解析（可选覆盖） ==================
 usage() {
@@ -67,14 +67,14 @@ fi
 mkdir -p "$PROJECT_ROOT/results/attention_sweep"
 
 # ================== CPU 线程上限，避免过量并行导致崩溃 ==================
-# 该设置会被子进程继承。可通过环境变量自行覆盖，例如 OMP_NUM_THREADS=6 ./run_attention_sweep_parallel.sh
-export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
-export MKL_NUM_THREADS="${MKL_NUM_THREADS:-4}"
-export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-4}"
-export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-4}"
-export VECLIB_MAXIMUM_THREADS="${VECLIB_MAXIMUM_THREADS:-4}"
-export BLIS_NUM_THREADS="${BLIS_NUM_THREADS:-4}"
-export PYTORCH_NUM_THREADS="${PYTORCH_NUM_THREADS:-4}"
+# 该设置会被子进程继承。可通过环境变量自行覆盖，例如 OMP_NUM_THREADS=16 ./run_attention_sweep_parallel.sh
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-8}"
+export MKL_NUM_THREADS="${MKL_NUM_THREADS:-8}"
+export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-8}"
+export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-8}"
+export VECLIB_MAXIMUM_THREADS="${VECLIB_MAXIMUM_THREADS:-8}"
+export BLIS_NUM_THREADS="${BLIS_NUM_THREADS:-8}"
+export PYTORCH_NUM_THREADS="${PYTORCH_NUM_THREADS:-8}"
 
 # ================== 读取 YAML 中的候选与跳过 ==================
 read_yaml_lists() {
@@ -164,11 +164,12 @@ start_job() {
   attn_safe=$(echo "$attn" | sed 's/[^a-z0-9_-]/_/g')
   local out_root="$PROJECT_ROOT/results/attention_sweep/$attn_safe"
   mkdir -p "$out_root/logs"
-  echo "[GPU $g] 启动: $attn"
+  echo "[SLOT $g] 启动(CPU): $attn"
   (
-    export CUDA_VISIBLE_DEVICES="$g"
+    # CPU 模式：显式清空 CUDA_VISIBLE_DEVICES，强制使用 CPU
+    export CUDA_VISIBLE_DEVICES=""
     export PYTHONUNBUFFERED=1
-    exec "$PYTHON_BIN" "$TRAINER" --config "$CONFIG_PATH" --attention-sweep "$attn" --epochs "$EPOCHS" --device cuda
+    exec "$PYTHON_BIN" "$TRAINER" --config "$CONFIG_PATH" --attention-sweep "$attn" --epochs "$EPOCHS" --device cpu
   ) >"$out_root/logs/train_$(date +%Y%m%d_%H%M%S).log" 2>&1 &
   local pid=$!
   PIDS[$g]="${PIDS[$g]} $pid"

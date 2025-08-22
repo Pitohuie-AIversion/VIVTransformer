@@ -1,0 +1,317 @@
+# 使用方法: 批量扫描示例
+# python generate_data/dynamic_resolution_trainer.py \
+#   --config generate_data/dynamic_config_server_attention_sweep.yaml \
+#   --attention-sweep "sge,cbam,eca,se,relative,external,crisscross,sparse,halo,crossformer,axial,cot,mobilevit,mobilevitv2,gfnet,polarized,coatnet,lsh,emsa,dat,triplet,psa,outlook,coord,moa,residual,parnet,bam,s2,danet"
+
+checkpoint:
+  auto_resume: true
+  compress_checkpoints: true
+  enabled: true
+  keep_last_n: 10
+  save_interval: 10
+  save_optimizer_state: true
+  save_scheduler_state: true
+
+clear_cache_interval: 50
+
+cross_validation:
+  enabled: false
+  k_folds: 5
+  random_state: 42
+  shuffle: true
+
+data:
+  batch_size: 32
+  crop_mode: center
+  downsampling:
+    anti_aliasing: true
+    backend: opencv
+    enabled: true
+    method: bicubic
+    preserve_aspect_ratio: true
+  input_resolution: [32, 32]
+  lazy_loading: true
+  normalize: true
+  normalize_data: true
+  svd_projection:
+    enabled: false
+    n_modes: 128
+    energy_threshold: 0.95
+    auto_select_modes: true
+    min_modes: 8
+    max_modes: 512
+    svd_method: torch
+    random_state: 42
+    standardize_data: true
+    remove_mean: true
+    scale_variance: false
+    incremental_learning: false
+    forget_factor: 0.99
+    batch_size: 1000
+    cache_projection: true
+    save_statistics: true
+  num_samples: 10000
+  output_resolution: [128, 128]
+  path: /share/fandixiaLab/suguangsheng/PycharmProjects/Sparse_to_Dense_Transformer/VIVTransformer-4sh2r1-codex/pdebench_extended/PDEBench/pdebench/data_download/2D_DarcyFlow_beta10.0_Train.hdf5
+  shuffle: false
+  test_ratio: 0.1
+  train_ratio: 0.8
+  valid_ratio: 0.1
+
+data_augmentation:
+  brightness: false
+  contrast: false
+  enabled: false
+  flip: false
+  noise: false
+  rotation: false
+
+dataloader:
+  actual_drop_last: true
+  actual_num_workers: 32
+  actual_persistent_workers: true
+  actual_pin_memory: false
+  actual_prefetch_factor: 2
+  drop_last: true
+  num_workers: 32
+  persistent_workers: true
+  pin_memory: false
+  prefetch_factor: 2
+
+deterministic: false
+flatten_spatial: true
+device: cpu
+
+distributed:
+  backend: gloo
+  enabled: false
+  init_method: env://
+  rank: 0
+  world_size: 1
+
+environment:
+  backend: Agg
+  disable_gui: true
+  headless: true
+  qt_qpa_platform: offscreen
+
+evaluation:
+  image_metrics:
+    lpips: false
+    psnr: true
+    ssim: true
+  physics_metrics:
+    energy_conservation: true
+    mass_conservation: true
+    vorticity_error: true
+  regression_metrics:
+    mae: true
+    mse: true
+    r2_score: true
+    rmse: true
+
+federated_learning:
+  client_fraction: 0.1
+  enabled: false
+  local_epochs: 5
+  n_clients: 10
+  rounds: 100
+
+gpu_memory_growth: true
+
+gradient:
+  accumulation_steps: 2
+  clip_enabled: true
+  clip_value: 0.5
+  sync_bn: true
+
+hyperparameter_tuning:
+  enabled: false
+  method: grid_search
+  n_trials: 50
+  parameters:
+    batch_size: [16, 32, 64]
+    learning_rate: [0.0001, 0.001, 0.01]
+    weight_decay: [0.0001, 0.001, 0.01]
+
+logging:
+  file: ./results/attention_sweep/logs/base_training.log
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  level: INFO
+  verbose: true
+
+loss:
+  base_weight: 0.8
+  enhanced:
+    adaptation_interval: 10
+    adaptive_weights: false
+    enable_monitoring: false
+    enabled: false
+    evaluation_mode: false
+    fallback_level: 2
+    force_svd: false
+    mixed_precision_mode: false
+  loss_type: mse_svd
+  normalize_svd_weights: false
+  svd_loss_enabled: true
+  svd_weights: [0.0125, 0.0125, 0.05, 0.05, 0.0125, 0.0125, 0.0125, 0.0125, 0.0125, 0.0125]
+  topk: 10
+
+loss_configs:
+  - base_weight: 0.8
+    svd_weights: [0.0125, 0.0125, 0.05, 0.05, 0.0125, 0.0125, 0.0125, 0.0125, 0.0125, 0.0125]
+    topk: 10
+
+max_memory_fraction: 0.9
+
+mixed_precision:
+  enabled: false
+  loss_scale: dynamic
+
+model:
+  activation: relu
+  attention_type: sge
+  # 注意力扫描候选与跳过列表（供命令行 --attention-sweep 参考）
+  attention_sweep_candidates: [
+    sge, cbam, eca, se, relative, external, self, simplified_self,
+    crisscross, sparse, halo, crossformer, axial, cot, mobilevit, mobilevitv2,
+    gfnet, polarized, coatnet, lsh, emsa, dat, triplet, psa,
+    outlook, coord, moa, residual, parnet, bam, s2, danet
+  ]
+  attention_skip_list: [a2, shuffle, sk, vip, ufo, aft, muse]
+  d_model: 64
+  dim_feedforward: 512
+  dropout: 0.15
+  feedforward:
+    activation: relu
+    bias: true
+    dropout: 0.1
+  input_dim: 1024
+  max_time_steps: 100
+  normalization:
+    elementwise_affine: true
+    eps: 1e-5
+    type: layer_norm
+  num_heads: 8
+  num_layers: 4
+  output_dim: 16384
+  positional_encoding:
+    dropout: 0.1
+    max_len: 5000
+    type: learnable
+  seq_len: 1024
+  weight_init:
+    gain: 1.0
+    method: xavier_uniform
+    std: 0.02
+
+model_compression:
+  knowledge_distillation: {enabled: false}
+  pruning: {enabled: false}
+  quantization: {enabled: false}
+
+model_ensemble:
+  diversity_loss_weight: 0.1
+  enabled: false
+  n_models: 3
+  voting_strategy: average
+
+monitoring:
+  alert_on_anomaly: false
+  enabled: true
+  log_gpu_usage: false
+  log_interval: 5
+  log_memory_usage: true
+  monitor_gradient_norms: true
+  monitor_weight_norms: true
+  profile_enabled: false
+  save_system_stats: true
+
+no_pretrained: false
+
+optimizer:
+  amsgrad: false
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  type: adam
+
+resolution_presets:
+  server_downsampling_demo:
+    batch_size: 32
+    downsampling:
+      anti_aliasing: true
+      backend: opencv
+      enabled: true
+      method: lanczos
+      preserve_aspect_ratio: true
+    input_resolution: [64, 64]
+    output_resolution: [128, 128]
+  server_fast_downsampling:
+    batch_size: 64
+    downsampling:
+      anti_aliasing: false
+      backend: auto
+      enabled: true
+      method: bilinear
+      preserve_aspect_ratio: true
+    input_resolution: [128, 128]
+    output_resolution: [64, 64]
+
+scheduler:
+  T_max: 500
+  enabled: true
+  eta_min: 1e-7
+  gamma: 0.1
+  step_size: 30
+  type: cosine
+  warmup_epochs: 5
+  warmup_start_lr: 1e-6
+
+seed: 42
+
+test:
+  enabled: true
+  metrics: [mse, mae, rmse, psnr, ssim]
+  output_dir: ./results/test_attention_sweep
+  save_predictions: true
+  save_visualizations: true
+
+training:
+  enable_early_stopping: true
+  epochs: 3
+  learning_rate: 0.0005
+  log_interval: 10
+  min_delta: 1.0e-06
+  mode: min
+  model_save_path: ./results/models/server_attention_sweep_model.pth
+  monitor: val_loss
+  patience: 20
+  restore_best_weights: true
+  save_best_model: true
+  save_best_only: true
+  save_path: ./results/models/server_attention_sweep_model.pth
+  weight_decay: 0.0001
+
+transfer_learning:
+  enabled: false
+  fine_tune_layers: all
+  freeze_layers: []
+  pretrained_model_path: null
+
+use_dataparallel: false
+
+validation:
+  enabled: true
+  interval: 1
+  max_samples_to_save: 10
+  metrics: [mse, mae, rmse, psnr]
+  save_predictions: false
+
+visualization:
+  dpi: 300
+  enabled: true
+  interval: 10
+  max_samples: 12
+  save_comparison: false
+  save_error_maps: false
+  save_format: png

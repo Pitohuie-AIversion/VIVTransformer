@@ -68,12 +68,12 @@ data_augmentation:
 
 dataloader:
   actual_drop_last: true
-  actual_num_workers: 32
+  actual_num_workers: 4
   actual_persistent_workers: true
   actual_pin_memory: false
   actual_prefetch_factor: 2
   drop_last: true
-  num_workers: 32
+  num_workers: 4
   persistent_workers: true
   pin_memory: false
   prefetch_factor: 2

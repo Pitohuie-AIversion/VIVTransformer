@@ -13,7 +13,8 @@ PYTHON_BIN="/share/fandixiaLab/suguangsheng/anaconda3/bin/python"
 
 # 训练脚本与项目根目录（固定服务器路径）
 PROJECT_ROOT="/share/fandixiaLab/suguangsheng/PycharmProjects/VIVTransformer_pdebench"
-TRAINER="/share/fandixiaLab/suguangsheng/PycharmProjects/VIVTransformer_pdebench/generate_data/dynamic_resolution_trainer.py"
+# 修正为相对 PROJECT_ROOT 的路径，避免硬编码绝对路径带来的不可移植
+TRAINER="$PROJECT_ROOT/generate_data/dynamic_resolution_trainer.py"
 CONFIG_PATH="$PROJECT_ROOT/generate_data/dynamic_config_server_attention_sweep_cpu.yaml"
 
 # 训练参数
@@ -76,6 +77,82 @@ export VECLIB_MAXIMUM_THREADS="${VECLIB_MAXIMUM_THREADS:-8}"
 export BLIS_NUM_THREADS="${BLIS_NUM_THREADS:-8}"
 export PYTORCH_NUM_THREADS="${PYTORCH_NUM_THREADS:-8}"
 
+# ================== 自动并发与线程调度（目标 CPU 利用率） ==================
+# 当用户未显式指定 -g/-m，且开启 AUTO_SCHED（默认 1）时：
+# - 依据物理/逻辑核心数，计算并发进程数 PROCS
+# - 为每个进程分配 PER_PROC_THREADS 计算线程，并将 OMP/MKL/OPENBLAS 等环境变量覆盖为该值
+# - 生成一个运行时 YAML，将 DataLoader 的 num_workers 调整为 DATALOADER_WORKERS（默认 4）
+TARGET_UTIL=${TARGET_UTIL:-0.90}
+PER_PROC_THREADS=${PER_PROC_THREADS:-12}
+DATALOADER_WORKERS=${DATALOADER_WORKERS:-4}
+AUTO_SCHED=${AUTO_SCHED:-1}
+
+# 通过 Python 获取更稳妥的 CPU 逻辑核心数
+echo "[INFO] 计算 CPU 并发参数 (TARGET_UTIL=$TARGET_UTIL, PER_PROC_THREADS=$PER_PROC_THREADS, DATALOADER_WORKERS=$DATALOADER_WORKERS, AUTO_SCHED=$AUTO_SCHED)"
+CPU_CORES=$("$PYTHON_BIN" - <<'PY'
+import os
+print(os.cpu_count() or 1)
+PY
+)
+if [[ -z "$CPU_CORES" || "$CPU_CORES" -lt 1 ]]; then CPU_CORES=1; fi
+
+# 仅当用户仍为默认并发设置且允许自动调度时，才覆盖 GPUS_CSV/MAX_PER_GPU
+if [[ "$AUTO_SCHED" == "1" && "$GPUS_CSV" == "0,1" && "$MAX_PER_GPU" -eq 1 ]]; then
+  PROCS=$("$PYTHON_BIN" - <<PY
+import math
+cores=int($CPU_CORES)
+target=float($TARGET_UTIL)
+t=int($PER_PROC_THREADS)
+print(max(1, math.floor(cores*target/t)))
+PY
+)
+  if [[ "$PROCS" -lt 1 ]]; then PROCS=1; fi
+  GPUS_CSV=$("$PYTHON_BIN" - <<PY
+print(','.join(str(i) for i in range($PROCS)))
+PY
+)
+  MAX_PER_GPU=1
+  IFS=',' read -r -a GPUS <<< "$GPUS_CSV"
+  echo "[INFO] 自动调度：CPU_CORES=$CPU_CORES -> 并发进程数 PROCS=$PROCS，GPUS_CSV=$GPUS_CSV，MAX_PER_GPU=$MAX_PER_GPU"
+  # 覆盖每进程计算线程
+  export OMP_NUM_THREADS="$PER_PROC_THREADS"
+  export MKL_NUM_THREADS="$PER_PROC_THREADS"
+  export NUMEXPR_NUM_THREADS="$PER_PROC_THREADS"
+  export OPENBLAS_NUM_THREADS="$PER_PROC_THREADS"
+  export VECLIB_MAXIMUM_THREADS="$PER_PROC_THREADS"
+  export BLIS_NUM_THREADS="$PER_PROC_THREADS"
+  export PYTORCH_NUM_THREADS="$PER_PROC_THREADS"
+else
+  echo "[INFO] 保留用户并发设置：GPUS_CSV=$GPUS_CSV, MAX_PER_GPU=$MAX_PER_GPU（AUTO_SCHED=$AUTO_SCHED）"
+fi
+
+# 生成运行时配置文件（仅调整 DataLoader 参数），并在后续运行中使用
+RUNTIME_CONFIG="$CONFIG_PATH"
+if [[ "$AUTO_SCHED" == "1" ]]; then
+  RUNTIME_CONFIG="${CONFIG_PATH%.yaml}_autotune.yaml"
+  echo "[INFO] 生成运行时配置: $RUNTIME_CONFIG (DataLoader.num_workers=$DATALOADER_WORKERS)"
+  "$PYTHON_BIN" - "$CONFIG_PATH" "$RUNTIME_CONFIG" "$DATALOADER_WORKERS" <<'PY'
+import sys, yaml
+src, dst, workers = sys.argv[1], sys.argv[2], int(sys.argv[3])
+with open(src, 'r', encoding='utf-8') as f:
+    cfg = yaml.safe_load(f)
+if not isinstance(cfg, dict):
+    cfg = {}
+dl = cfg.get('dataloader', {}) or {}
+# 同步修改 num_workers/actual_num_workers 与 pin_memory/persistent_workers
+for k in ('num_workers','actual_num_workers'):
+    dl[k] = workers
+for k in ('pin_memory','actual_pin_memory'):
+    dl[k] = False
+for k in ('persistent_workers','actual_persistent_workers'):
+    dl[k] = True
+cfg['dataloader'] = dl
+with open(dst, 'w', encoding='utf-8') as f:
+    yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
+print(f"written: {dst}")
+PY
+fi
+
 # ================== 读取 YAML 中的候选与跳过 ==================
 read_yaml_lists() {
   local cfg="$1"
@@ -103,7 +180,8 @@ while IFS= read -r line; do
   elif [[ "$line" == S:* ]]; then
     read -r -a SKIP_LIST <<< "${line#S:}"
   fi
-done < <(read_yaml_lists "$CONFIG_PATH")
+# 将读取来源切换为 RUNTIME_CONFIG
+done < <(read_yaml_lists "$RUNTIME_CONFIG")
 
 # 结合内置已知失败集合，去重
 KNOWN_FAIL=(sk vip ufo muse aft a2 shuffle)
@@ -169,7 +247,7 @@ start_job() {
     # CPU 模式：显式清空 CUDA_VISIBLE_DEVICES，强制使用 CPU
     export CUDA_VISIBLE_DEVICES=""
     export PYTHONUNBUFFERED=1
-    exec "$PYTHON_BIN" "$TRAINER" --config "$CONFIG_PATH" --attention-sweep "$attn" --epochs "$EPOCHS" --device cpu
+    exec "$PYTHON_BIN" "$TRAINER" --config "$RUNTIME_CONFIG" --attention-sweep "$attn" --epochs "$EPOCHS" --device cpu
   ) >"$out_root/logs/train_$(date +%Y%m%d_%H%M%S).log" 2>&1 &
   local pid=$!
   PIDS[$g]="${PIDS[$g]} $pid"

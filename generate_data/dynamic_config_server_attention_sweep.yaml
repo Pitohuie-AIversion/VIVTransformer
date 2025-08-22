@@ -33,6 +33,23 @@ data:
   lazy_loading: true
   normalize: true
   normalize_data: true
+  svd_projection:
+    enabled: false
+    n_modes: 128
+    energy_threshold: 0.95
+    auto_select_modes: true
+    min_modes: 8
+    max_modes: 512
+    svd_method: torch
+    random_state: 42
+    standardize_data: true
+    remove_mean: true
+    scale_variance: false
+    incremental_learning: false
+    forget_factor: 0.99
+    batch_size: 1000
+    cache_projection: true
+    save_statistics: true
   num_samples: 800
   output_resolution: [128, 128]
   path: /share/fandixiaLab/suguangsheng/PycharmProjects/Sparse_to_Dense_Transformer/VIVTransformer-4sh2r1-codex/pdebench_extended/PDEBench/pdebench/data_download/2D_DarcyFlow_beta10.0_Train.hdf5
@@ -62,7 +79,7 @@ dataloader:
   prefetch_factor: 4
 
 deterministic: false
-
+flatten_spatial: true
 device: cuda
 
 distributed:
@@ -281,7 +298,7 @@ transfer_learning:
   freeze_layers: []
   pretrained_model_path: null
 
-use_dataparallel: true
+use_dataparallel: false
 
 validation:
   enabled: true

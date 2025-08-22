@@ -780,6 +780,17 @@ def get_dynamic_loaders(config):
     
     data_config = config['data']
     
+    # 读取降采样配置
+    downsampling_cfg = data_config.get('downsampling', {})
+    downsampling_enabled = bool(downsampling_cfg.get('enabled', False))
+    downsample_method = downsampling_cfg.get('method', 'bilinear')
+    preserve_aspect_ratio = downsampling_cfg.get('preserve_aspect_ratio', True)
+    if downsampling_enabled:
+        if HAS_DOWNSAMPLER:
+            logger.info(f"启用降采样数据管线: method={downsample_method}, preserve_aspect_ratio={preserve_aspect_ratio}")
+        else:
+            logger.warning("配置启用降采样，但降采样模块不可用，将回退到裁剪/插值的数据集实现")
+    
     # 创建SVD投影器（如果启用）
     svd_projector = None
     use_svd_projection = False
@@ -794,18 +805,35 @@ def get_dynamic_loaders(config):
         # 为SVD投影器准备样本数据
         logger.info("准备SVD投影器训练数据...")
         
-        # 创建临时数据集用于SVD训练
-        temp_dataset = DynamicResolutionDataset(
-            data_path=data_config['path'],
-            input_resolution=tuple(data_config['input_resolution']),
-            output_resolution=tuple(data_config['output_resolution']),
-            num_samples=min(data_config['num_samples'], 1000),  # 限制SVD训练样本数量
-            crop_mode=data_config.get('crop_mode', 'center'),
-            normalize_data=data_config.get('normalize_data', True),
-            lazy_loading=data_config.get('lazy_loading', False),
-            svd_projector=None,  # 不使用SVD投影
-            use_svd_projection=False
-        )
+        # 创建临时数据集用于SVD训练（根据是否启用降采样选择实现）
+        if downsampling_enabled and HAS_DOWNSAMPLER:
+            logger.info("SVD样本将来自 DownsampledResolutionDataset（降采样）")
+            temp_dataset = DownsampledResolutionDataset(
+                data_path=data_config['path'],
+                input_resolution=tuple(data_config['input_resolution']),
+                output_resolution=tuple(data_config['output_resolution']),
+                num_samples=min(data_config['num_samples'], 1000),
+                downsample_method=downsample_method,
+                preserve_aspect_ratio=preserve_aspect_ratio,
+                normalize_data=data_config.get('normalize_data', True),
+                lazy_loading=data_config.get('lazy_loading', False),
+                svd_projector=None,
+                use_svd_projection=False
+            )
+        else:
+            if downsampling_enabled and not HAS_DOWNSAMPLER:
+                logger.warning("降采样已配置但不可用：SVD样本回退到 DynamicResolutionDataset（裁剪/插值）")
+            temp_dataset = DynamicResolutionDataset(
+                data_path=data_config['path'],
+                input_resolution=tuple(data_config['input_resolution']),
+                output_resolution=tuple(data_config['output_resolution']),
+                num_samples=min(data_config['num_samples'], 1000),  # 限制SVD训练样本数量
+                crop_mode=data_config.get('crop_mode', 'center'),
+                normalize_data=data_config.get('normalize_data', True),
+                lazy_loading=data_config.get('lazy_loading', False),
+                svd_projector=None,  # 不使用SVD投影
+                use_svd_projection=False
+            )
         
         # 收集样本数据
         input_samples = []
@@ -841,18 +869,34 @@ def get_dynamic_loaders(config):
         del temp_dataset, input_samples, output_samples
         cleanup_memory()
     
-    # 创建最终数据集
-    dataset = DynamicResolutionDataset(
-        data_path=data_config['path'],
-        input_resolution=tuple(data_config['input_resolution']),
-        output_resolution=tuple(data_config['output_resolution']),
-        num_samples=data_config['num_samples'],
-        crop_mode=data_config.get('crop_mode', 'center'),
-        normalize_data=data_config.get('normalize_data', True),
-        lazy_loading=data_config.get('lazy_loading', False),
-        svd_projector=svd_projector,
-        use_svd_projection=use_svd_projection
-    )
+    # 创建最终数据集（根据是否启用降采样选择实现）
+    if downsampling_enabled and HAS_DOWNSAMPLER:
+        dataset = DownsampledResolutionDataset(
+            data_path=data_config['path'],
+            input_resolution=tuple(data_config['input_resolution']),
+            output_resolution=tuple(data_config['output_resolution']),
+            num_samples=data_config['num_samples'],
+            downsample_method=downsample_method,
+            preserve_aspect_ratio=preserve_aspect_ratio,
+            normalize_data=data_config.get('normalize_data', True),
+            lazy_loading=data_config.get('lazy_loading', False),
+            svd_projector=svd_projector,
+            use_svd_projection=use_svd_projection
+        )
+    else:
+        if downsampling_enabled and not HAS_DOWNSAMPLER:
+            logger.warning("降采样已配置但不可用：训练/验证/测试数据集回退到 DynamicResolutionDataset（裁剪/插值）")
+        dataset = DynamicResolutionDataset(
+            data_path=data_config['path'],
+            input_resolution=tuple(data_config['input_resolution']),
+            output_resolution=tuple(data_config['output_resolution']),
+            num_samples=data_config['num_samples'],
+            crop_mode=data_config.get('crop_mode', 'center'),
+            normalize_data=data_config.get('normalize_data', True),
+            lazy_loading=data_config.get('lazy_loading', False),
+            svd_projector=svd_projector,
+            use_svd_projection=use_svd_projection
+        )
     
     # 分割数据集
     train_ratio = data_config.get('train_ratio', 0.7)
@@ -927,7 +971,7 @@ def parse_arguments():
     # 模型注意力相关参数
     parser.add_argument('--attention-type', type=str, help='覆盖配置的注意力类型（单次运行）')
     parser.add_argument('--attention-sweep', type=str, help='批量扫描注意力类型，逗号分隔，例如: "sge,cbam,eca,se,relative,external"')
-    parser.add_argument('--smoke-test', action='store_true', help='仅执行前向传播的冒烟测试（不训练、不写入磁盘）')
+    parser.add_argument('--smoke-test', action='store_true', help='仅执行前向传播的冒烟测试（不训练、不写盘）')
     
     # SVD投影参数
     parser.add_argument('--svd-projection', action='store_true', help='启用SVD投影')

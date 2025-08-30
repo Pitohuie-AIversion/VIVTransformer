@@ -13,6 +13,19 @@
 import os
 import warnings
 
+# ---- 全局 OpenMP 运行时冲突兜底设置 ----
+# 说明：当同一进程中存在多个 OpenMP 运行时（如 Intel MKL 与其他库）时，会触发 OMP Error #15。
+# 这里为整个项目统一设置环境变量，避免多进程/多库并发时崩溃，并降低 CPU 线程风暴。
+try:
+    # 允许重复的 OpenMP 运行时共存（厂商不建议，但实践中可稳定避免崩溃）
+    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+    # 限制 CPU 侧并行线程，减少竞争与过度并行
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+except Exception:
+    # 环境变量设置失败时忽略，避免影响程序启动
+    pass
+
 
 def setup_chinese_font_global():
     """全局中文字体设置 - 在Python启动时自动执行"""

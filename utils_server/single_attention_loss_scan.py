@@ -29,7 +29,8 @@ EXTREME_LOSS_CONFIGS = [
 
 def run_single_loss_config(args):
     """在指定 GPU 上运行单个 loss 配置"""
-    gpu_id, loss_idx, attention_type, project_root, epochs, ds_type, data_path, batch_size, max_samples = args
+    # 增加超时参数（秒），0 表示不设超时
+    gpu_id, loss_idx, attention_type, project_root, epochs, ds_type, data_path, batch_size, max_samples, run_id, timeout_seconds = args
 
     # 设置环境变量
     env = os.environ.copy()
@@ -41,8 +42,8 @@ def run_single_loss_config(args):
     # 尝试使用临时配置文件（若存在）
     temp_config = Path(project_root) / "temp_extreme_loss_config.yaml"
 
-    # 输出目录（也作为 dynamic 的 --results-root）
-    results_dir = Path(project_root) / "attention_results" / f"loss_config_{loss_idx}" / attention_type
+    # 输出目录（也作为 dynamic 的 --results-root），引入 run_id 子目录避免覆盖
+    results_dir = Path(project_root) / "attention_results" / f"loss_config_{loss_idx}" / attention_type / f"run_{run_id}"
     results_dir.mkdir(parents=True, exist_ok=True)
 
     # 构建命令
@@ -67,24 +68,33 @@ def run_single_loss_config(args):
 
     log_file = results_dir / f"train_{loss_idx}_{attention_type}.log"
 
-    print(f"[GPU {gpu_id}] 启动: {attention_type} (loss_config_{loss_idx})")
+    print(f"[GPU {gpu_id}] 启动: {attention_type} (loss_config_{loss_idx}, run_id={run_id})")
 
     try:
         with open(log_file, 'w', encoding='utf-8') as f:
-            process = subprocess.run(
-                cmd,
-                env=env,
-                cwd=str(project_root),
-                stdout=f,
-                stderr=subprocess.STDOUT,
-                timeout=3600  # 1小时超时
-            )
+            if timeout_seconds and timeout_seconds > 0:
+                process = subprocess.run(
+                    cmd,
+                    env=env,
+                    cwd=str(project_root),
+                    stdout=f,
+                    stderr=subprocess.STDOUT,
+                    timeout=timeout_seconds
+                )
+            else:
+                process = subprocess.run(
+                    cmd,
+                    env=env,
+                    cwd=str(project_root),
+                    stdout=f,
+                    stderr=subprocess.STDOUT,
+                )
         return loss_idx, process.returncode == 0
     except subprocess.TimeoutExpired:
-        print(f"[GPU {gpu_id}] 超时: {attention_type} (loss_config_{loss_idx})")
+        print(f"[GPU {gpu_id}] 超时: {attention_type} (loss_config_{loss_idx}, run_id={run_id})")
         return loss_idx, False
     except Exception as e:
-        print(f"[GPU {gpu_id}] 错误: {attention_type} (loss_config_{loss_idx}) - {e}")
+        print(f"[GPU {gpu_id}] 错误: {attention_type} (loss_config_{loss_idx}, run_id={run_id}) - {e}")
         return loss_idx, False
 
 
@@ -157,8 +167,8 @@ def create_temp_config_with_extreme_losses(project_root, num_configs=10, dataset
     return temp_config_path
 
 
-def plot_loss_curves(project_root, attention_type, num_configs):
-    """绘制该注意力类型下不同 loss 配置的对比曲线"""
+def plot_loss_curves(project_root, attention_type, num_configs, run_id=None):
+    """绘制该注意力类型下不同 loss 配置的对比曲线，支持按 run_id 或自动选择最新 run_ 目录"""
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -167,8 +177,34 @@ def plot_loss_curves(project_root, attention_type, num_configs):
 
     collected = {}
     for i in range(num_configs):
-        loss_log = Path(project_root) / "attention_results" / f"loss_config_{i}" / attention_type / "loss_logs" / "loss_log.txt"
-        if not loss_log.exists():
+        # 优先使用提供的 run_id；否则自动选择该配置下最新的 run_* 目录；如均不存在，回退到历史的无 run 目录
+        loss_log = None
+        if run_id:
+            base_dir = Path(project_root) / "attention_results" / f"loss_config_{i}" / attention_type / f"run_{run_id}"
+            candidate = base_dir / "loss_logs" / "loss_log.txt"
+            if candidate.exists():
+                loss_log = candidate
+            else:
+                # 如果指定 run_id 不存在，尝试最新 run_ 目录
+                base_dir_parent = Path(project_root) / "attention_results" / f"loss_config_{i}" / attention_type
+                run_dirs = sorted([d for d in base_dir_parent.glob("run_*") if d.is_dir()], reverse=True)
+                if run_dirs:
+                    candidate = run_dirs[0] / "loss_logs" / "loss_log.txt"
+                    if candidate.exists():
+                        loss_log = candidate
+        else:
+            base_dir_parent = Path(project_root) / "attention_results" / f"loss_config_{i}" / attention_type
+            run_dirs = sorted([d for d in base_dir_parent.glob("run_*") if d.is_dir()], reverse=True)
+            if run_dirs:
+                candidate = run_dirs[0] / "loss_logs" / "loss_log.txt"
+                if candidate.exists():
+                    loss_log = candidate
+            else:
+                candidate = base_dir_parent / "loss_logs" / "loss_log.txt"
+                if candidate.exists():
+                    loss_log = candidate
+
+        if not loss_log or not loss_log.exists():
             continue
 
         try:
@@ -201,7 +237,11 @@ def plot_loss_curves(project_root, attention_type, num_configs):
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
     plt.tight_layout()
 
-    output_path = Path(project_root) / f"{attention_type}_extreme_loss_comparison.png"
+    # 输出文件名携带 run_id 以避免覆盖
+    if run_id:
+        output_path = Path(project_root) / f"{attention_type}_extreme_loss_comparison_{run_id}.png"
+    else:
+        output_path = Path(project_root) / f"{attention_type}_extreme_loss_comparison.png"
     plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
 
@@ -222,6 +262,11 @@ def main():
     parser.add_argument("--data-path", type=str, help="数据文件/目录路径覆盖（如 .h5/.hdf5）")
     parser.add_argument("--batch-size", type=int, help="批大小覆盖")
     parser.add_argument("--max-samples", type=int, help="限制样本数量（快速验证，将映射到 --num-samples）")
+    # 新增：运行ID、只重绘、跳过已存在、超时
+    parser.add_argument("--run-id", type=str, help="运行ID（默认时间戳），用于避免覆盖并支持复现/续跑")
+    parser.add_argument("--replot-only", action="store_true", help="仅根据已有结果重新绘图，不进行训练")
+    parser.add_argument("--skip-existing", action="store_true", help="已存在loss日志则跳过该配置的训练")
+    parser.add_argument("--timeout-seconds", type=int, default=0, help="单个训练进程超时(秒)，0表示不设超时，适合1000+epoch长跑")
 
     args = parser.parse_args()
 
@@ -240,6 +285,18 @@ def main():
         print(f"🗂️  数据集类型(ignored by dynamic): {args.dataset_type}")
     if args.data_path:
         print(f"📄 数据路径: {args.data_path}")
+    if args.timeout_seconds:
+        print(f"⏱️  单任务超时: {args.timeout_seconds} s (0表示不设超时)")
+
+    # 生成/读取 run_id
+    run_id = args.run_id or time.strftime("%Y%m%d_%H%M%S")
+    print(f"🧾 运行ID: {run_id}")
+
+    # 仅重绘模式：直接绘图并退出
+    if args.replot_only:
+        print("🖼️ 仅重新绘图（不训练）")
+        plot_loss_curves(project_root, args.attention, args.num_configs, run_id)
+        return
 
     # 解析GPU列表
     gpu_list = [int(g.strip()) for g in args.gpus.split(',') if g.strip().isdigit()]
@@ -256,19 +313,31 @@ def main():
     )
 
     try:
-        # 准备任务队列
+        # 准备任务队列（支持 --skip-existing）
         tasks = []
+        skipped = 0
         for i in range(args.num_configs):
             # 轮流分配GPU
             gpu_id = gpu_list[i % len(gpu_list)]
-            tasks.append((gpu_id, i, args.attention, str(project_root), args.epochs, args.dataset_type, args.data_path, args.batch_size, args.max_samples))
+            # 如已存在该配置的 loss_log，则可跳过
+            if args.skip_existing:
+                expected_log = Path(project_root) / "attention_results" / f"loss_config_{i}" / args.attention / f"run_{run_id}" / "loss_logs" / "loss_log.txt"
+                if expected_log.exists():
+                    print(f"⏭️ 跳过 loss_config_{i}（已存在 loss 日志）：{expected_log}")
+                    skipped += 1
+                    continue
+            tasks.append((gpu_id, i, args.attention, str(project_root), args.epochs, args.dataset_type, args.data_path, args.batch_size, args.max_samples, run_id, args.timeout_seconds))
+
+        if not tasks:
+            print("✅ 无需训练（全部已存在或被跳过），直接重绘图...")
+            plot_loss_curves(project_root, args.attention, args.num_configs, run_id)
+            return
 
         # 使用进程池并行执行
         max_workers = max(1, len(gpu_list) * args.max_per_gpu)
         print(f"🔄 启动并行训练 (最大工作进程: {max_workers})")
 
         start_time = time.time()
-        results = []
 
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             results = list(executor.map(run_single_loss_config, tasks))
@@ -278,16 +347,16 @@ def main():
         total_time = time.time() - start_time
 
         print(f"\n✅ 训练完成!")
-        print(f"📊 成功: {successful}/{len(results)} 个配置")
+        print(f"📊 成功: {successful}/{len(results)} 个配置（已跳过 {skipped} 个）")
         print(f"⏱️  总耗时: {total_time/60:.1f} 分钟")
 
-        # 绘制对比图
+        # 绘制对比图（按 run_id）
         print(f"\n📈 生成对比图...")
-        plot_loss_curves(project_root, args.attention, args.num_configs)
+        plot_loss_curves(project_root, args.attention, args.num_configs, run_id)
 
     finally:
         # 清理临时文件
-        if temp_config.exists():
+        if 'temp_config' in locals() and temp_config and temp_config.exists():
             temp_config.unlink()
             print(f"🗑️  已清理临时配置: {temp_config}")
 

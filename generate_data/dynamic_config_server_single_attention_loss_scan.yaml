@@ -1,0 +1,207 @@
+# 单注意力极端损失扫描专用配置（与 dynamic_config_server_attention_sweep.yaml 结构对齐，但不做多注意力扫描）
+# 使用方式（示例）：
+# 1) 作为 single_attention_loss_scan.py 的基底配置：
+#    - 将本文件内容临时覆盖到 generate_data/dynamic_config.yaml
+#    - 然后运行：
+#      python utils_server/single_attention_loss_scan.py -A s2 -N 10 -E 1000 -G 0,1 --max-per-gpu 2 
+# 2) 或直接单次训练：
+#      python generate_data/dynamic_resolution_trainer.py --config generate_data/dynamic_config_server_single_attention_loss_scan.yaml --attention-type s2 --loss_idx 0 --epochs 1000 --results-root ./attention_results/loss_config_0/s2
+
+checkpoint:
+  auto_resume: true
+  compress_checkpoints: true
+  enabled: true
+  keep_last_n: 10
+  save_interval: 10
+  save_optimizer_state: true
+  save_scheduler_state: true
+
+clear_cache_interval: 50
+
+cross_validation:
+  enabled: false
+  k_folds: 5
+  random_state: 42
+  shuffle: true
+
+data:
+  batch_size: 32
+  crop_mode: center
+  downsampling:
+    anti_aliasing: true
+    backend: opencv
+    enabled: true            # 如需裁剪而非降采样可改为 false，并设置合适的 crop_mode
+    method: bicubic
+    preserve_aspect_ratio: true
+  input_resolution: [32, 32]
+  lazy_loading: true
+  normalize: true
+  normalize_data: true
+  num_samples: 10000         # 可被 CLI --num-samples 覆盖
+  output_resolution: [128, 128]
+  svd_projection:
+    enabled: false
+    n_modes: 128
+    energy_threshold: 0.95
+    auto_select_modes: true
+    min_modes: 8
+    max_modes: 512
+    svd_method: torch
+    random_state: 42
+    standardize_data: true
+    remove_mean: true
+    scale_variance: false
+    incremental_learning: false
+    forget_factor: 0.99
+    batch_size: 1000
+    cache_projection: true
+    save_statistics: true
+
+# 数据加载器（服务器友好默认，可按需调整）
+dataloader:
+  num_workers: 8
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 4
+  drop_last: true
+
+# 设备与运行环境
+use_dataparallel: false
+max_memory_fraction: 0.9
+mixed_precision:
+  enabled: true
+  loss_scale: dynamic
+
+device: cuda
+seed: 42
+
+logging:
+  file: ./results/attention_single/logs/base_training.log
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  level: INFO
+  verbose: true
+
+# 注意：本配置不包含多注意力扫描；attention_type 由 CLI --attention-type 指定
+model:
+  activation: relu
+  attention_type: s2           # 占位默认值；运行时由 --attention-type 覆盖
+  d_model: 256
+  num_heads: 8
+  num_layers: 4
+  input_dim: 1024              # 会在训练器内根据分辨率/SVD推断与矫正
+  output_dim: 16384            # 同上
+  dropout: 0.1
+  positional_encoding:
+    dropout: 0.1
+    max_len: 5000
+    type: learnable
+  weight_init:
+    gain: 1.0
+    method: xavier_uniform
+    std: 0.02
+
+optimizer:
+  type: adam
+  betas: [0.9, 0.999]
+  eps: 1.0e-08
+
+scheduler:
+  type: cosine
+  enabled: true
+  T_max: 500
+  eta_min: 1.0e-07
+  warmup_epochs: 5
+  warmup_start_lr: 1.0e-06
+
+training:
+  enable_early_stopping: true
+  epochs: 1000                 # 可被 CLI --epochs 覆盖
+  learning_rate: 0.0005
+  weight_decay: 0.0001
+  log_interval: 10
+  monitor: val_loss
+  mode: min
+  patience: 20
+  min_delta: 1.0e-06
+  restore_best_weights: true
+  save_best_model: true
+  save_best_only: true
+  model_save_path: ./results/models/single_attention_model.pth
+  save_path: ./results/models/single_attention_model.pth
+
+validation:
+  enabled: true
+  interval: 1
+  max_samples_to_save: 10
+  metrics: [mse, mae, rmse, psnr]
+  save_predictions: false
+
+test:
+  enabled: true
+  metrics: [mse, mae, rmse, psnr, ssim]
+  output_dir: ./results/test_single_attention
+  save_predictions: true
+  save_visualizations: true
+
+visualization:
+  enabled: true
+  dpi: 300
+  interval: 10
+  max_samples: 12
+  save_comparison: false
+  save_error_maps: false
+  save_format: png
+
+# 单注意力极端损失配置（与 single_attention_loss_scan.py 内的 EXTREME_LOSS_CONFIGS 对齐）
+# 训练时通过 --loss_idx 选择其中一条
+loss:
+  loss_type: mse_svd
+  svd_loss_enabled: true
+  normalize_svd_weights: false
+  enhanced:
+    enabled: false
+    adaptive_weights: false
+    enable_monitoring: false
+    evaluation_mode: false
+    mixed_precision_mode: false
+    force_svd: false
+    adaptation_interval: 10
+    fallback_level: 2
+  base_weight: 0.8   # 默认值（当未使用 loss_idx/loss_configs 时生效）
+  svd_weights: [1.0, 1.0, 1.0]
+  topk: 3
+
+loss_configs:
+  - { base_weight: 1.0, topk: 3, svd_weights: [0.0, 0.0, 0.0] }    # 仅 base
+  - { base_weight: 0.0, topk: 3, svd_weights: [1.0, 1.0, 1.0] }    # 仅 SVD（等权）
+  - { base_weight: 0.0, topk: 3, svd_weights: [1.0, 0.0, 0.0] }    # 纯第1模态
+  - { base_weight: 0.0, topk: 3, svd_weights: [0.0, 1.0, 0.0] }    # 纯第2模态
+  - { base_weight: 0.0, topk: 3, svd_weights: [0.0, 0.0, 1.0] }    # 纯第3模态
+  - { base_weight: 0.1, topk: 3, svd_weights: [0.8, 0.15, 0.05] }  # 金字塔 1>2>3
+  - { base_weight: 0.1, topk: 3, svd_weights: [0.05, 0.15, 0.8] }  # 反向金字塔 3>2>1
+  - { base_weight: 0.5, topk: 3, svd_weights: [1.0, 1.0, 1.0] }    # base+SVD 等权
+  - { base_weight: 0.2, topk: 3, svd_weights: [1.0, 1.0, 1.0] }    # base 较弱
+  - { base_weight: 0.3, topk: 3, svd_weights: [0.6, 0.3, 0.1] }    # 递减 1>2>3
+
+# 一些常用分辨率预设（可选）
+resolution_presets:
+  server_fast_downsampling:
+    batch_size: 64
+    downsampling:
+      anti_aliasing: false
+      backend: auto
+      enabled: true
+      method: bilinear
+      preserve_aspect_ratio: true
+    input_resolution: [128, 128]
+    output_resolution: [64, 64]
+  server_downsampling_demo:
+    batch_size: 32
+    downsampling:
+      anti_aliasing: true
+      backend: opencv
+      enabled: true
+      method: lanczos
+      preserve_aspect_ratio: true
+    input_resolution: [64, 64]
+    output_resolution: [128, 128]

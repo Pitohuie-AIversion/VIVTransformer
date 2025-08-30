@@ -107,8 +107,9 @@ def create_temp_config_with_extreme_losses(project_root, num_configs=10, dataset
 
     base_config = None
 
-    # 优先以动态训练器的示例配置为基底（如果存在）
-    base_cfg_path = Path(project_root) / "generate_data" / "dynamic_config.yaml"
+    # 优先使用单注意力扫描专用配置作为基底（如存在），否则回退到通用 dynamic_config.yaml
+    server_scan_cfg = Path(project_root) / "generate_data" / "dynamic_config_server_single_attention_loss_scan.yaml"
+    base_cfg_path = server_scan_cfg if server_scan_cfg.exists() else Path(project_root) / "generate_data" / "dynamic_config.yaml"
     if base_cfg_path.exists():
         with open(base_cfg_path, 'r', encoding='utf-8') as f:
             base_config = yaml.safe_load(f)
@@ -254,8 +255,8 @@ def main():
     parser.add_argument("-A", "--attention", required=True, help="注意力类型 (如 eca, s2, bam)")
     parser.add_argument("-N", "--num-configs", type=int, default=10, help="使用的极端配置数量")
     parser.add_argument("-E", "--epochs", type=int, default=1000, help="训练轮次")
-    parser.add_argument("-G", "--gpus", default="0,1", help="GPU列表 (逗号分隔)")
-    parser.add_argument("-M", "--max-per-gpu", type=int, default=2, help="每GPU最大并行任务数")
+    parser.add_argument("-G", "--gpus", default="0", help="GPU列表 (逗号分隔)")
+    parser.add_argument("-M", "--max-per-gpu", type=int, default=1, help="每GPU最大并行任务数")
     parser.add_argument("-P", "--project-root", help="项目根目录")
     # 数据集相关可选参数（直通 dynamic_resolution_trainer.py）
     parser.add_argument("--dataset-type", choices=["auto", "pressure", "pdebench", "toy"], help="数据集类型覆盖（动态训练器不使用，保留兼容）")

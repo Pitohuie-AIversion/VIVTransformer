@@ -963,6 +963,7 @@ def parse_arguments():
                         help='输出分辨率，例如: --output-resolution 128 128')
     parser.add_argument('--num-samples', type=int, help='样本数量')
     parser.add_argument('--batch-size', type=int, help='批次大小')
+    parser.add_argument('--data-path', type=str, help='数据文件/目录路径覆盖（如 .h5/.hdf5）')
     
     # 训练相关参数
     parser.add_argument('--epochs', type=int, help='训练轮数')
@@ -976,6 +977,12 @@ def parse_arguments():
     # SVD投影参数
     parser.add_argument('--svd-projection', action='store_true', help='启用SVD投影')
     parser.add_argument('--svd-modes', type=int, help='SVD模态数量')
+
+    # 多损失扫描/选择
+    parser.add_argument('--loss_idx', type=int, help='从配置中的 loss_configs 选择一个索引用于本次运行')
+
+    # 结果输出根目录（可选，便于外部脚本指定写盘位置）
+    parser.add_argument('--results-root', type=str, help='训练产物的根目录（如 ./attention_results/loss_config_0/eca）')
     
     # 其他参数
     parser.add_argument('--device', type=str, choices=['auto', 'cpu', 'cuda'], default='auto',
@@ -1016,6 +1023,10 @@ def load_config_with_args(config_path, args):
         config['data']['num_samples'] = args.num_samples
     if args.batch_size:
         config['data']['batch_size'] = args.batch_size
+    if getattr(args, 'data_path', None):
+        if 'data' not in config:
+            config['data'] = {}
+        config['data']['path'] = args.data_path
     if args.epochs:
         config['training']['epochs'] = args.epochs
     if args.learning_rate:
@@ -1048,6 +1059,28 @@ def load_config_with_args(config_path, args):
         if 'model' not in config:
             config['model'] = {}
         config['model']['attention_type'] = str(args.attention_type).lower()
+    
+    # 新增：根据 loss_idx 应用 loss_configs（若存在）
+    if getattr(args, 'loss_idx', None) is not None:
+        loss_configs = config.get('loss_configs')
+        if isinstance(loss_configs, list) and len(loss_configs) > 0:
+            idx = int(args.loss_idx)
+            if idx < 0 or idx >= len(loss_configs):
+                raise ValueError(f"loss_idx 超出范围: {idx} (共有 {len(loss_configs)} 个loss_configs)")
+            chosen = loss_configs[idx] or {}
+            base_loss = copy.deepcopy(config.get('loss', {}))
+            def _deep_update(dst, src):
+                for k, v in src.items():
+                    if isinstance(v, dict) and isinstance(dst.get(k, None), dict):
+                        _deep_update(dst[k], v)
+                    else:
+                        dst[k] = v
+            _deep_update(base_loss, chosen)
+            config['loss'] = base_loss
+            config['loss_selected_idx'] = idx
+            logger.info(f"已根据 loss_idx={idx} 应用损失配置")
+        else:
+            logger.warning("指定了 loss_idx 但配置中未找到 loss_configs 列表，忽略。")
     
     # 重新计算模型维度（安全访问）
     svd_cfg = config.get('data', {}).get('svd_projection', {})
@@ -1393,7 +1426,7 @@ def main():
             
             exclude_fail = {"sk", "vip", "ufo", "muse", "aft"}
             success, failed = [], []
-            base_sweep_dir = Path('./results') / 'attention_sweep'
+            base_sweep_dir = Path(args.results_root) if getattr(args, 'results_root', None) else (Path('./results') / 'attention_sweep')
             base_sweep_dir.mkdir(parents=True, exist_ok=True)
             
             logger.info(f"🔍 启动批量注意力扫描，共 {len(attn_list)} 个候选: {attn_list}")
@@ -1438,8 +1471,18 @@ def main():
             logger.info(f"📄 扫描汇总已保存: {summary_path}")
             return
         
-        # 非批量模式：直接运行一次
-        run_training_with_config(config, results_root=Path('./results'))
+        # 非批量模式：直接运行一次（支持 --results-root 或按 loss_idx/attention_type 推断目录）
+        if getattr(args, 'results_root', None):
+            run_root = Path(args.results_root)
+        else:
+            run_root = None
+            attn_cur = config.get('model', {}).get('attention_type', 'sge')
+            if getattr(args, 'loss_idx', None) is not None and attn_cur:
+                try:
+                    run_root = Path('attention_results') / f"loss_config_{int(args.loss_idx)}" / attn_cur
+                except Exception:
+                    run_root = None
+        run_training_with_config(config, results_root=run_root or Path('./results'))
         return
     
     except KeyboardInterrupt:

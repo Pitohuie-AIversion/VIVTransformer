@@ -59,7 +59,7 @@ data:
 
 # 数据加载器（服务器友好默认，可按需调整）
 dataloader:
-  num_workers: 12
+  num_workers: 8
   pin_memory: true
   persistent_workers: true
   prefetch_factor: 4

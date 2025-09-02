@@ -43,7 +43,7 @@ def demo_normalization_usage():
     print(f"\n3. 创建数据加载器...")
     try:
         train_loader, val_loader, test_loader = get_dynamic_loaders(config)
-        print(f"   ✅ 数据加载器创建成功")
+        print(f"   [OK] 数据加载器创建成功")
         print(f"   - 训练集批次数: {len(train_loader)}")
         print(f"   - 验证集批次数: {len(val_loader)}")
         print(f"   - 测试集批次数: {len(test_loader)}")
@@ -61,17 +61,17 @@ def demo_normalization_usage():
             
             if normalize_enabled:
                 if 0 <= inputs.min() and inputs.max() <= 1 and 0 <= targets.min() and targets.max() <= 1:
-                    print(f"   ✅ 数据已正确归一化到[0,1]范围")
+                    print(f"   [OK] 数据已正确归一化到[0,1]范围")
                 else:
-                    print(f"   ❌ 数据归一化异常")
+                    print(f"   [ERROR] 数据归一化异常")
             else:
-                print(f"   ℹ️  归一化已禁用，显示原始数据范围")
+                print(f"   [INFO] 归一化已禁用，显示原始数据范围")
             
             # 只检查第一个批次
             break
             
     except Exception as e:
-        print(f"   ❌ 创建数据加载器失败: {e}")
+        print(f"   [ERROR] 创建数据加载器失败: {e}")
         return
     
     # 5. 配置建议

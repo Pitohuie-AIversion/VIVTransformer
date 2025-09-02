@@ -41,7 +41,7 @@ def create_demo_data():
     with h5py.File(demo_data_path, 'w') as f:
         f.create_dataset('tensor', data=demo_data)
     
-    logger.info(f"✅ 演示数据已创建: {demo_data_path}")
+    logger.info(f"[OK] 演示数据已创建: {demo_data_path}")
     logger.info(f"   数据形状: {demo_data.shape}")
     logger.info(f"   数据范围: [{demo_data.min():.3f}, {demo_data.max():.3f}]")
     
@@ -86,7 +86,7 @@ def demo_training_log_normalization():
         logger.info(f"原始数据形状: {norm_info['original_data_shape']}")
         logger.info(f"输入分辨率: {norm_info['input_resolution']}")
         logger.info(f"输出分辨率: {norm_info['output_resolution']}")
-        logger.info("✅ 数据已归一化到[0,1]范围，可用于反归一化恢复物理信息")
+        logger.info("[OK] 数据已归一化到[0,1]范围，可用于反归一化恢复物理信息")
     
     # 3. 演示禁用归一化的情况
     print("\n3. 禁用归一化的训练日志:")
@@ -111,20 +111,20 @@ def demo_training_log_normalization():
         # 这部分不会执行
         pass
     else:
-        logger.info("ℹ️  归一化已禁用，使用原始数据范围")
+        logger.info("[INFO]  归一化已禁用，使用原始数据范围")
     
     # 4. 演示训练完成后的归一化提示
     print("\n4. 训练完成后的归一化提示:")
     print("-" * 40)
     
-    logger.info("🎉 === 训练完成 ===")
+    logger.info("[OK] === 训练完成 ===")
     
     # 模拟保存归一化信息
     if dataset_normalized.normalize_data:
         norm_info_path = "demo_normalization_info.json"
         dataset_normalized.save_normalization_info(norm_info_path)
-        logger.info(f"📊 归一化信息已保存: {norm_info_path}")
-        logger.info("💡 使用提示:")
+        logger.info(f"[INFO] 归一化信息已保存: {norm_info_path}")
+        logger.info("[TIP] 使用提示:")
         logger.info("   - 使用 dataset.denormalize_predictions(predictions) 反归一化预测结果")
         logger.info("   - 使用 DynamicResolutionDataset.load_normalization_info(path) 加载归一化信息")
         logger.info("   - 参考 demo_global_normalization.py 了解完整用法")
@@ -159,13 +159,13 @@ def demo_log_comparison():
     print("修改前后日志对比")
     print("=" * 60)
     
-    print("\n📋 修改前的日志输出:")
+    print("\n[INFO] 修改前的日志输出:")
     print("-" * 30)
     print("INFO - 数据统计: {'num_samples': 20, 'input_shape': (32, 32), ...}")
     print("INFO - === 创建模型 ===")
     print("INFO - 模型参数数量: 1234567")
     
-    print("\n📋 修改后的日志输出:")
+    print("\n[INFO] 修改后的日志输出:")
     print("-" * 30)
     print("INFO - 数据统计: {'num_samples': 20, 'input_shape': (32, 32), ...}")
     print("INFO - === 归一化信息 ===")
@@ -174,19 +174,19 @@ def demo_log_comparison():
     print("INFO - 原始数据形状: (50, 64, 64)")
     print("INFO - 输入分辨率: (32, 32)")
     print("INFO - 输出分辨率: (64, 64)")
-    print("INFO - ✅ 数据已归一化到[0,1]范围，可用于反归一化恢复物理信息")
+    print("INFO - [OK] 数据已归一化到[0,1]范围，可用于反归一化恢复物理信息")
     print("INFO - === 创建模型 ===")
     print("INFO - 模型参数数量: 1234567")
     
-    print("\n📋 训练完成时的新增日志:")
+    print("\n[INFO] 训练完成时的新增日志:")
     print("-" * 30)
-    print("INFO - 🎉 === 训练完成 ===")
-    print("INFO - 📊 归一化信息已保存: ./results/normalization_info.json")
-    print("INFO - 💡 使用提示:")
+    print("INFO - [OK] === 训练完成 ===")
+    print("INFO - [INFO] 归一化信息已保存: ./results/normalization_info.json")
+    print("INFO - [TIP] 使用提示:")
     print("INFO -    - 使用 dataset.denormalize_predictions(predictions) 反归一化预测结果")
     print("INFO -    - 使用 DynamicResolutionDataset.load_normalization_info(path) 加载归一化信息")
     print("INFO -    - 参考 demo_global_normalization.py 了解完整用法")
-    print("INFO - 💾 最终配置已保存: ./results/final_config.yaml")
+    print("INFO - [INFO] 最终配置已保存: ./results/final_config.yaml")
 
 if __name__ == "__main__":
     try:
@@ -195,12 +195,12 @@ if __name__ == "__main__":
         
         print("\n" + "=" * 60)
         print("总结:")
-        print("✅ 训练日志已更新，现在会显示:")
+        print("[OK] 训练日志已更新，现在会显示:")
         print("   1. 详细的归一化信息（方法、数据范围、形状等）")
         print("   2. 归一化状态提示（启用/禁用）")
         print("   3. 训练完成后的使用指南")
         print("   4. 自动保存归一化信息到文件")
-        print("\n💡 这些改进让用户能够:")
+        print("\n[TIP] 这些改进让用户能够:")
         print("   - 清楚了解数据的归一化状态")
         print("   - 获得反归一化的使用指导")
         print("   - 方便地恢复物理信息")

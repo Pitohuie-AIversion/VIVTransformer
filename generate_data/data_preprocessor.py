@@ -49,10 +49,10 @@ try:
         ResolutionDownsampler, DownsampledResolutionDataset
     )
     HAS_DOWNSAMPLER = True
-    logger.info("✅ 成功导入降分辨率模块")
+    logger.info("[OK] 成功导入降分辨率模块")
 except ImportError as e:
     HAS_DOWNSAMPLER = False
-    logger.warning(f"⚠️ 降分辨率模块导入失败: {e}")
+    logger.warning(f"[WARN] 降分辨率模块导入失败: {e}")
     logger.warning("将使用传统的裁剪方法")
 
 class DataPreprocessor:
@@ -300,8 +300,8 @@ class DataPreprocessor:
         self.save_config_info(output_path)
         
         end_time = time.time()
-        logger.info(f"🎉 数据预处理完成！总耗时: {end_time - start_time:.2f}秒")
-        logger.info(f"📁 预处理数据保存在: {output_path}")
+        logger.info(f"[OK] 数据预处理完成！总耗时: {end_time - start_time:.2f}秒")
+        logger.info(f"[INFO] 预处理数据保存在: {output_path}")
     
     def split_and_save_data(self, input_data: np.ndarray, output_data: np.ndarray, output_path: Path):
         """
@@ -336,21 +336,21 @@ class DataPreprocessor:
         with h5py.File(train_path, 'w') as f:
             f.create_dataset('input', data=train_input, compression='gzip')
             f.create_dataset('output', data=train_output, compression='gzip')
-        logger.info(f"✅ 训练集已保存: {train_path}")
+        logger.info(f"[OK] 训练集已保存: {train_path}")
         
         # 保存验证集
         valid_path = output_path / 'valid_data.h5'
         with h5py.File(valid_path, 'w') as f:
             f.create_dataset('input', data=valid_input, compression='gzip')
             f.create_dataset('output', data=valid_output, compression='gzip')
-        logger.info(f"✅ 验证集已保存: {valid_path}")
+        logger.info(f"[OK] 验证集已保存: {valid_path}")
         
         # 保存测试集
         test_path = output_path / 'test_data.h5'
         with h5py.File(test_path, 'w') as f:
             f.create_dataset('input', data=test_input, compression='gzip')
             f.create_dataset('output', data=test_output, compression='gzip')
-        logger.info(f"✅ 测试集已保存: {test_path}")
+        logger.info(f"[OK] 测试集已保存: {test_path}")
     
     def save_normalization_info(self, output_path: Path):
         """
@@ -372,7 +372,7 @@ class DataPreprocessor:
         with open(norm_path, 'w', encoding='utf-8') as f:
             json.dump(norm_info, f, indent=2, ensure_ascii=False)
         
-        logger.info(f"📊 归一化信息已保存: {norm_path}")
+        logger.info(f"[INFO] 归一化信息已保存: {norm_path}")
     
     def save_config_info(self, output_path: Path):
         """
@@ -418,7 +418,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
     
-    logger.info("✅ 配置文件加载成功")
+    logger.info("[OK] 配置文件加载成功")
     return config
 
 def main():
@@ -443,19 +443,19 @@ def main():
         # 执行数据预处理
         preprocessor.process_data(args.data_path, args.output_dir)
         
-        logger.info("🎉 数据预处理完成！")
-        logger.info("💡 使用提示:")
+        logger.info("[OK] 数据预处理完成！")
+        logger.info("[TIP] 使用提示:")
         logger.info(f"   - 预处理数据位于: {args.output_dir}")
         logger.info("   - 可以使用 simple_trainer.py 直接加载预处理数据进行训练")
         logger.info("   - 归一化信息已保存，可用于反归一化预测结果")
         
     except KeyboardInterrupt:
-        logger.warning("⚠️ 数据预处理被用户中断")
+        logger.warning("[WARN] 数据预处理被用户中断")
     except FileNotFoundError as e:
-        logger.error(f"❌ 文件未找到: {str(e)}")
+        logger.error(f"[ERROR] 文件未找到: {str(e)}")
         logger.error("请检查数据文件路径是否正确")
     except Exception as e:
-        logger.error(f"❌ 数据预处理过程中出错: {str(e)}")
+        logger.error(f"[ERROR] 数据预处理过程中出错: {str(e)}")
         import traceback
         traceback.print_exc()
 

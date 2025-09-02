@@ -400,7 +400,7 @@ def main():
                 args.config, 
                 f"{args.output_dir}/svd_loss_config_{args.config}.yaml"
             )
-            print(f"✅ YAML配置已导出: {yaml_path}")
+            print(f"[OK] YAML配置已导出: {yaml_path}")
         
         # 导出代码示例
         if args.export_code:
@@ -408,10 +408,10 @@ def main():
             code_path = f"{args.output_dir}/svd_loss_example_{args.config}.py"
             with open(code_path, 'w', encoding='utf-8') as f:
                 f.write(code_example)
-            print(f"✅ 代码示例已导出: {code_path}")
+            print(f"[OK] 代码示例已导出: {code_path}")
             
     except Exception as e:
-        print(f"❌ 错误: {e}")
+        print(f"[ERROR] 错误: {e}")
         return 1
     
     return 0

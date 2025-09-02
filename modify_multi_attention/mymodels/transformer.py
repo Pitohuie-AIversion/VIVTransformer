@@ -226,7 +226,7 @@ class CustomEncoderLayer(nn.Module):
 
 
 class CustomDecoderLayer(nn.Module):
-    def __init__(self, d_model, num_heads, dim_feedforward=2048, dropout=0.1, attention_type="relative", seq_len=32, input_hw=None):
+    def __init__(self, d_model, num_heads, dim_feedforward=2048, dropout=0.1, attention_type="relative", seq_len=32, input_hw=None, use_memory_film: bool = True):
         super().__init__()
 
         self.seq_len = seq_len
@@ -235,6 +235,16 @@ class CustomDecoderLayer(nn.Module):
         # 选择注意力机制
         self.self_attn = get_attention_module(attention_type, d_model=d_model, num_heads=num_heads, seq_len=seq_len, input_hw=self.input_hw)
         self.multihead_attn = get_attention_module(attention_type, d_model=d_model, num_heads=num_heads, seq_len=seq_len, input_hw=self.input_hw)
+        # 强制标准交叉注意力（稳定可靠的回退分支）
+        self.cross_attn_std = nn.MultiheadAttention(d_model, num_heads, batch_first=True)
+        # P0-2: 为 ViP/CNN 类路径增加 memory 融合（FiLM 门控，可配置）
+        self._use_memory_film = use_memory_film
+        reduce = max(1, d_model // 4)
+        self._film_mlp = nn.Sequential(
+            nn.Linear(d_model, reduce),
+            nn.ReLU(inplace=True),
+            nn.Linear(reduce, 2 * d_model),
+        )
 
         # 前馈网络
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -252,16 +262,21 @@ class CustomDecoderLayer(nn.Module):
     def forward(self, tgt, memory):
         batch_size, seq_len, d_model = tgt.shape
 
-        # 计算自适应 (H, W) 与必要的填充
+        # 计算自适应 (H, W) 与必要的填充（仅在需要做 2D 形变的路径时使用）
         (spatial_dim_h, spatial_dim_w), pad_len, target_len = _infer_hw_with_padding(seq_len, self.input_hw)
-        if pad_len > 0:
+        need_2d_self = isinstance(self.self_attn, (SEAttention, SKAttention, CBAMBlock, BAMBlock,
+                                                   ECAAttention, ShuffleAttention, SpatialGroupEnhance,
+                                                   ResidualAttention, S2Attention, TripletAttention,
+                                                   CoordAtt, PSA, DAModule, CoTAttention,
+                                                   SequentialPolarizedSelfAttention,
+                                                   CoAtNet,
+                                                   HaloAttention, DoubleAttention, ParNetAttention,
+                                                   OutlookAttention, WeightedPermuteMLP))
+        if need_2d_self and pad_len > 0:
             pad_t = tgt.new_zeros((batch_size, pad_len, d_model))
-            pad_m = memory.new_zeros((batch_size, pad_len, d_model))
             tgt_for_reshape = torch.cat([tgt, pad_t], dim=1)
-            memory_for_reshape = torch.cat([memory, pad_m], dim=1)
         else:
             tgt_for_reshape = tgt
-            memory_for_reshape = memory
 
         # ---- Self-Attention 适配 ----
         if isinstance(self.self_attn, ExternalAttention):
@@ -280,37 +295,13 @@ class CustomDecoderLayer(nn.Module):
                 def _ensure_adapters(attn_mod, x_tensor, prefix):
                     in_adapter = getattr(self, f"{prefix}_in", None)
                     out_adapter = getattr(self, f"{prefix}_out", None)
-                    in_ch = None
-                    for name in ("in_channels", "in_dim", "channels", "channel", "dim"):
-                        v = getattr(attn_mod, name, None)
-                        if isinstance(v, int):
-                            in_ch = v
-                            break
-                    if in_ch is None:
-                        for m in attn_mod.modules():
-                            if isinstance(m, nn.Conv2d):
-                                in_ch = m.in_channels
-                                break
-                    out_ch = None
-                    for name in ("out_channels", "channels", "channel", "dim"):
-                        v = getattr(attn_mod, name, None)
-                        if isinstance(v, int):
-                            out_ch = v
-                            break
-                    if out_ch is None:
-                        for m in reversed(list(attn_mod.modules())):
-                            if isinstance(m, nn.Conv2d):
-                                out_ch = m.out_channels
-                                break
-                    if out_ch is None:
-                        out_ch = in_ch if in_ch is not None else d_model
-                    if in_ch is not None and in_ch != d_model and in_adapter is None:
-                        in_adapter = nn.Conv2d(d_model, in_ch, kernel_size=1, bias=False).to(x_tensor.device)
+                    if in_adapter is None:
+                        in_adapter = nn.Conv2d(d_model, getattr(attn_mod, "in_channels", d_model), kernel_size=1)
                         setattr(self, f"{prefix}_in", in_adapter)
-                    if out_ch is not None and out_ch != d_model and out_adapter is None:
-                        out_adapter = nn.Conv2d(out_ch, d_model, kernel_size=1, bias=False).to(x_tensor.device)
+                    if out_adapter is None:
+                        out_adapter = nn.Conv2d(getattr(attn_mod, "out_channels", getattr(attn_mod, "channels", d_model)), d_model, kernel_size=1)
                         setattr(self, f"{prefix}_out", out_adapter)
-                    return getattr(self, f"{prefix}_in", None), getattr(self, f"{prefix}_out", None)
+                    return in_adapter, out_adapter
                 in_adp, out_adp = _ensure_adapters(self.self_attn, x, "_dec_self_sa2d_adapter")
                 orig_device = x.device
                 try:
@@ -362,76 +353,27 @@ class CustomDecoderLayer(nn.Module):
         tgt = tgt + self.dropout1(tgt2)
         tgt = self.norm1(tgt)
 
-        # 交叉注意力（multihead_attn）
-        if isinstance(self.multihead_attn, (SEAttention, SKAttention, CBAMBlock, BAMBlock,
-                                            ECAAttention, ShuffleAttention, SpatialGroupEnhance,
-                                            ResidualAttention, S2Attention, TripletAttention,
-                                            CoordAtt, PSA, DAModule, CoTAttention,
-                                            SequentialPolarizedSelfAttention,
-                                            CoAtNet,
-                                            HaloAttention, DoubleAttention, ParNetAttention)):
-            try:
-                x = tgt_for_reshape.transpose(1, 2).contiguous().view(batch_size, d_model, spatial_dim_h, spatial_dim_w)
-                # 通道自适配器（Decoder Cross）
-                def _ensure_adapters(attn_mod, x_tensor, prefix):
-                    in_adapter = getattr(self, f"{prefix}_in", None)
-                    out_adapter = getattr(self, f"{prefix}_out", None)
-                    in_ch = None
-                    for name in ("in_channels", "in_dim", "channels", "channel", "dim"):
-                        v = getattr(attn_mod, name, None)
-                        if isinstance(v, int):
-                            in_ch = v
-                            break
-                    if in_ch is None:
-                        for m in attn_mod.modules():
-                            if isinstance(m, nn.Conv2d):
-                                in_ch = m.in_channels
-                                break
-                    out_ch = None
-                    for name in ("out_channels", "channels", "channel", "dim"):
-                        v = getattr(attn_mod, name, None)
-                        if isinstance(v, int):
-                            out_ch = v
-                            break
-                    if out_ch is None:
-                        for m in reversed(list(attn_mod.modules())):
-                            if isinstance(m, nn.Conv2d):
-                                out_ch = m.out_channels
-                                break
-                    if out_ch is None:
-                        out_ch = in_ch if in_ch is not None else d_model
-                    if in_ch is not None and in_ch != d_model and in_adapter is None:
-                        in_adapter = nn.Conv2d(d_model, in_ch, kernel_size=1, bias=False).to(x_tensor.device)
-                        setattr(self, f"{prefix}_in", in_adapter)
-                    if out_ch is not None and out_ch != d_model and out_adapter is None:
-                        out_adapter = nn.Conv2d(out_ch, d_model, kernel_size=1, bias=False).to(x_tensor.device)
-                        setattr(self, f"{prefix}_out", out_adapter)
-                    return getattr(self, f"{prefix}_in", None), getattr(self, f"{prefix}_out", None)
-                in_adp, out_adp = _ensure_adapters(self.multihead_attn, x, "_dec_cross_sa2d_adapter")
-                orig_device = x.device
-                try:
-                    param = next(self.multihead_attn.parameters())
-                    module_device = param.device
-                except StopIteration:
-                    module_device = orig_device
-                if module_device != orig_device:
-                    x = x.to(module_device)
-                if in_adp is not None and in_adp.weight.device != x.device:
-                    in_adp = in_adp.to(x.device)
-                if out_adp is not None and out_adp.weight.device != x.device:
-                    out_adp = out_adp.to(x.device)
-                if in_adp is not None:
-                    x = in_adp(x)
-                x = self.multihead_attn(x)
-                if out_adp is not None:
-                    x = out_adp(x)
-                if x.device != orig_device:
-                    x = x.to(orig_device)
-                x = x.view(batch_size, d_model, -1)
-                tgt2 = x[:, :, :seq_len].transpose(1, 2)
-            except Exception as e:
-                print(f"Warning: ViP/CNN-like decoder cross attention failed ({type(e).__name__}: {e}); identity fallback")
-                tgt2 = tgt
+        # P0-2: 对 CNN/ViP 类 attention 类型，使用 memory 的全局统计进行 FiLM 调制，作为交叉注意力的 Query
+        is_vip_like = isinstance(self.multihead_attn, (SEAttention, SKAttention, CBAMBlock, BAMBlock,
+                                                       ECAAttention, ShuffleAttention, SpatialGroupEnhance,
+                                                       ResidualAttention, S2Attention, TripletAttention,
+                                                       CoordAtt, PSA, DAModule, CoTAttention,
+                                                       SequentialPolarizedSelfAttention,
+                                                       CoAtNet,
+                                                       HaloAttention, DoubleAttention, ParNetAttention,
+                                                       OutlookAttention, WeightedPermuteMLP))
+        if self._use_memory_film and is_vip_like and memory is not None and memory.ndim == 3 and memory.shape[-1] == d_model:
+            # 使用 mean 池化（可后续扩展为含掩码或更稳健统计）
+            mem_global = memory.mean(dim=1)  # [B, D]
+            gamma_beta = self._film_mlp(mem_global)  # [B, 2D]
+            gamma, beta = torch.chunk(gamma_beta, 2, dim=-1)
+            gamma = torch.sigmoid(gamma)
+            tgt_for_cross = tgt * gamma.unsqueeze(1) + beta.unsqueeze(1)
+        else:
+            tgt_for_cross = tgt
+
+        # 交叉注意力（强制标准 MHA：Q=tgt_for_cross, K=V=memory）
+        tgt2, _ = self.cross_attn_std(tgt_for_cross, memory, memory)
         tgt = tgt + self.dropout2(tgt2)
         tgt = self.norm2(tgt)
 
@@ -464,84 +406,181 @@ class CustomDecoder(nn.Module):
 
 class TransformerFlowReconstructionModel(nn.Module):
     def __init__(self, input_dim, output_dim, num_heads=8, num_layers=6,
-                 d_model=512, max_time_steps=100, attention_type="relative", seq_len=32, input_hw=None):
+                 d_model=512, max_time_steps=100, attention_type="relative", seq_len=32, input_hw=None, pe_type: str = "learnable_1d",
+                 output_head_type: str = "global", out_channels_per_token: int | None = None,
+                 time_encoding: str = "embedding", use_memory_film: bool = True):
         super().__init__()
-
+        
         self.attention_type = attention_type
         self.d_model = d_model
         self.input_dim = input_dim
         self.output_dim = output_dim
+        self.output_head_type = output_head_type  # 'global' or 'per_token'
+        self._declared_per_token_channels = out_channels_per_token
 
-        # 若未显式给出 input_hw，则根据 input_dim 自动推断 (尽量接近正方形且 H*W == input_dim)
-        if input_hw is None:
-            # 优先尝试完美平方
+        # 根据优先级确定序列长度与网格：input_hw > seq_len > 从 input_dim 推断
+        self.input_hw = input_hw  # (H, W) 或 None
+        if self.input_hw is not None:
+            self.seq_len = self.input_hw[0] * self.input_hw[1]
+        elif seq_len is not None:
+            self.seq_len = seq_len
+            # 如果使用 2D 可学习位置编码而未给出 input_hw，则从 seq_len 分解出一个近似方形网格
+            if pe_type == 'learnable_2d' and self.input_hw is None:
+                root = int(seq_len ** 0.5)
+                if root * root == seq_len:
+                    self.input_hw = (root, root)
+                else:
+                    factors = []
+                    for i in range(1, int(seq_len ** 0.5) + 1):
+                        if seq_len % i == 0:
+                            factors.append((i, seq_len // i))
+                    self.input_hw = min(factors, key=lambda x: abs(x[0] - x[1])) if factors else (seq_len, 1)
+        else:
+            # 若未显式给出，回退为基于 input_dim 的近似正方形网格
             root = int(input_dim ** 0.5)
             if root * root == input_dim:
-                input_hw = (root, root)
+                self.input_hw = (root, root)
             else:
-                # 寻找最接近的因子对
                 factors = []
                 for i in range(1, int(input_dim ** 0.5) + 1):
                     if input_dim % i == 0:
                         factors.append((i, input_dim // i))
                 if factors:
-                    input_hw = min(factors, key=lambda x: abs(x[0] - x[1]))
+                    self.input_hw = min(factors, key=lambda x: abs(x[0] - x[1]))
                 else:
-                    input_hw = (1, input_dim)
-        # 记录 input_hw，并用其覆盖 seq_len
-        self.input_hw = input_hw  # (H, W)
-        self.seq_len = input_hw[0] * input_hw[1]
+                    self.input_hw = (1, input_dim)
+            self.seq_len = self.input_hw[0] * self.input_hw[1]
 
-        # 确保embedding输出维度正确：将 input_dim 投影为 (seq_len * d_model)
+        # 投影输入到 [B, L, D]
         self.embedding = nn.Linear(input_dim, self.seq_len * d_model)
         self.time_step_embedding = nn.Embedding(max_time_steps, d_model)
-        self.positional_encoding = nn.Parameter(torch.zeros(1, d_model))
+        # 时间编码方式：'embedding'（当前默认）或 'mlp'（与 origin 连续时间一致）
+        self.time_encoding = time_encoding
+        if self.time_encoding == 'mlp':
+            self.time_mlp = nn.Sequential(
+                nn.Linear(1, d_model),
+                nn.ReLU(inplace=True),
+                nn.Linear(d_model, d_model),
+            )
 
+        # P1-1 位置编码：支持 1D 可学习/正弦 与 2D 可分离可学习
+        self.pe_type = pe_type  # 'learnable_1d' | 'sinusoidal_1d' | 'learnable_2d'
+        if self.pe_type == 'learnable_1d':
+            self.positional_encoding = nn.Parameter(torch.zeros(1, self.seq_len, d_model))
+        elif self.pe_type == 'sinusoidal_1d':
+            L, D = self.seq_len, d_model
+            pe = torch.zeros(1, L, D)
+            position = torch.arange(0, L, dtype=torch.float32).unsqueeze(1)  # [L,1]
+            div_term = torch.exp((torch.arange(0, D, 2, dtype=torch.float32) * -(torch.log(torch.tensor(10000.0)) / D)))
+            pe[:, :, 0::2] = torch.sin(position * div_term)
+            if D > 1:
+                pe[:, :, 1::2] = torch.cos(position * div_term)
+            self.register_buffer('positional_encoding', pe, persistent=False)
+        elif self.pe_type == 'learnable_2d':
+            D_h = d_model // 2
+            D_w = d_model - D_h
+            # 若仍未有网格形状，按 (L,1) 退化为 1D 栈（保证维度合法）
+            if self.input_hw is None:
+                self.input_hw = (self.seq_len, 1)
+            H, W = self.input_hw
+            self.pe_h = nn.Parameter(torch.zeros(1, H, 1, D_h))  # [1,H,1,Dh]
+            self.pe_w = nn.Parameter(torch.zeros(1, 1, W, D_w))  # [1,1,W,Dw]
+        else:
+            # 回退到 1D 可学习
+            self.positional_encoding = nn.Parameter(torch.zeros(1, self.seq_len, d_model))
+
+        # 构建 Encoder / Decoder 堆叠
         encoder_layer = CustomEncoderLayer(d_model=d_model, num_heads=num_heads,
                                            dim_feedforward=2048, attention_type=attention_type,
                                            seq_len=self.seq_len, input_hw=self.input_hw)
         decoder_layer = CustomDecoderLayer(d_model=d_model, num_heads=num_heads,
                                            dim_feedforward=2048, attention_type=attention_type,
-                                           seq_len=self.seq_len, input_hw=self.input_hw)
-
+                                           seq_len=self.seq_len, input_hw=self.input_hw, use_memory_film=use_memory_film)
         self.encoder = CustomEncoder(encoder_layer, num_layers)
         self.decoder = CustomDecoder(decoder_layer, num_layers)
-        self.fc_out = nn.Linear(d_model, output_dim)
+
+        # 输出头：全局/逐 token
+        if self.output_head_type == 'per_token':
+            per_token_channels = self._declared_per_token_channels
+            if per_token_channels is None:
+                if output_dim % self.seq_len == 0:
+                    per_token_channels = output_dim // self.seq_len
+                else:
+                    per_token_channels = None
+            if per_token_channels is not None and per_token_channels > 0:
+                self.token_head = nn.Linear(d_model, per_token_channels)
+                self.per_token_channels = per_token_channels
+            else:
+                print("[Warn] output_dim 与 seq_len 不整除，逐 token 输出不可用，回退为 global 头")
+                self.output_head_type = 'global'
+                self.fc_out = nn.Linear(d_model, output_dim)
+        else:
+            self.fc_out = nn.Linear(d_model, output_dim)
 
     def forward(self, x_in_pressures_flat, x_time_steps):
         batch_size = x_in_pressures_flat.size(0)
         x_time_steps = x_time_steps.long()
 
-        # 确保时间步索引在有效范围内（根据embedding大小动态确定）
+        # 时间步索引裁剪至有效范围
         max_idx = self.time_step_embedding.num_embeddings - 1
         x_time_steps = torch.clamp(x_time_steps, 0, max_idx)
 
-        # 使用模型推断/指定的 seq_len
-        x_embedded = self.embedding(x_in_pressures_flat)  # [batch_size, seq_len * d_model]
-
-        # 计算正确的d_model维度
+        # 投影并重塑为 [B, L, D]
+        x_embedded = self.embedding(x_in_pressures_flat)  # [B, L*D]
         expected_d_model = x_embedded.size(1) // self.seq_len
-        
-        # reshape 为 [batch_size, seq_len, d_model]
         x_embedded = x_embedded.view(batch_size, self.seq_len, expected_d_model)
 
-        # 加上时间步和位置编码
-        time_emb = self.time_step_embedding(x_time_steps).unsqueeze(1)  # [batch_size, 1, d_model]
-        pos_enc = self.positional_encoding.expand(batch_size, 1, -1)  # [batch_size, 1, d_model]
+        # 时间步与位置编码
+        if self.time_encoding == 'embedding':
+            # 离散时间索引
+            if x_time_steps.dim() == 2 and x_time_steps.size(-1) == 1:
+                x_time_steps = x_time_steps.squeeze(-1)
+            x_time_steps = x_time_steps.long()
+            max_idx = self.time_step_embedding.num_embeddings - 1
+            x_time_steps = torch.clamp(x_time_steps, 0, max_idx)
+            time_emb = self.time_step_embedding(x_time_steps).unsqueeze(1)  # [B,1,D]
+        else:
+            # 连续时间 MLP
+            if x_time_steps.dim() == 1:
+                x_time_steps = x_time_steps.unsqueeze(-1)
+            time_emb = self.time_mlp(x_time_steps.float()).unsqueeze(1)  # [B,1,D]
         
-        # 确保维度匹配
+        if self.pe_type in ('learnable_1d', 'sinusoidal_1d'):
+            pos_enc = self.positional_encoding.expand(batch_size, -1, -1)  # [B,L,D]
+        elif self.pe_type == 'learnable_2d':
+            H, W = self.input_hw
+            D_h = self.pe_h.size(-1)
+            D_w = self.pe_w.size(-1)
+            pe2d = torch.cat([
+                self.pe_h.expand(1, H, W, D_h),  # [1,H,W,Dh]
+                self.pe_w.expand(1, 1, W, D_w).expand(1, H, W, D_w),  # [1,H,W,Dw]
+            ], dim=-1).view(1, H * W, D_h + D_w)  # [1,L,D]
+            pos_enc = pe2d.expand(batch_size, -1, -1)
+        else:
+            pos_enc = torch.zeros(batch_size, self.seq_len, expected_d_model, device=x_embedded.device)
+
         if time_emb.size(-1) != expected_d_model:
             time_emb = time_emb[:, :, :expected_d_model]
         if pos_enc.size(-1) != expected_d_model:
             pos_enc = pos_enc[:, :, :expected_d_model]
-            
+
         x_embedded = x_embedded + time_emb + pos_enc
 
+        # 编解码
         encoder_output = self.encoder(x_embedded)
-        decoder_output = self.decoder(encoder_output, encoder_output)
+        decoder_output = self.decoder(encoder_output, encoder_output)  # [B, L, D]
 
-        out_pressure_flat_pred = self.fc_out(decoder_output.mean(dim=1))
-
-        return out_pressure_flat_pred
+        # 输出头
+        if self.output_head_type == 'per_token' and hasattr(self, 'token_head'):
+            token_pred = self.token_head(decoder_output)  # [B, L, C]
+            out = token_pred.reshape(batch_size, -1)      # [B, L*C]
+            if out.size(1) == self.output_dim:
+                return out
+            else:
+                print("[Warn] 逐 token 输出维度与 output_dim 不匹配，回退为 global 头")
+                return self.fc_out(decoder_output.mean(dim=1))
+        else:
+            out_pressure_flat_pred = self.fc_out(decoder_output.mean(dim=1))
+            return out_pressure_flat_pred
 
 

@@ -80,7 +80,7 @@ def test_svd_enabled_config():
     svd_loss_enabled = loss_config.get('svd_loss_enabled', True)
     
     if svd_loss_enabled:
-        logger.info("✅ SVD损失已启用")
+        logger.info("[OK] SVD损失已启用")
         criterion = TotalLossWithSVD(
             base_weight=loss_config['base_weight'],
             svd_weights=loss_config['svd_weights'],
@@ -94,13 +94,13 @@ def test_svd_enabled_config():
         
         try:
             loss = criterion(test_input, test_target)
-            logger.info(f"✅ SVD损失计算成功: {loss.item():.6f}")
+            logger.info(f"[OK] SVD损失计算成功: {loss.item():.6f}")
             return True
         except Exception as e:
-            logger.error(f"❌ SVD损失计算失败: {e}")
+            logger.error(f"[ERROR] SVD损失计算失败: {e}")
             return False
     else:
-        logger.error("❌ SVD损失应该启用但未启用")
+        logger.error("[ERROR] SVD损失应该启用但未启用")
         return False
 
 def test_svd_disabled_config():
@@ -152,7 +152,7 @@ def test_svd_disabled_config():
     svd_loss_enabled = loss_config.get('svd_loss_enabled', True)
     
     if not svd_loss_enabled:
-        logger.info("✅ SVD损失已禁用")
+        logger.info("[OK] SVD损失已禁用")
         criterion = torch.nn.MSELoss()
         logger.info(f"损失函数类型: {type(criterion).__name__}")
         
@@ -162,13 +162,13 @@ def test_svd_disabled_config():
         
         try:
             loss = criterion(test_input, test_target)
-            logger.info(f"✅ MSE损失计算成功: {loss.item():.6f}")
+            logger.info(f"[OK] MSE损失计算成功: {loss.item():.6f}")
             return True
         except Exception as e:
-            logger.error(f"❌ MSE损失计算失败: {e}")
+            logger.error(f"[ERROR] MSE损失计算失败: {e}")
             return False
     else:
-        logger.error("❌ SVD损失应该禁用但未禁用")
+        logger.error("[ERROR] SVD损失应该禁用但未禁用")
         return False
 
 def test_config_file_loading():
@@ -243,21 +243,21 @@ def test_config_file_loading():
         # 验证SVD损失是否正确禁用
         svd_loss_enabled = config['loss'].get('svd_loss_enabled', True)
         if not svd_loss_enabled:
-            logger.info("✅ 配置文件中SVD损失已正确禁用")
+            logger.info("[OK] 配置文件中SVD损失已正确禁用")
             return True
         else:
-            logger.error("❌ 配置文件中SVD损失未正确禁用")
+            logger.error("[ERROR] 配置文件中SVD损失未正确禁用")
             return False
             
     except Exception as e:
-        logger.error(f"❌ 配置文件加载失败: {e}")
+        logger.error(f"[ERROR] 配置文件加载失败: {e}")
         return False
 
 def main():
     """
     主测试函数
     """
-    logger.info("🧪 开始测试SVD机制修复效果")
+    logger.info("[TEST] 开始测试SVD机制修复效果")
     
     tests = [
         ("SVD启用测试", test_svd_enabled_config),
@@ -275,11 +275,11 @@ def main():
             result = test_func()
             results.append((test_name, result))
             if result:
-                logger.info(f"✅ {test_name} 通过")
+                logger.info(f"[OK] {test_name} 通过")
             else:
-                logger.error(f"❌ {test_name} 失败")
+                logger.error(f"[ERROR] {test_name} 失败")
         except Exception as e:
-            logger.error(f"❌ {test_name} 异常: {e}")
+            logger.error(f"[ERROR] {test_name} 异常: {e}")
             results.append((test_name, False))
     
     # 总结测试结果
@@ -291,16 +291,16 @@ def main():
     total = len(results)
     
     for test_name, result in results:
-        status = "✅ 通过" if result else "❌ 失败"
+        status = "[OK] 通过" if result else "[ERROR] 失败"
         logger.info(f"{test_name}: {status}")
     
     logger.info(f"\n总计: {passed}/{total} 测试通过")
     
     if passed == total:
-        logger.info("🎉 所有测试通过！SVD机制修复成功！")
+        logger.info("[OK] 所有测试通过！SVD机制修复成功！")
         return True
     else:
-        logger.error(f"⚠️ {total - passed} 个测试失败，需要进一步检查")
+        logger.error(f"[WARN] {total - passed} 个测试失败，需要进一步检查")
         return False
 
 if __name__ == "__main__":

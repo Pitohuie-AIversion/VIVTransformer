@@ -257,9 +257,9 @@ def test_normalization():
     # 验证归一化是否正确
     input_norm, output_norm = dataset_normalized[0]
     if 0 <= input_norm.min() and input_norm.max() <= 1 and 0 <= output_norm.min() and output_norm.max() <= 1:
-        print("\n✅ 归一化功能正常工作！数据已成功归一化到[0,1]范围")
+        print("\n[OK] 归一化功能正常工作！数据已成功归一化到[0,1]范围")
     else:
-        print("\n❌ 归一化功能异常！数据未正确归一化到[0,1]范围")
+        print("\n[ERROR] 归一化功能异常！数据未正确归一化到[0,1]范围")
     
     print("\n=== 测试完成 ===")
 

@@ -34,21 +34,21 @@ class ServerConfigValidator:
     def log_error(self, message: str):
         """记录错误"""
         self.errors.append(message)
-        logger.error(f"❌ {message}")
+        logger.error(f"[ERROR] {message}")
         
     def log_warning(self, message: str):
         """记录警告"""
         self.warnings.append(message)
-        logger.warning(f"⚠️ {message}")
+        logger.warning(f"[WARNING] {message}")
         
     def log_success(self, message: str):
         """记录成功"""
         self.success_items.append(message)
-        logger.info(f"✅ {message}")
+        logger.info(f"[OK] {message}")
         
     def check_python_environment(self) -> bool:
         """检查Python环境"""
-        logger.info("🐍 检查Python环境...")
+        logger.info("检查Python环境...")
         
         try:
             # Python版本
@@ -86,7 +86,7 @@ class ServerConfigValidator:
             
     def check_cuda_environment(self) -> bool:
         """检查CUDA环境"""
-        logger.info("🚀 检查CUDA环境...")
+        logger.info("检查CUDA环境...")
         
         try:
             if torch.cuda.is_available():
@@ -113,7 +113,7 @@ class ServerConfigValidator:
             
     def check_data_file(self, data_path: str) -> bool:
         """检查数据文件"""
-        logger.info("📁 检查数据文件...")
+        logger.info("检查数据文件...")
         
         try:
             if not os.path.exists(data_path):
@@ -148,7 +148,7 @@ class ServerConfigValidator:
             
     def check_config_file(self, config_path: str) -> Tuple[bool, Optional[Dict]]:
         """检查配置文件"""
-        logger.info("📋 检查配置文件...")
+        logger.info("检查配置文件...")
         
         try:
             if not os.path.exists(config_path):
@@ -198,7 +198,7 @@ class ServerConfigValidator:
             
     def check_system_resources(self) -> bool:
         """检查系统资源"""
-        logger.info("💻 检查系统资源...")
+        logger.info("检查系统资源...")
         
         try:
             # CPU信息
@@ -240,7 +240,7 @@ class ServerConfigValidator:
             
     def check_file_permissions(self) -> bool:
         """检查文件权限"""
-        logger.info("🔐 检查文件权限...")
+        logger.info("检查文件权限...")
         
         try:
             # 检查当前目录权限
@@ -272,32 +272,32 @@ class ServerConfigValidator:
         """生成验证报告"""
         report = []
         report.append("="*60)
-        report.append("🔍 服务器配置验证报告")
+        report.append("服务器配置验证报告")
         report.append("="*60)
         
         if self.success_items:
-            report.append("\n✅ 成功项目:")
+            report.append("\n成功项目:")
             for item in self.success_items:
                 report.append(f"  - {item}")
                 
         if self.warnings:
-            report.append("\n⚠️ 警告项目:")
+            report.append("\n警告项目:")
             for item in self.warnings:
                 report.append(f"  - {item}")
                 
         if self.errors:
-            report.append("\n❌ 错误项目:")
+            report.append("\n错误项目:")
             for item in self.errors:
                 report.append(f"  - {item}")
                 
         report.append("\n" + "="*60)
         
         if self.errors:
-            report.append("❌ 验证失败，请修复上述错误后重试")
+            report.append("验证失败，请修复上述错误后重试")
         elif self.warnings:
-            report.append("⚠️ 验证通过但有警告，建议检查警告项目")
+            report.append("验证通过但有警告，建议检查警告项目")
         else:
-            report.append("🎉 验证完全通过，可以开始训练！")
+            report.append("验证完全通过，可以开始训练！")
             
         report.append("="*60)
         
@@ -305,7 +305,7 @@ class ServerConfigValidator:
 
 def main():
     """主函数"""
-    logger.info("🚀 开始服务器配置验证")
+    logger.info("开始服务器配置验证")
     logger.info("="*60)
     
     validator = ServerConfigValidator()

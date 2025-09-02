@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def test_basic_environment():
     """测试基本环境"""
-    logger.info("🔍 基本环境检查")
+    logger.info("[INFO] 基本环境检查")
     logger.info(f"Python版本: {sys.version}")
     logger.info(f"PyTorch版本: {torch.__version__}")
     logger.info(f"CUDA可用: {torch.cuda.is_available()}")
@@ -34,14 +34,14 @@ def test_basic_environment():
     
 def test_data_file_quick(data_path: str):
     """快速测试数据文件"""
-    logger.info(f"📁 快速数据文件测试: {data_path}")
+    logger.info(f"[INFO] 快速数据文件测试: {data_path}")
     
     if not Path(data_path).exists():
-        logger.error(f"❌ 文件不存在: {data_path}")
+        logger.error(f"[ERROR] 文件不存在: {data_path}")
         return False
     
     file_size = Path(data_path).stat().st_size / 1024**3
-    logger.info(f"📊 文件大小: {file_size:.2f} GB")
+    logger.info(f"[INFO] 文件大小: {file_size:.2f} GB")
     
     try:
         start_time = time.time()
@@ -52,8 +52,8 @@ def test_data_file_quick(data_path: str):
             if 'tensor' in f:
                 shape = f['tensor'].shape
                 dtype = f['tensor'].dtype
-                logger.info(f"📊 数据形状: {shape}")
-                logger.info(f"📊 数据类型: {dtype}")
+                logger.info(f"[INFO] 数据形状: {shape}")
+                logger.info(f"[INFO] 数据类型: {dtype}")
                 
                 # 快速读取第一个样本
                 start_time = time.time()
@@ -63,16 +63,16 @@ def test_data_file_quick(data_path: str):
                 
                 return True
             else:
-                logger.error("❌ 未找到'tensor'数据集")
+                logger.error("[ERROR] 未找到'tensor'数据集")
                 return False
                 
     except Exception as e:
-        logger.error(f"❌ 文件访问错误: {e}")
+        logger.error(f"[ERROR] 文件访问错误: {e}")
         return False
 
 def test_lazy_vs_eager_loading(data_path: str, num_samples: int = 5):
     """对比懒加载和预加载性能"""
-    logger.info(f"⚡ 懒加载 vs 预加载测试 ({num_samples} 样本)")
+    logger.info(f"[INFO] 懒加载 vs 预加载测试 ({num_samples} 样本)")
     
     try:
         with h5py.File(data_path, 'r') as f:
@@ -90,7 +90,7 @@ def test_lazy_vs_eager_loading(data_path: str, num_samples: int = 5):
             logger.info(f"📥 预加载 {total_samples} 样本耗时: {preload_time:.3f} 秒")
             
             # 测试懒加载
-            logger.info("🔄 测试懒加载模式...")
+            logger.info("[INFO] 测试懒加载模式...")
             start_time = time.time()
             for i in range(total_samples):
                 # 模拟懒加载：每次访问时读取
@@ -98,16 +98,16 @@ def test_lazy_vs_eager_loading(data_path: str, num_samples: int = 5):
                 # 简单处理
                 processed = sample.flatten()[:1000]  # 只处理前1000个元素
             lazy_time = time.time() - start_time
-            logger.info(f"🔄 懒加载 {total_samples} 样本耗时: {lazy_time:.3f} 秒")
+            logger.info(f"[INFO] 懒加载 {total_samples} 样本耗时: {lazy_time:.3f} 秒")
             
             # 比较
             if lazy_time < preload_time:
-                logger.info("✅ 懒加载更快，建议使用懒加载模式")
+                logger.info("[OK] 懒加载更快，建议使用懒加载模式")
             else:
-                logger.info("✅ 预加载更快，但懒加载节省内存")
+                logger.info("[OK] 预加载更快，但懒加载节省内存")
                 
     except Exception as e:
-        logger.error(f"❌ 加载测试失败: {e}")
+        logger.error(f"[ERROR] 加载测试失败: {e}")
 
 def test_normalization_impact(data_path: str, sample_size: int = 10):
     """测试归一化计算影响"""
@@ -150,13 +150,13 @@ def test_normalization_impact(data_path: str, sample_size: int = 10):
             
             # 比较
             overhead = (norm_time - no_norm_time) / no_norm_time * 100
-            logger.info(f"📊 归一化开销: {overhead:.1f}%")
+            logger.info(f"[INFO] 归一化开销: {overhead:.1f}%")
             
             if overhead > 50:
-                logger.warning("⚠️  归一化开销较大，建议禁用或使用缓存")
+                logger.warning("[WARN]  归一化开销较大，建议禁用或使用缓存")
             
     except Exception as e:
-        logger.error(f"❌ 归一化测试失败: {e}")
+        logger.error(f"[ERROR] 归一化测试失败: {e}")
 
 def test_dataloader_workers(sample_data_size: int = 100):
     """测试不同worker数量的影响"""
@@ -196,7 +196,7 @@ def test_dataloader_workers(sample_data_size: int = 100):
             del dataloader
             
         except Exception as e:
-            logger.error(f"❌ {num_workers} workers 测试失败: {e}")
+            logger.error(f"[ERROR] {num_workers} workers 测试失败: {e}")
 
 def generate_quick_fix_suggestions():
     """生成快速修复建议"""
@@ -250,12 +250,12 @@ def generate_quick_fix_suggestions():
     with open('quick_test_config.yaml', 'w', encoding='utf-8') as f:
         yaml.dump(quick_config, f, default_flow_style=False)
     
-    logger.info("\n💾 快速测试配置已保存到: quick_test_config.yaml")
+    logger.info("\n[INFO] 快速测试配置已保存到: quick_test_config.yaml")
     logger.info("🔧 请修改其中的数据路径，然后使用:")
     logger.info("   python dynamic_resolution_trainer.py --config quick_test_config.yaml")
 
 def main():
-    logger.info("🚀 快速服务器测试开始")
+    logger.info("[INFO] 快速服务器测试开始")
     logger.info("=" * 50)
     
     # 基本环境测试
@@ -275,7 +275,7 @@ def main():
             break
     
     if config_path:
-        logger.info(f"📋 找到配置文件: {config_path}")
+        logger.info(f"[INFO] 找到配置文件: {config_path}")
         
         # 读取配置获取数据路径
         try:
@@ -283,7 +283,7 @@ def main():
                 config = yaml.safe_load(f)
             
             data_path = config['data']['path']
-            logger.info(f"📁 数据路径: {data_path}")
+            logger.info(f"[INFO] 数据路径: {data_path}")
             
             # 运行测试
             if test_data_file_quick(data_path):
@@ -291,9 +291,9 @@ def main():
                 test_normalization_impact(data_path)
             
         except Exception as e:
-            logger.error(f"❌ 配置文件读取失败: {e}")
+            logger.error(f"[ERROR] 配置文件读取失败: {e}")
     else:
-        logger.warning("⚠️  未找到配置文件，跳过数据文件测试")
+        logger.warning("[WARN]  未找到配置文件，跳过数据文件测试")
     
     # DataLoader测试
     test_dataloader_workers()
@@ -301,7 +301,7 @@ def main():
     # 生成建议
     generate_quick_fix_suggestions()
     
-    logger.info("\n✅ 快速测试完成！")
+    logger.info("\n[OK] 快速测试完成！")
 
 if __name__ == '__main__':
     main()

@@ -52,7 +52,7 @@ def generate_loss_configs_topk10(
             f.write("    svd_weights: {}\n".format(config["svd_weights"]))
             f.write("    topk: {}\n".format(config["topk"]))
 
-    print(f"✅ 成功生成 {len(configs)} 个 loss_config，保存至: {output_path}")
+    print(f"[OK] 成功生成 {len(configs)} 个 loss_config，保存至: {output_path}")
     return output_path
 
 

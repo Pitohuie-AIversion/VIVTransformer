@@ -104,7 +104,10 @@ def main():
                 max_time_steps=cfg["model"]["max_time_steps"],
                 attention_type=attn_type,
                 seq_len=cfg["model"].get("seq_len", 32),
-                input_hw=tuple(cfg["model"].get("input_hw")) if cfg["model"].get("input_hw") else None
+                input_hw=tuple(cfg["model"].get("input_hw")) if cfg["model"].get("input_hw") else None,
+                pe_type=cfg["model"].get("pe_type", "learnable_1d"),
+                output_head_type=cfg["model"].get("output_head_type", "global"),
+                out_channels_per_token=cfg["model"].get("out_channels_per_token")
             ).to(device)
 
             criterion = torch.nn.MSELoss()

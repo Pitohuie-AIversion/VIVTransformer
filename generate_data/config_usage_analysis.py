@@ -129,12 +129,12 @@ def analyze_config_usage():
     
     print("\n=== 建议 ===")
     if len(unused_keys) > len(all_used_keys):
-        print("⚠️  大部分配置参数未被使用，建议:")
+        print("[WARN]  大部分配置参数未被使用，建议:")
         print("   1. 实现对应的功能代码")
         print("   2. 或者移除不需要的配置参数")
         print("   3. 添加配置验证和警告机制")
     else:
-        print("✅ 大部分配置参数已被使用")
+        print("[OK] 大部分配置参数已被使用")
 
 if __name__ == "__main__":
     analyze_config_usage()

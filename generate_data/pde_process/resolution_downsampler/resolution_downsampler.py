@@ -332,7 +332,7 @@ class DownsampledResolutionDataset(torch.utils.data.Dataset):
         
         if lazy_loading:
             self._init_lazy_loading()
-            logger.info("🚀 启用懒加载模式，节省内存使用")
+            logger.info("[INFO] 启用懒加载模式，节省内存使用")
         else:
             self.original_data = self._load_original_data()
             

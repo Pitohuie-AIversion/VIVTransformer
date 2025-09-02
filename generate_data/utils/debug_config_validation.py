@@ -69,18 +69,18 @@ def validate_config(config: Dict[str, Any]) -> bool:
     
     # 输出验证结果
     if warnings:
-        logger.warning("⚠️  配置验证警告:")
+        logger.warning("[WARN] 配置验证警告:")
         for warning in warnings:
             logger.warning(f"  - {warning}")
     
     if errors:
-        logger.error("❌ 配置验证错误:")
+        logger.error("[ERROR] 配置验证错误:")
         for error in errors:
             logger.error(f"  - {error}")
         return False
     
     if not warnings and not errors:
-        logger.info("✅ 配置验证通过")
+        logger.info("[OK] 配置验证通过")
     
     return True
 

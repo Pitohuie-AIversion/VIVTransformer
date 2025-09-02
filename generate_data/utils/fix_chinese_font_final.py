@@ -168,13 +168,13 @@ if __name__ == "__main__":
         
         print("-" * 50)
         if test_result:
-            print("✅ 字体修复完成！")
+            print("[OK] 字体修复完成！")
             print(f"当前使用字体: {selected_font}")
             print("现在可以重新运行模态分析脚本")
         else:
-            print("❌ 字体修复可能未完全成功")
+            print("[WARN] 字体修复可能未完全成功")
             print("建议重启Python环境后再试")
             
     except Exception as e:
-        print(f"❌ 修复过程出错: {e}")
+        print(f"[ERROR] 修复过程出错: {e}")
         print("请尝试重启Python环境或重新安装matplotlib")

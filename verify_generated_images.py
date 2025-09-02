@@ -26,7 +26,7 @@ def verify_images():
         try:
             # 使用 PIL 打开图片
             img = Image.open(png_path)
-            print(f"✓ {os.path.basename(png_path)}: {img.size} 像素, 模式: {img.mode}")
+            print(f"[OK] {os.path.basename(png_path)}: {img.size} 像素, 模式: {img.mode}")
             
             # 检查图片是否为空或纯色
             img_array = np.array(img)
@@ -34,10 +34,10 @@ def verify_images():
             print(f"  - 唯一颜色数: {unique_colors}")
             
             if unique_colors < 10:
-                print(f"  ⚠️ 图片可能存在问题：颜色数过少 ({unique_colors})")
+                print(f"  [WARN] 图片可能存在问题：颜色数过少 ({unique_colors})")
             
         except Exception as e:
-            print(f"✗ {os.path.basename(png_path)}: 无法打开 - {e}")
+            print(f"[FAIL] {os.path.basename(png_path)}: 无法打开 - {e}")
     
     # 尝试重新生成一个简单的热力图作为对比
     print("\n生成测试热力图进行对比...")
@@ -62,10 +62,10 @@ def verify_images():
         
         # 验证测试图片
         test_img = Image.open(test_path)
-        print(f"✓ 测试热力图生成成功: {test_img.size} 像素")
+        print(f"[OK] 测试热力图生成成功: {test_img.size} 像素")
         
     except Exception as e:
-        print(f"✗ 测试热力图生成失败: {e}")
+        print(f"[FAIL] 测试热力图生成失败: {e}")
 
 if __name__ == "__main__":
     verify_images()

@@ -5,7 +5,7 @@
 
 判定依据（任一满足则记为异常）：
 - 日志缺失或为空
-- 日志中出现错误关键词（Traceback/RuntimeError/Out of memory/Exception/❌ 等）
+- 日志中出现错误关键词（Traceback/RuntimeError/Out of memory/Exception/[ERROR] 等）
 - 日志中出现 NaN/Inf（大小写不敏感，按单词匹配）
 - 未能解析出任何损失曲线（无 Epoch 或损失数字）
 - 最终 Valid Loss 为 NaN/Inf
@@ -50,7 +50,7 @@ ERROR_KEYWORDS = [
     "CUBLAS",
     "cufft",
     "failed to",
-    "❌",
+    "[ERROR]",
     "ERROR",
     "Exception",
     "Aborted",
@@ -59,7 +59,7 @@ ERROR_KEYWORDS = [
     "No inf checks were recorded",
 ]
 
-# 匹配 “🎯 Epoch [e/N], Train Loss: x, Valid Loss: y, Test Loss: z”
+# 匹配 “[INFO] Epoch [e/N], Train Loss: x, Valid Loss: y, Test Loss: z”
 EPOCH_LINE_RE = re.compile(
     r"Epoch\s*\[(\d+)\/(\d+)\].*?Train\s*Loss:\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?).*?Valid\s*Loss:\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?).*?Test\s*Loss:\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
 )

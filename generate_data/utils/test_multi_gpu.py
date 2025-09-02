@@ -37,7 +37,7 @@ def test_gpu_availability():
             cached = torch.cuda.memory_reserved(i) / 1024**3
             print(f"GPU {i} - 已分配: {allocated:.2f}GB, 已缓存: {cached:.2f}GB")
     else:
-        print("❌ CUDA不可用，无法进行多GPU训练")
+        print("[ERROR] CUDA不可用，无法进行多GPU训练")
         return False
     
     return gpu_count > 1
@@ -49,12 +49,12 @@ def test_dataparallel():
     print("\n=== DataParallel测试 ===")
     
     if not torch.cuda.is_available():
-        print("❌ CUDA不可用，跳过DataParallel测试")
+        print("[ERROR] CUDA不可用，跳过DataParallel测试")
         return False
     
     gpu_count = torch.cuda.device_count()
     if gpu_count <= 1:
-        print(f"❌ 只有 {gpu_count} 张GPU，无法测试DataParallel")
+        print(f"[ERROR] 只有 {gpu_count} 张GPU，无法测试DataParallel")
         return False
     
     try:
@@ -71,11 +71,11 @@ def test_dataparallel():
         
         # 创建模型并移动到GPU
         model = SimpleModel().cuda()
-        print(f"✅ 模型创建成功，参数数量: {sum(p.numel() for p in model.parameters())}")
+        print(f"[OK] 模型创建成功，参数数量: {sum(p.numel() for p in model.parameters())}")
         
         # 应用DataParallel
         model = torch.nn.DataParallel(model)
-        print(f"✅ DataParallel应用成功，使用GPU: {list(range(gpu_count))}")
+        print(f"[OK] DataParallel应用成功，使用GPU: {list(range(gpu_count))}")
         
         # 测试前向传播
         batch_size = 32
@@ -83,19 +83,19 @@ def test_dataparallel():
         
         with torch.no_grad():
             output = model(test_input)
-            print(f"✅ 前向传播测试成功，输入形状: {test_input.shape}, 输出形状: {output.shape}")
+            print(f"[OK] 前向传播测试成功，输入形状: {test_input.shape}, 输出形状: {output.shape}")
         
         # 测试反向传播
         criterion = torch.nn.MSELoss()
         target = torch.randn(batch_size, 10).cuda()
         loss = criterion(output, target)
         loss.backward()
-        print(f"✅ 反向传播测试成功，损失值: {loss.item():.4f}")
+        print(f"[OK] 反向传播测试成功，损失值: {loss.item():.4f}")
         
         return True
         
     except Exception as e:
-        print(f"❌ DataParallel测试失败: {e}")
+        print(f"[ERROR] DataParallel测试失败: {e}")
         return False
 
 def test_memory_usage():
@@ -105,7 +105,7 @@ def test_memory_usage():
     print("\n=== 多GPU内存使用测试 ===")
     
     if not torch.cuda.is_available():
-        print("❌ CUDA不可用，跳过内存测试")
+        print("[ERROR] CUDA不可用，跳过内存测试")
         return
     
     gpu_count = torch.cuda.device_count()
@@ -126,7 +126,7 @@ def test_memory_usage():
     # 清理内存
     del tensors
     torch.cuda.empty_cache()
-    print("✅ 内存清理完成")
+    print("[OK] 内存清理完成")
 
 def main():
     """
@@ -147,14 +147,14 @@ def main():
         
         print("\n=== 测试总结 ===")
         if dataparallel_success:
-            print("✅ 多GPU训练功能测试通过")
+            print("[OK] 多GPU训练功能测试通过")
             print("\n可以使用以下命令启用多GPU训练:")
             print("python dynamic_resolution_trainer.py --use_dataparallel")
             print("或在配置文件中设置: use_dataparallel: true")
         else:
-            print("❌ 多GPU训练功能测试失败")
+            print("[ERROR] 多GPU训练功能测试失败")
     else:
-        print("\n⚠️ 多GPU环境不可用，建议:")
+        print("\n[WARN] 多GPU环境不可用，建议:")
         print("1. 确保安装了支持CUDA的PyTorch")
         print("2. 确保系统有多张GPU")
         print("3. 确保GPU驱动正常")

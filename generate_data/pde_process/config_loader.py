@@ -333,7 +333,7 @@ def main():
     logger.info("\n=== 配置验证 ===")
     for config_name in ['basic', 'quick_test', 'high_resolution']:
         is_valid = loader.validate_config(config_name)
-        logger.info(f"  {config_name}: {'✓' if is_valid else '✗'}")
+        logger.info(f"  {config_name}: {'[OK]' if is_valid else '[FAIL]'}")
 
 
 if __name__ == "__main__":

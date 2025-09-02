@@ -338,7 +338,7 @@ def demo_downsampler_dataset():
             logger.info(f"  输入范围: [{input_data.min():.4f}, {input_data.max():.4f}]")
             logger.info(f"  输出范围: [{output_data.min():.4f}, {output_data.max():.4f}]")
         
-        logger.info("✅ 降采样数据集演示完成")
+        logger.info("[OK] 降采样数据集演示完成")
         
     except Exception as e:
         logger.error(f"降采样数据集演示失败: {e}")
@@ -414,7 +414,7 @@ def main():
     
     # 7. 总结
     logger.info("\n=== 演示总结 ===")
-    logger.info("✅ 分辨率降采样器演示完成")
+    logger.info("[OK] 分辨率降采样器演示完成")
     logger.info("\n主要优势:")
     logger.info("  1. 保持全局信息，避免裁剪造成的信息丢失")
     logger.info("  2. 支持多种插值方法，适应不同需求")

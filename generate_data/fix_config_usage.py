@@ -55,7 +55,7 @@ def fix_optimizer_config():
         )
         print(f"   AdamW参数: betas={optimizer_config['betas']}, eps={optimizer_config['eps']}, amsgrad={optimizer_config['amsgrad']}")
     else:
-        print(f"⚠️  不支持的优化器类型: {optimizer_config['type']}，使用默认Adam")
+        print(f"[WARN]  不支持的优化器类型: {optimizer_config['type']}，使用默认Adam")
         optimizer = torch.optim.Adam(
             model.parameters(),
             lr=training_config['learning_rate'],
@@ -65,9 +65,9 @@ def fix_optimizer_config():
     # 替换代码
     if re.search(old_optimizer_code, content):
         content = re.sub(old_optimizer_code, new_optimizer_code, content)
-        print("✅ 已修复优化器配置使用")
+        print("[OK] 已修复优化器配置使用")
     else:
-        print("⚠️  未找到优化器创建代码，可能已经修改过")
+        print("[WARN]  未找到优化器创建代码，可能已经修改过")
     
     return content
 
@@ -81,7 +81,7 @@ def fix_scheduler_config(content):
     scheduler = None
     
     if scheduler_config['enabled']:
-        print(f"📈 学习率调度器配置: 类型={scheduler_config['type']}, 启用={scheduler_config['enabled']}")
+        print(f"[INFO] 学习率调度器配置: 类型={scheduler_config['type']}, 启用={scheduler_config['enabled']}")
         
         if scheduler_config['type'].lower() == 'cosine':
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -103,19 +103,19 @@ def fix_scheduler_config(content):
             )
             print(f"   Exponential参数: gamma={scheduler_config['gamma']}")
         else:
-            print(f"⚠️  不支持的调度器类型: {scheduler_config['type']}")
+            print(f"[WARN]  不支持的调度器类型: {scheduler_config['type']}")
     else:
-        print("📈 学习率调度器: 未启用")
+        print("[INFO] 学习率调度器: 未启用")
 '''
     
     # 在优化器创建后插入调度器代码
-    optimizer_end_pattern = r"(\s+else:\s+print\(f\"⚠️\s+不支持的优化器类型.*?\)\s+optimizer = torch\.optim\.Adam\([^}]+\}\))"
+    optimizer_end_pattern = r"(\s+else:\s+print\(f\"[WARN]\s+不支持的优化器类型.*?\)\s+optimizer = torch\.optim\.Adam\([^}]+\}\))"
     
     if re.search(optimizer_end_pattern, content, re.DOTALL):
         content = re.sub(optimizer_end_pattern, r"\1" + scheduler_code, content, flags=re.DOTALL)
-        print("✅ 已添加学习率调度器配置")
+        print("[OK] 已添加学习率调度器配置")
     else:
-        print("⚠️  未找到优化器结束位置，手动添加调度器代码")
+        print("[WARN]  未找到优化器结束位置，手动添加调度器代码")
     
     return content
 
@@ -133,7 +133,7 @@ def fix_dataloader_config(content):
 \1drop_last = dataloader_config.get('drop_last', False)
 \1persistent_workers = dataloader_config.get('persistent_workers', False) and num_workers > 0
 \1
-\1print(f"🔄 数据加载器配置: num_workers={num_workers}, pin_memory={pin_memory}, drop_last={drop_last}")
+\1print(f"[INFO] 数据加载器配置: num_workers={num_workers}, pin_memory={pin_memory}, drop_last={drop_last}")
 \1
 \1train_loader = DataLoader(
 \1    train_dataset, 
@@ -170,9 +170,9 @@ def fix_dataloader_config(content):
         content = re.sub(old_dataloader_pattern, new_dataloader_code, content)
         content = re.sub(old_valid_pattern, new_valid_code, content)
         content = re.sub(old_test_pattern, new_test_code, content)
-        print("✅ 已修复数据加载器配置使用")
+        print("[OK] 已修复数据加载器配置使用")
     else:
-        print("⚠️  未找到数据加载器创建代码")
+        print("[WARN]  未找到数据加载器创建代码")
     
     return content
 
@@ -188,9 +188,9 @@ def fix_train_function_call(content):
     
     if re.search(old_train_call, content, re.DOTALL):
         content = re.sub(old_train_call, new_train_call, content, flags=re.DOTALL)
-        print("✅ 已修复train_model函数调用")
+        print("[OK] 已修复train_model函数调用")
     else:
-        print("⚠️  未找到train_model函数调用")
+        print("[WARN]  未找到train_model函数调用")
     
     return content
 
@@ -209,7 +209,7 @@ def main():
         
         with open(backup_file, 'w', encoding='utf-8') as f:
             f.write(original_content)
-        print(f"📁 已创建备份文件: {backup_file}")
+        print(f"[INFO] 已创建备份文件: {backup_file}")
         
         # 应用修复
         content = fix_optimizer_config()
@@ -221,17 +221,17 @@ def main():
         with open(trainer_file, 'w', encoding='utf-8') as f:
             f.write(content)
         
-        print(f"\n✅ 修复完成！已更新 {trainer_file}")
-        print("\n📋 修复内容:")
-        print("   1. ✅ 优化器配置 - 支持Adam/SGD/AdamW及其参数")
-        print("   2. ✅ 学习率调度器 - 支持Cosine/Step/Exponential")
-        print("   3. ✅ 数据加载器配置 - 支持num_workers/pin_memory等参数")
-        print("   4. ✅ 函数调用更新 - 传递scheduler参数")
+        print(f"\n[OK] 修复完成！已更新 {trainer_file}")
+        print("\n[INFO] 修复内容:")
+        print("   1. [OK] 优化器配置 - 支持Adam/SGD/AdamW及其参数")
+        print("   2. [OK] 学习率调度器 - 支持Cosine/Step/Exponential")
+        print("   3. [OK] 数据加载器配置 - 支持num_workers/pin_memory等参数")
+        print("   4. [OK] 函数调用更新 - 传递scheduler参数")
         
-        print("\n⚠️  注意: 还需要手动修改trainer.py文件以支持scheduler参数")
+        print("\n[WARN]  注意: 还需要手动修改trainer.py文件以支持scheduler参数")
         
     else:
-        print(f"❌ 文件不存在: {trainer_file}")
+        print(f"[ERROR] 文件不存在: {trainer_file}")
 
 if __name__ == "__main__":
     main()

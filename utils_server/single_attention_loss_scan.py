@@ -164,7 +164,7 @@ def create_temp_config_with_extreme_losses(project_root, num_configs=10, dataset
     with open(temp_config_path, 'w', encoding='utf-8') as f:
         yaml.dump(base_config, f, default_flow_style=False, allow_unicode=True)
 
-    print(f"✅ 创建临时配置: {temp_config_path} (包含 {len(configs)} 个极端组合)")
+    print(f"[OK] 创建临时配置: {temp_config_path} (包含 {len(configs)} 个极端组合)")
     return temp_config_path
 
 
@@ -227,7 +227,7 @@ def plot_loss_curves(project_root, attention_type, num_configs, run_id=None):
             print(f"跳过 loss_config_{i}: {e}")
 
     if not collected:
-        print("⚠️ 未收集到任何有效的 loss 曲线")
+        print("[WARN] 未收集到任何有效的 loss 曲线")
         return
 
     plt.xlabel('Epoch', fontsize=12)
@@ -246,8 +246,8 @@ def plot_loss_curves(project_root, attention_type, num_configs, run_id=None):
     plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
 
-    print(f"📊 已保存对比图: {output_path}")
-    print(f"📈 成功收集 {len(collected)} 条曲线")
+    print(f"[INFO] 已保存对比图: {output_path}")
+    print(f"[INFO] 成功收集 {len(collected)} 条曲线")
 
 
 def main():
@@ -277,15 +277,15 @@ def main():
     else:
         project_root = Path(__file__).parent.parent.resolve()
 
-    print(f"🚀 单注意力机制极端loss配置扫描")
-    print(f"📁 项目根目录: {project_root}")
+    print(f"[INFO] 单注意力机制极端loss配置扫描")
+    print(f"[INFO] 项目根目录: {project_root}")
     print(f"🧠 注意力类型: {args.attention}")
     print(f"🔢 配置数量: {args.num_configs}")
     print(f"⚙️  训练轮次: {args.epochs}")
     if args.dataset_type:
         print(f"🗂️  数据集类型(ignored by dynamic): {args.dataset_type}")
     if args.data_path:
-        print(f"📄 数据路径: {args.data_path}")
+        print(f"[INFO] 数据路径: {args.data_path}")
     if args.timeout_seconds:
         print(f"⏱️  单任务超时: {args.timeout_seconds} s (0表示不设超时)")
 
@@ -301,7 +301,7 @@ def main():
 
     # 解析GPU列表
     gpu_list = [int(g.strip()) for g in args.gpus.split(',') if g.strip().isdigit()]
-    print(f"🎯 GPU列表: {gpu_list}, 每GPU最大并行: {args.max_per_gpu}")
+    print(f"[INFO] GPU列表: {gpu_list}, 每GPU最大并行: {args.max_per_gpu}")
 
     # 创建临时配置文件（包含 loss_configs，供 dynamic 按 loss_idx 选择）
     temp_config = create_temp_config_with_extreme_losses(
@@ -330,13 +330,13 @@ def main():
             tasks.append((gpu_id, i, args.attention, str(project_root), args.epochs, args.dataset_type, args.data_path, args.batch_size, args.max_samples, run_id, args.timeout_seconds))
 
         if not tasks:
-            print("✅ 无需训练（全部已存在或被跳过），直接重绘图...")
+            print("[OK] 无需训练（全部已存在或被跳过），直接重绘图...")
             plot_loss_curves(project_root, args.attention, args.num_configs, run_id)
             return
 
         # 使用进程池并行执行
         max_workers = max(1, len(gpu_list) * args.max_per_gpu)
-        print(f"🔄 启动并行训练 (最大工作进程: {max_workers})")
+        print(f"[INFO] 启动并行训练 (最大工作进程: {max_workers})")
 
         start_time = time.time()
 
@@ -347,12 +347,12 @@ def main():
         successful = sum(1 for _, success in results if success)
         total_time = time.time() - start_time
 
-        print(f"\n✅ 训练完成!")
-        print(f"📊 成功: {successful}/{len(results)} 个配置（已跳过 {skipped} 个）")
+        print(f"\n[OK] 训练完成!")
+        print(f"[INFO] 成功: {successful}/{len(results)} 个配置（已跳过 {skipped} 个）")
         print(f"⏱️  总耗时: {total_time/60:.1f} 分钟")
 
         # 绘制对比图（按 run_id）
-        print(f"\n📈 生成对比图...")
+        print(f"\n[INFO] 生成对比图...")
         plot_loss_curves(project_root, args.attention, args.num_configs, run_id)
 
     finally:

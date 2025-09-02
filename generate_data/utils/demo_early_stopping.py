@@ -200,7 +200,7 @@ def interactive_demo():
     交互式演示
     """
     print("\n" + "=" * 60)
-    print("🚀 早停功能演示")
+    print("[INFO] 早停功能演示")
     print("=" * 60)
     
     print("\n请选择要运行的演示:")
@@ -245,17 +245,17 @@ def interactive_demo():
                 show_config_parameters()
                 
             elif choice == '5':
-                print("\n👋 退出演示")
+                print("\n[INFO] 退出演示")
                 break
                 
             else:
-                print("❌ 无效选择，请输入1-5")
+                print("[ERROR] 无效选择，请输入1-5")
                 
         except KeyboardInterrupt:
-            print("\n\n👋 用户中断，退出演示")
+            print("\n\n[INFO] 用户中断，退出演示")
             break
         except Exception as e:
-            print(f"\n❌ 执行过程中出错: {str(e)}")
+            print(f"\n[ERROR] 执行过程中出错: {str(e)}")
 
 def show_config_parameters():
     """
@@ -289,7 +289,7 @@ def show_config_parameters():
             print(f"     说明: {description}")
             print()
         
-        print("\n💡 参数说明:")
+        print("\n[TIP] 参数说明:")
         print("  - monitor 可选值: 'train_loss', 'val_loss', 'test_loss'")
         print("  - mode 可选值: 'min'(损失越小越好), 'max'(指标越大越好)")
         print("  - patience: 连续多少个epoch没有改善就停止训练")
@@ -297,7 +297,7 @@ def show_config_parameters():
         print("  - restore_best_weights: 早停时是否恢复到最佳模型权重")
         
     else:
-        print(f"❌ 配置文件 {config_file} 不存在")
+        print(f"[ERROR] 配置文件 {config_file} 不存在")
 
 def main():
     """

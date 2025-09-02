@@ -31,12 +31,12 @@ def get_memory_info():
 
 def simulate_memory_optimization(memory_config: Dict[str, Any]):
     """模拟内存优化逻辑"""
-    print("\n🧪 测试内存优化逻辑")
+    print("\n[TEST] 测试内存优化逻辑")
     print("=" * 50)
     
     # 获取初始内存状态
     initial_memory = get_memory_info()
-    print(f"📊 初始内存状态:")
+    print(f"[INFO] 初始内存状态:")
     print(f"   总内存: {initial_memory['total_gb']:.2f}GB")
     print(f"   已使用: {initial_memory['used_gb']:.2f}GB")
     print(f"   可用内存: {initial_memory['available_gb']:.2f}GB")
@@ -44,7 +44,7 @@ def simulate_memory_optimization(memory_config: Dict[str, Any]):
     
     # 模拟内存监控
     if memory_config.get('enable_memory_monitoring', False):
-        print("\n💾 启用内存监控")
+        print("\n[INFO] 启用内存监控")
         
         # 检查阈值
         warning_threshold = memory_config.get('memory_threshold_warning', 0.8)
@@ -54,13 +54,13 @@ def simulate_memory_optimization(memory_config: Dict[str, Any]):
         print(f"   临界阈值: {critical_threshold:.1%}")
         
         if initial_memory['ratio'] > critical_threshold:
-            print(f"   ⚠️ 内存使用率过高 ({initial_memory['ratio']:.1%})")
+            print(f"   [WARN] 内存使用率过高 ({initial_memory['ratio']:.1%})")
             print(f"   建议: 减少batch_size或num_workers")
         elif initial_memory['ratio'] > warning_threshold:
-            print(f"   ⚠️ 内存使用率较高 ({initial_memory['ratio']:.1%})")
+            print(f"   [WARN] 内存使用率较高 ({initial_memory['ratio']:.1%})")
             print(f"   建议: 注意监控内存使用")
         else:
-            print(f"   ✅ 内存使用率正常 ({initial_memory['ratio']:.1%})")
+            print(f"   [OK] 内存使用率正常 ({initial_memory['ratio']:.1%})")
     
     # 模拟内存清理
     if memory_config.get('enable_memory_cleanup', True):
@@ -87,7 +87,7 @@ def simulate_memory_optimization(memory_config: Dict[str, Any]):
     
     # 缓存配置
     cache_size = memory_config.get('memory_cache_size_mb', 2048)
-    print(f"\n💾 内存缓存配置: {cache_size}MB")
+    print(f"\n[INFO] 内存缓存配置: {cache_size}MB")
     print(f"   缓存占总内存比例: {(cache_size/1024)/initial_memory['total_gb']:.2%}")
     
     # 懒加载配置
@@ -118,11 +118,11 @@ def test_memory_stress():
             
             # 模拟内存阈值检查
             if current_memory['ratio'] > 0.85:
-                print(f"   ⚠️ 内存使用率过高，停止创建更多张量")
+                print(f"   [WARN] 内存使用率过高，停止创建更多张量")
                 break
     
     except Exception as e:
-        print(f"   ❌ 内存不足: {e}")
+        print(f"   [ERROR] 内存不足: {e}")
     
     # 清理内存
     print("\n🧹 清理测试张量")
@@ -152,7 +152,7 @@ def test_worker_adjustment():
     ]
     
     for scenario in scenarios:
-        print(f"\n📊 场景: {scenario['description']} ({scenario['memory_ratio']:.1%})")
+        print(f"\n[INFO] 场景: {scenario['description']} ({scenario['memory_ratio']:.1%})")
         
         # 初始worker数量
         initial_workers = min(32, cpu_count // 2)
@@ -173,7 +173,7 @@ def test_worker_adjustment():
 
 def main():
     """主函数"""
-    print("🧪 内存优化功能测试")
+    print("[TEST] 内存优化功能测试")
     print("=" * 60)
     
     # 加载配置文件
@@ -183,13 +183,13 @@ def main():
             config = yaml.safe_load(f)
         
         memory_config = config.get('dataloader', {}).get('memory_optimization', {})
-        print(f"📋 从配置文件加载内存优化设置: {config_path}")
+        print(f"[INFO] 从配置文件加载内存优化设置: {config_path}")
         print(f"   启用内存监控: {memory_config.get('enable_memory_monitoring', False)}")
         print(f"   最大内存限制: {memory_config.get('max_memory_usage_gb', 64)}GB")
         print(f"   警告阈值: {memory_config.get('memory_threshold_warning', 0.8):.1%}")
         print(f"   临界阈值: {memory_config.get('memory_threshold_critical', 0.9):.1%}")
     else:
-        print(f"⚠️ 配置文件不存在: {config_path}")
+        print(f"[WARN] 配置文件不存在: {config_path}")
         # 使用默认配置
         memory_config = {
             'enable_memory_monitoring': True,
@@ -205,15 +205,15 @@ def main():
             'enable_lazy_loading': True,
             'preload_ratio': 0.1
         }
-        print("📋 使用默认内存优化配置")
+        print("[INFO] 使用默认内存优化配置")
     
     # 运行测试
     simulate_memory_optimization(memory_config)
     test_memory_stress()
     test_worker_adjustment()
     
-    print("\n✅ 内存优化测试完成")
-    print("\n📝 总结:")
+    print("\n[OK] 内存优化测试完成")
+    print("\n[INFO] 总结:")
     print("   - 内存监控功能可以实时跟踪内存使用情况")
     print("   - 自动调整worker数量以避免内存不足")
     print("   - 内存清理可以释放不必要的内存占用")

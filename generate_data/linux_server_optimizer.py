@@ -40,7 +40,7 @@ class LinuxServerOptimizer:
         
     def detect_system_info(self):
         """检测系统信息"""
-        logger.info("🔍 检测系统信息...")
+        logger.info("[INFO] 检测系统信息...")
         
         # 基本系统信息
         self.system_info.update({
@@ -67,20 +67,20 @@ class LinuxServerOptimizer:
             self.system_info['gpu_names'] = []
         
         # 打印系统信息
-        logger.info(f"🖥️ 平台: {self.system_info['platform']}")
+        logger.info(f"[INFO]️ 平台: {self.system_info['platform']}")
         logger.info(f"🔢 CPU核心数: {self.system_info['cpu_count']}")
-        logger.info(f"💾 总内存: {self.system_info['memory_total']} GB")
-        logger.info(f"💾 可用内存: {self.system_info['memory_available']} GB")
-        logger.info(f"🐍 Python版本: {self.system_info['python_version'].split()[0]}")
-        logger.info(f"🎮 CUDA可用: {self.system_info['cuda_available']}")
-        logger.info(f"🎮 GPU数量: {self.system_info['gpu_count']}")
+        logger.info(f"[INFO] 总内存: {self.system_info['memory_total']} GB")
+        logger.info(f"[INFO] 可用内存: {self.system_info['memory_available']} GB")
+        logger.info(f"[INFO] Python版本: {self.system_info['python_version'].split()[0]}")
+        logger.info(f"[INFO] CUDA可用: {self.system_info['cuda_available']}")
+        logger.info(f"[INFO] GPU数量: {self.system_info['gpu_count']}")
         if self.system_info['gpu_names']:
             for i, name in enumerate(self.system_info['gpu_names']):
-                logger.info(f"🎮 GPU {i}: {name}")
+                logger.info(f"[INFO] GPU {i}: {name}")
     
     def check_system_limits(self):
         """检查系统限制"""
-        logger.info("\n🔍 检查系统限制...")
+        logger.info("\n[INFO] 检查系统限制...")
         
         # 检查文件描述符限制
         try:
@@ -90,12 +90,12 @@ class LinuxServerOptimizer:
                 'hard_limit': hard_limit,
                 'recommended': max(4096, self.system_info['cpu_count'] * 64)
             }
-            logger.info(f"📁 文件描述符限制: {soft_limit} (软限制) / {hard_limit} (硬限制)")
+            logger.info(f"[INFO] 文件描述符限制: {soft_limit} (软限制) / {hard_limit} (硬限制)")
             
             if soft_limit < self.limitations['file_descriptors']['recommended']:
-                logger.warning(f"⚠️ 文件描述符限制过低，建议至少 {self.limitations['file_descriptors']['recommended']}")
+                logger.warning(f"[WARN] 文件描述符限制过低，建议至少 {self.limitations['file_descriptors']['recommended']}")
         except Exception as e:
-            logger.error(f"❌ 无法检查文件描述符限制: {e}")
+            logger.error(f"[ERROR] 无法检查文件描述符限制: {e}")
         
         # 检查进程限制
         try:
@@ -105,12 +105,12 @@ class LinuxServerOptimizer:
                 'hard_limit': hard_limit,
                 'recommended': max(2048, self.system_info['cpu_count'] * 16)
             }
-            logger.info(f"🔄 进程数限制: {soft_limit} (软限制) / {hard_limit} (硬限制)")
+            logger.info(f"[INFO] 进程数限制: {soft_limit} (软限制) / {hard_limit} (硬限制)")
             
             if soft_limit < self.limitations['processes']['recommended']:
-                logger.warning(f"⚠️ 进程数限制过低，建议至少 {self.limitations['processes']['recommended']}")
+                logger.warning(f"[WARN] 进程数限制过低，建议至少 {self.limitations['processes']['recommended']}")
         except Exception as e:
-            logger.error(f"❌ 无法检查进程限制: {e}")
+            logger.error(f"[ERROR] 无法检查进程限制: {e}")
         
         # 检查内存限制
         try:
@@ -121,15 +121,15 @@ class LinuxServerOptimizer:
                     'soft_limit': soft_limit // (1024**3),  # GB
                     'hard_limit': hard_limit // (1024**3) if hard_limit != resource.RLIM_INFINITY else 'unlimited'
                 }
-                logger.info(f"💾 虚拟内存限制: {self.limitations['virtual_memory']['soft_limit']} GB")
+                logger.info(f"[INFO] 虚拟内存限制: {self.limitations['virtual_memory']['soft_limit']} GB")
             else:
-                logger.info(f"💾 虚拟内存限制: 无限制")
+                logger.info(f"[INFO] 虚拟内存限制: 无限制")
         except Exception as e:
-            logger.error(f"❌ 无法检查内存限制: {e}")
+            logger.error(f"[ERROR] 无法检查内存限制: {e}")
     
     def test_multiprocessing_performance(self):
         """测试多进程性能"""
-        logger.info("\n🧪 测试多进程性能...")
+        logger.info("\n[TEST] 测试多进程性能...")
         
         import time
         import torch.utils.data as data
@@ -156,7 +156,7 @@ class LinuxServerOptimizer:
         
         for num_workers in worker_counts:
             try:
-                logger.info(f"🔄 测试 num_workers={num_workers}...")
+                logger.info(f"[INFO] 测试 num_workers={num_workers}...")
                 
                 dataloader = data.DataLoader(
                     dataset,
@@ -179,10 +179,10 @@ class LinuxServerOptimizer:
                 duration = end_time - start_time
                 results[num_workers] = duration
                 
-                logger.info(f"✅ num_workers={num_workers}: {duration:.2f}秒")
+                logger.info(f"[OK] num_workers={num_workers}: {duration:.2f}秒")
                 
             except Exception as e:
-                logger.error(f"❌ num_workers={num_workers} 测试失败: {e}")
+                logger.error(f"[ERROR] num_workers={num_workers} 测试失败: {e}")
                 results[num_workers] = float('inf')
         
         # 找到最佳配置
@@ -195,14 +195,14 @@ class LinuxServerOptimizer:
     
     def generate_optimized_config(self, base_config_path, output_path):
         """生成优化后的配置文件"""
-        logger.info(f"\n📝 生成优化配置文件: {output_path}")
+        logger.info(f"\n[INFO] 生成优化配置文件: {output_path}")
         
         # 读取基础配置
         try:
             with open(base_config_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
         except Exception as e:
-            logger.error(f"❌ 无法读取基础配置文件: {e}")
+            logger.error(f"[ERROR] 无法读取基础配置文件: {e}")
             return False
         
         # 应用优化建议
@@ -258,15 +258,15 @@ class LinuxServerOptimizer:
         try:
             with open(output_path, 'w', encoding='utf-8') as f:
                 yaml.dump(config, f, default_flow_style=False, allow_unicode=True, indent=2)
-            logger.info(f"✅ 优化配置已保存到: {output_path}")
+            logger.info(f"[OK] 优化配置已保存到: {output_path}")
             return True
         except Exception as e:
-            logger.error(f"❌ 无法保存优化配置: {e}")
+            logger.error(f"[ERROR] 无法保存优化配置: {e}")
             return False
     
     def generate_system_report(self):
         """生成系统报告"""
-        logger.info("\n📊 生成系统优化报告...")
+        logger.info("\n[INFO] 生成系统优化报告...")
         
         report = {
             'system_info': self.system_info,
@@ -279,39 +279,39 @@ class LinuxServerOptimizer:
         try:
             with open(report_path, 'w', encoding='utf-8') as f:
                 yaml.dump(report, f, default_flow_style=False, allow_unicode=True, indent=2)
-            logger.info(f"✅ 系统报告已保存到: {report_path}")
+            logger.info(f"[OK] 系统报告已保存到: {report_path}")
         except Exception as e:
-            logger.error(f"❌ 无法保存系统报告: {e}")
+            logger.error(f"[ERROR] 无法保存系统报告: {e}")
         
         # 打印优化建议
-        logger.info("\n🎯 优化建议:")
+        logger.info("\n[INFO] 优化建议:")
         
         # 文件描述符建议
         if 'file_descriptors' in self.limitations:
             fd_limit = self.limitations['file_descriptors']
             if fd_limit['soft_limit'] < fd_limit['recommended']:
-                logger.info(f"📁 增加文件描述符限制: ulimit -n {fd_limit['recommended']}")
+                logger.info(f"[INFO] 增加文件描述符限制: ulimit -n {fd_limit['recommended']}")
         
         # 进程数建议
         if 'processes' in self.limitations:
             proc_limit = self.limitations['processes']
             if proc_limit['soft_limit'] < proc_limit['recommended']:
-                logger.info(f"🔄 增加进程数限制: ulimit -u {proc_limit['recommended']}")
+                logger.info(f"[INFO] 增加进程数限制: ulimit -u {proc_limit['recommended']}")
         
         # 数据加载器建议
         if 'optimal_num_workers' in self.recommendations:
-            logger.info(f"🔄 推荐num_workers: {self.recommendations['optimal_num_workers']}")
+            logger.info(f"[INFO] 推荐num_workers: {self.recommendations['optimal_num_workers']}")
         
         # 内存建议
         memory_usage_percent = (self.system_info['memory_total'] - self.system_info['memory_available']) / self.system_info['memory_total'] * 100
         if memory_usage_percent > 80:
-            logger.warning(f"💾 内存使用率较高 ({memory_usage_percent:.1f}%)，建议减少批次大小或启用懒加载")
+            logger.warning(f"[INFO] 内存使用率较高 ({memory_usage_percent:.1f}%)，建议减少批次大小或启用懒加载")
         
         return report
     
     def run_optimization(self, base_config_path=None):
         """运行完整的优化流程"""
-        logger.info("🚀 开始Linux服务器环境优化...")
+        logger.info("[INFO] 开始Linux服务器环境优化...")
         
         # 1. 检测系统信息
         self.detect_system_info()
@@ -330,8 +330,8 @@ class LinuxServerOptimizer:
             output_path = base_config_path.replace('.yaml', '_linux_optimized.yaml')
             self.generate_optimized_config(base_config_path, output_path)
         
-        logger.info("\n✅ Linux服务器环境优化完成！")
-        logger.info("📋 请查看生成的报告和优化配置文件")
+        logger.info("\n[OK] Linux服务器环境优化完成！")
+        logger.info("[INFO] 请查看生成的报告和优化配置文件")
         logger.info("🔧 如需应用系统限制调整，请运行建议的ulimit命令")
 
 def main():

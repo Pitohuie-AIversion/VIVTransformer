@@ -49,19 +49,19 @@ def test_svd_modes():
         print(f"\n测试案例: {name}")
         try:
             modes = get_svd_modes(tensor, topk=10)
-            print(f"  ✓ 成功提取{len(modes)}个模态")
+            print(f"  [OK] 成功提取{len(modes)}个模态")
             
             # 检查模态的有效性
             for i, mode in enumerate(modes):
                 if torch.isnan(mode).any():
-                    print(f"  ⚠ 模态{i+1}包含NaN")
+                    print(f"  [WARN] 模态{i+1}包含NaN")
                 elif torch.isinf(mode).any():
-                    print(f"  ⚠ 模态{i+1}包含Inf")
+                    print(f"  [WARN] 模态{i+1}包含Inf")
                 else:
-                    print(f"  ✓ 模态{i+1}正常")
+                    print(f"  [OK] 模态{i+1}正常")
                     
         except Exception as e:
-            print(f"  ✗ 失败: {str(e)}")
+            print(f"  [FAIL] 失败: {str(e)}")
 
 def test_svd_losses():
     """测试SVD损失计算的稳定性"""
@@ -73,19 +73,19 @@ def test_svd_losses():
         try:
             # 使用相同的张量作为预测和目标
             losses = svd_topk_losses(tensor, tensor, topk=10)
-            print(f"  ✓ 成功计算{len(losses)}个SVD损失")
+            print(f"  [OK] 成功计算{len(losses)}个SVD损失")
             
             # 检查损失的有效性
             for i, loss in enumerate(losses):
                 if torch.isnan(loss):
-                    print(f"  ⚠ 损失{i+1}为NaN")
+                    print(f"  [WARN] 损失{i+1}为NaN")
                 elif torch.isinf(loss):
-                    print(f"  ⚠ 损失{i+1}为Inf")
+                    print(f"  [WARN] 损失{i+1}为Inf")
                 else:
-                    print(f"  ✓ 损失{i+1}: {loss.item():.6f}")
+                    print(f"  [OK] 损失{i+1}: {loss.item():.6f}")
                     
         except Exception as e:
-            print(f"  ✗ 失败: {str(e)}")
+            print(f"  [FAIL] 失败: {str(e)}")
 
 def test_total_loss():
     """测试总损失函数的稳定性"""
@@ -102,14 +102,14 @@ def test_total_loss():
             total_loss = criterion(tensor, tensor)
             
             if torch.isnan(total_loss):
-                print(f"  ⚠ 总损失为NaN")
+                print(f"  [WARN] 总损失为NaN")
             elif torch.isinf(total_loss):
-                print(f"  ⚠ 总损失为Inf")
+                print(f"  [WARN] 总损失为Inf")
             else:
-                print(f"  ✓ 总损失: {total_loss.item():.6f}")
+                print(f"  [OK] 总损失: {total_loss.item():.6f}")
                 
         except Exception as e:
-            print(f"  ✗ 失败: {str(e)}")
+            print(f"  [FAIL] 失败: {str(e)}")
 
 def test_gradient_flow():
     """测试梯度流的稳定性"""
@@ -128,17 +128,17 @@ def test_gradient_flow():
         
         if pred.grad is not None:
             if torch.isnan(pred.grad).any():
-                print("  ⚠ 梯度包含NaN")
+                print("  [WARN] 梯度包含NaN")
             elif torch.isinf(pred.grad).any():
-                print("  ⚠ 梯度包含Inf")
+                print("  [WARN] 梯度包含Inf")
             else:
                 grad_norm = torch.norm(pred.grad)
-                print(f"  ✓ 梯度正常，范数: {grad_norm.item():.6f}")
+                print(f"  [OK] 梯度正常，范数: {grad_norm.item():.6f}")
         else:
-            print("  ⚠ 没有计算梯度")
+            print("  [WARN] 没有计算梯度")
             
     except Exception as e:
-        print(f"  ✗ 梯度计算失败: {str(e)}")
+        print(f"  [FAIL] 梯度计算失败: {str(e)}")
 
 def main():
     """主测试函数"""

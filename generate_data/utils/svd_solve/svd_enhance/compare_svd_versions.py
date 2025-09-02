@@ -34,7 +34,7 @@ try:
         get_global_svd_stats, reset_global_svd_stats
     )
 except ImportError as e:
-    print(f"❌ 导入失败: {e}")
+    print(f"[ERROR] 导入失败: {e}")
     print("请确保路径配置正确")
     sys.exit(1)
 
@@ -131,10 +131,10 @@ class SVDComparator:
                 results['errors'].append(None)
                 results['test_cases'].append(case['name'])
                 
-                print(f"   ✅ 成功 - 时间: {computation_time:.2f}ms, 内存: {memory_mb:.2f}MB, 损失: {loss.item():.6f}")
+                print(f"   [OK] 成功 - 时间: {computation_time:.2f}ms, 内存: {memory_mb:.2f}MB, 损失: {loss.item():.6f}")
                 
             except Exception as e:
-                print(f"   ❌ 失败 - {str(e)}")
+                print(f"   [ERROR] 失败 - {str(e)}")
                 results['computation_times'].append(float('inf'))
                 results['memory_usage'].append(float('inf'))
                 results['loss_values'].append(float('nan'))
@@ -221,13 +221,13 @@ class SVDComparator:
                 results['svd_stats'].append(svd_stats)
                 results['weight_adaptations'].append(len(weight_info.get('adaptation_history', [])))
                 
-                print(f"   ✅ 成功 - 时间: {computation_time:.2f}ms, 内存: {memory_mb:.2f}MB, 损失: {loss.item():.6f}")
+                print(f"   [OK] 成功 - 时间: {computation_time:.2f}ms, 内存: {memory_mb:.2f}MB, 损失: {loss.item():.6f}")
                 print(f"      SVD时间: {svd_stats.get('avg_svd_time_ms', 0):.2f}ms, "
                       f"Fallback: {len(svd_stats.get('fallback_usage', {}))}, "
                       f"NaN率: {svd_stats.get('nan_inf_rate', 0):.2%}")
                 
             except Exception as e:
-                print(f"   ❌ 失败 - {str(e)}")
+                print(f"   [ERROR] 失败 - {str(e)}")
                 results['computation_times'].append(float('inf'))
                 results['memory_usage'].append(float('inf'))
                 results['loss_values'].append(float('nan'))
@@ -416,7 +416,7 @@ class SVDComparator:
         
         if save_path:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"\n📊 可视化图表已保存: {save_path}")
+            print(f"\n[INFO] 可视化图表已保存: {save_path}")
         
         plt.show()
     
@@ -438,7 +438,7 @@ class SVDComparator:
         with open(save_path, 'w', encoding='utf-8') as f:
             json.dump(report, f, indent=2, ensure_ascii=False, default=str)
         
-        print(f"\n📄 详细报告已保存: {save_path}")
+        print(f"\n[INFO] 详细报告已保存: {save_path}")
     
     def run_comparison(self, test_cases: List[Dict] = None, save_dir: str = './results'):
         """运行完整对比测试"""
@@ -449,7 +449,7 @@ class SVDComparator:
         save_dir = Path(save_dir)
         save_dir.mkdir(exist_ok=True)
         
-        print(f"🔍 开始SVD损失函数版本对比测试")
+        print(f"[INFO] 开始SVD损失函数版本对比测试")
         print(f"设备: {self.device}")
         print(f"测试用例数量: {len(test_cases)}")
         
@@ -473,7 +473,7 @@ class SVDComparator:
         self.results['enhanced'] = enhanced_results
         self.results['comparison'] = analysis
         
-        print(f"\n🎉 对比测试完成！")
+        print(f"\n[OK] 对比测试完成！")
         print(f"结果保存在: {save_dir}")
         
         return analysis
@@ -532,7 +532,7 @@ class SVDComparator:
 
 def main():
     """主函数"""
-    print("🔍 SVD损失函数版本对比分析")
+    print("[INFO] SVD损失函数版本对比分析")
     
     # 创建对比器
     comparator = SVDComparator()
@@ -551,13 +551,13 @@ def main():
     
     if 'memory_usage' in perf:
         mem_imp = perf['memory_usage']['improvement_percent']
-        print(f"💾 内存使用: {mem_imp:+.1f}%")
+        print(f"[INFO] 内存使用: {mem_imp:+.1f}%")
     
     if 'error_reduction' in stab:
         err_red = stab['error_reduction']
-        print(f"🛡️ 错误减少: {err_red:.1f}%")
+        print(f"[INFO]️ 错误减少: {err_red:.1f}%")
     
-    print("\n📋 主要改进:")
+    print("\n[INFO] 主要改进:")
     for rec in analysis.get('recommendations', []):
         print(f"  • {rec}")
     
@@ -567,8 +567,8 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n⚠️ 测试被用户中断")
+        print("\n[WARN] 测试被用户中断")
     except Exception as e:
-        print(f"\n❌ 测试失败: {e}")
+        print(f"\n[ERROR] 测试失败: {e}")
         import traceback
         traceback.print_exc()

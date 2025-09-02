@@ -50,10 +50,10 @@ def example_basic_usage():
     if success:
         # 保存处理后的数据
         processor.save_processed_data()
-        logger.info("✓ Darcy Flow数据处理完成")
+        logger.info("[OK] Darcy Flow数据处理完成")
         return True
     else:
-        logger.error("✗ Darcy Flow数据处理失败")
+        logger.error("[FAIL] Darcy Flow数据处理失败")
         return False
 
 
@@ -79,10 +79,10 @@ def example_custom_spatial_processing():
     
     if success:
         processor.save_processed_data()
-        logger.info("✓ 空间处理示例完成")
+        logger.info("[OK] 空间处理示例完成")
         return True
     else:
-        logger.error("✗ 空间处理示例失败")
+        logger.error("[FAIL] 空间处理示例失败")
         return False
 
 
@@ -109,16 +109,16 @@ def example_multiple_pde_types():
         logger.info(f"正在处理 {pde_type} 数据...")
         if processor.process_pde_dataset(pde_type, sequence_length=2):
             success_count += 1
-            logger.info(f"✓ {pde_type} 处理成功")
+            logger.info(f"[OK] {pde_type} 处理成功")
         else:
-            logger.error(f"✗ {pde_type} 处理失败")
+            logger.error(f"[FAIL] {pde_type} 处理失败")
     
     if success_count > 0:
         processor.save_processed_data()
-        logger.info(f"✓ 成功处理 {success_count}/{len(pde_types)} 种PDE类型")
+        logger.info(f"[OK] 成功处理 {success_count}/{len(pde_types)} 种PDE类型")
         return True
     else:
-        logger.error("✗ 所有PDE类型处理失败")
+        logger.error("[FAIL] 所有PDE类型处理失败")
         return False
 
 
@@ -193,7 +193,7 @@ def example_quick_test():
         # 验证保存的数据
         if os.path.exists('quick_test.pt'):
             data = torch.load('quick_test.pt')
-            logger.info("✓ 快速测试成功")
+            logger.info("[OK] 快速测试成功")
             logger.info(f"  处理的PDE类型: {data['pde_types']}")
             
             # 清理测试文件
@@ -202,10 +202,10 @@ def example_quick_test():
             
             return True
         else:
-            logger.error("✗ 数据文件未生成")
+            logger.error("[FAIL] 数据文件未生成")
             return False
     else:
-        logger.error("✗ 快速测试失败")
+        logger.error("[FAIL] 快速测试失败")
         return False
 
 

@@ -73,7 +73,7 @@ def test_svd_config_creation():
     assert config_default.n_modes == 64
     assert config_default.energy_threshold == 0.95
     assert config_default.auto_select_modes == True
-    logger.info("✅ 默认配置创建成功")
+    logger.info("[OK] 默认配置创建成功")
     
     # 测试自定义配置
     config_custom = SVDProjectionConfig(
@@ -85,14 +85,14 @@ def test_svd_config_creation():
     assert config_custom.n_modes == 32
     assert config_custom.energy_threshold == 0.99
     assert config_custom.auto_select_modes == False
-    logger.info("✅ 自定义配置创建成功")
+    logger.info("[OK] 自定义配置创建成功")
     
     # 测试配置序列化
     config_dict = config_custom.to_dict()
     config_restored = SVDProjectionConfig.from_dict(config_dict)
     assert config_restored.n_modes == config_custom.n_modes
     assert config_restored.energy_threshold == config_custom.energy_threshold
-    logger.info("✅ 配置序列化/反序列化成功")
+    logger.info("[OK] 配置序列化/反序列化成功")
     
     return True
 
@@ -115,7 +115,7 @@ def test_svd_projector_basic_functionality():
     # 验证初始状态
     assert not projector.is_fitted
     assert projector.latent_dim is None
-    logger.info("✅ 投影器初始状态正确")
+    logger.info("[OK] 投影器初始状态正确")
     
     # 拟合投影器
     projector.fit(input_data, output_data)
@@ -127,7 +127,7 @@ def test_svd_projector_basic_functionality():
     assert projector.output_dim == 2048
     assert projector.input_projector is not None
     assert projector.output_projector is not None
-    logger.info("✅ 投影器拟合成功")
+    logger.info("[OK] 投影器拟合成功")
     
     # 测试投影功能
     input_projected = projector.transform_input(input_data)
@@ -135,7 +135,7 @@ def test_svd_projector_basic_functionality():
     
     assert input_projected.shape == (50, 20)
     assert output_projected.shape == (50, 20)
-    logger.info("✅ 数据投影成功")
+    logger.info("[OK] 数据投影成功")
     
     # 测试反投影功能
     input_reconstructed = projector.inverse_transform_input(input_projected)
@@ -143,7 +143,7 @@ def test_svd_projector_basic_functionality():
     
     assert input_reconstructed.shape == input_data.shape
     assert output_reconstructed.shape == output_data.shape
-    logger.info("✅ 数据反投影成功")
+    logger.info("[OK] 数据反投影成功")
     
     return projector
 
@@ -177,7 +177,7 @@ def test_reconstruction_accuracy():
     assert errors['input_relative_error'] < 0.5, f"输入重建误差过高: {errors['input_relative_error']:.6f}"
     assert errors['output_relative_error'] < 0.5, f"输出重建误差过高: {errors['output_relative_error']:.6f}"
     
-    logger.info("✅ 重建精度测试通过")
+    logger.info("[OK] 重建精度测试通过")
     return errors
 
 def test_auto_mode_selection():
@@ -200,7 +200,7 @@ def test_auto_mode_selection():
     
     # 验证选择的模态数在合理范围内
     assert 5 <= projector.latent_dim <= 30
-    logger.info(f"✅ 自动选择模态数: {projector.latent_dim}")
+    logger.info(f"[OK] 自动选择模态数: {projector.latent_dim}")
     
     # 验证能量阈值
     input_energy = np.sum(projector.input_singular_values[:projector.latent_dim] ** 2) / np.sum(projector.input_singular_values ** 2)
@@ -213,7 +213,7 @@ def test_auto_mode_selection():
     assert input_energy >= 0.85, f"输入数据保留能量过低: {input_energy:.4f}"
     assert output_energy >= 0.85, f"输出数据保留能量过低: {output_energy:.4f}"
     
-    logger.info("✅ 自动模态选择测试通过")
+    logger.info("[OK] 自动模态选择测试通过")
     return True
 
 def test_save_load_functionality():
@@ -242,11 +242,11 @@ def test_save_load_functionality():
     try:
         # 保存投影器
         original_projector.save(save_path)
-        logger.info(f"✅ 投影器已保存到: {save_path}")
+        logger.info(f"[OK] 投影器已保存到: {save_path}")
         
         # 加载投影器
         loaded_projector = SVDModalProjector.load(save_path)
-        logger.info("✅ 投影器加载成功")
+        logger.info("[OK] 投影器加载成功")
         
         # 验证加载的投影器状态
         assert loaded_projector.is_fitted == original_projector.is_fitted
@@ -261,14 +261,14 @@ def test_save_load_functionality():
         np.testing.assert_allclose(original_input_proj, loaded_input_proj, rtol=1e-6)
         np.testing.assert_allclose(original_output_proj, loaded_output_proj, rtol=1e-6)
         
-        logger.info("✅ 投影结果一致性验证通过")
+        logger.info("[OK] 投影结果一致性验证通过")
         
         # 验证配置一致性
         original_config_dict = original_projector.config.to_dict()
         loaded_config_dict = loaded_projector.config.to_dict()
         assert original_config_dict == loaded_config_dict
         
-        logger.info("✅ 配置一致性验证通过")
+        logger.info("[OK] 配置一致性验证通过")
         
     finally:
         # 清理临时文件
@@ -291,7 +291,7 @@ def test_error_handling():
         projector.transform_input(dummy_data)
         assert False, "应该抛出未拟合异常"
     except ValueError:
-        logger.info("✅ 未拟合投影器错误处理正确")
+        logger.info("[OK] 未拟合投影器错误处理正确")
     
     # 测试维度不匹配
     input_data, output_data = create_test_data(n_samples=30, input_dim=100, output_dim=400)
@@ -304,7 +304,7 @@ def test_error_handling():
         projector.transform_input(wrong_dim_data)
         assert False, "应该抛出维度不匹配异常"
     except ValueError:
-        logger.info("✅ 维度不匹配错误处理正确")
+        logger.info("[OK] 维度不匹配错误处理正确")
     
     # 测试保存未拟合投影器
     unfitted_projector = SVDModalProjector(config)
@@ -313,7 +313,7 @@ def test_error_handling():
             unfitted_projector.save(tmp_file.name)
         assert False, "应该抛出未拟合异常"
     except ValueError:
-        logger.info("✅ 保存未拟合投影器错误处理正确")
+        logger.info("[OK] 保存未拟合投影器错误处理正确")
     
     return True
 
@@ -330,7 +330,7 @@ def test_edge_cases():
     
     try:
         projector.fit(tiny_input, tiny_output)
-        logger.info("✅ 极小数据集处理成功")
+        logger.info("[OK] 极小数据集处理成功")
     except Exception as e:
         logger.warning(f"极小数据集处理失败: {e}")
     
@@ -343,7 +343,7 @@ def test_edge_cases():
     
     try:
         projector_few.fit(few_samples_input, few_samples_output)
-        logger.info("✅ 高维度低样本处理成功")
+        logger.info("[OK] 高维度低样本处理成功")
     except Exception as e:
         logger.warning(f"高维度低样本处理失败: {e}")
     
@@ -375,14 +375,14 @@ def run_all_tests():
         logger.info(f"成功率: {passed_tests/total_tests*100:.1f}%")
         
         for test_name, result in test_results.items():
-            status = "✅ PASS" if result else "❌ FAIL"
+            status = "[OK] PASS" if result else "[ERROR] FAIL"
             logger.info(f"  {test_name}: {status}")
         
         if passed_tests == total_tests:
-            logger.info("🎉 所有测试通过！SVD投影功能正常工作")
+            logger.info("[OK] 所有测试通过！SVD投影功能正常工作")
             return True
         else:
-            logger.warning("⚠️ 部分测试失败，请检查相关功能")
+            logger.warning("[WARN] 部分测试失败，请检查相关功能")
             return False
             
     except Exception as e:

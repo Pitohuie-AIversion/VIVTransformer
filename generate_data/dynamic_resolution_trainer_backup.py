@@ -895,6 +895,11 @@ def parse_arguments():
     model_group.add_argument('--attention_type', type=str,
                             choices=['sge', 'cbam', 'eca', 'se', 'relative', 'external'],
                             help='注意力机制类型 (默认: sge)')
+    # 新增：输出头类型与逐 token 通道数（兼容连字符/下划线两种写法）
+    model_group.add_argument('--output-head-type', '--output_head_type', dest='output_head_type', type=str, choices=['global', 'per_token'],
+                            help='覆盖模型输出头类型 (global 或 per_token)')
+    model_group.add_argument('--out-channels-per-token', '--out_channels_per_token', dest='out_channels_per_token', type=int,
+                            help='逐 token 通道数 C（仅在 per_token 模式有效）')
     
     # 其他参数
     other_group = parser.add_argument_group('其他配置')
@@ -1070,6 +1075,11 @@ def load_config_with_args(config_path, args):
         config['model']['num_heads'] = args.num_heads
     if args.attention_type:
         config['model']['attention_type'] = args.attention_type
+    # 新增：覆盖输出头参数
+    if getattr(args, 'output_head_type', None):
+        config['model']['output_head_type'] = args.output_head_type
+    if getattr(args, 'out_channels_per_token', None) is not None:
+        config['model']['out_channels_per_token'] = args.out_channels_per_token
     if args.device:
         config['device'] = args.device
     if args.use_dataparallel:
@@ -1098,6 +1108,16 @@ def load_config_with_args(config_path, args):
         config['model']['output_dim'] = output_h * output_w
         # 修复序列长度计算：直接使用输入维度
         config['model']['seq_len'] = input_h * input_w
+        # 若选择 per_token 输出头，自动根据 C 修正输出维度，并补齐 input_hw
+        oh_type = str(config['model'].get('output_head_type', 'global'))
+        if oh_type == 'per_token':
+            C = config['model'].get('out_channels_per_token')
+            if not isinstance(C, int) or C <= 0:
+                C = 1
+                config['model']['out_channels_per_token'] = C
+            seq_len = config['model']['seq_len']
+            config['model']['output_dim'] = seq_len * C
+            config['model']['input_hw'] = [int(input_h), int(input_w)]
     
     return config
 
@@ -1328,7 +1348,11 @@ def main():
             d_model=config['model']['d_model'],
             max_time_steps=config['model']['max_time_steps'],
             attention_type=config['model']['attention_type'],
-            seq_len=config['model']['seq_len']
+            seq_len=config['model']['seq_len'],
+            input_hw=tuple(config['model'].get('input_hw')) if config['model'].get('input_hw') else None,
+            pe_type=config['model'].get('pe_type', 'learnable_1d'),
+            output_head_type=config['model'].get('output_head_type', 'global'),
+            out_channels_per_token=config['model'].get('out_channels_per_token')
         ).to(device)
         
         logger.info(f"模型参数数量: {sum(p.numel() for p in model.parameters())}")

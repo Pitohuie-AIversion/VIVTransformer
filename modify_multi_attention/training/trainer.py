@@ -34,13 +34,13 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
     scaler = GradScaler('cuda') if use_amp else None
     
     if use_amp:
-        print(f"🚀 启用混合精度训练 (AMP)，损失缩放: {mixed_precision_config.get('loss_scale', 'dynamic')}")
+        print(f"Enabled AMP (mixed precision), loss scale: {mixed_precision_config.get('loss_scale', 'dynamic')}")
     
     # 梯度累积配置
     gradient_config = cfg.get('gradient', {})
     accumulation_steps = gradient_config.get('accumulation_steps', 1)
     if accumulation_steps > 1:
-        print(f"📊 启用梯度累积，累积步数: {accumulation_steps}")
+        print(f"Gradient accumulation enabled, steps: {accumulation_steps}")
 
     # 配置参数直接来自cfg
     vis_enabled = cfg["visualization"]["enabled"]
@@ -57,7 +57,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
     mode = early_stopping_config.get("mode", "min")
     restore_best_weights = early_stopping_config.get("restore_best_weights", True)
     
-    print(f"📊 早停配置: 启用={enable_early_stopping}, 监控={monitor}, 模式={mode}, 耐心值={patience}")
+    print(f"Early stopping config: enabled={enable_early_stopping}, monitor={monitor}, mode={mode}, patience={patience}")
 
     # 只有在模型不是DataParallel时才移动到device
     # DataParallel模型已经在主程序中正确设置了设备
@@ -96,12 +96,12 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         save_dir = f"attention_results/{attention_type}"
         os.makedirs(save_dir, exist_ok=True)
 
-    print(f"写入loss_log.txt到：{loss_log_path}")
+    print(f"Writing loss_log.txt to: {loss_log_path}")
 
     # ========== 恢复断点 ==========
     start_epoch = 0
     if not no_pretrained and os.path.exists(checkpoint_path):
-        print(f"检测到断点文件，自动恢复：{checkpoint_path}")
+        print(f"Found checkpoint; auto-resume: {checkpoint_path}")
         try:
             checkpoint = torch.load(checkpoint_path, map_location=device)
             model.load_state_dict(checkpoint['model_state_dict'])
@@ -114,14 +114,14 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
             patience_counter   = checkpoint.get('patience_counter', 0)
             best_model_state   = checkpoint.get('best_model_state', None)
             start_epoch        = checkpoint.get('epoch', 0) + 1
-            print(f"已恢复到 epoch {start_epoch}，best_metric={best_metric}，patience_counter={patience_counter}")
+            print(f"Resumed to epoch {start_epoch}, best_metric={best_metric}, patience_counter={patience_counter}")
         except RuntimeError as e:
-            print(f"⚠️ 加载预训练模型失败: {e}")
-            print("🔄 将从头开始训练...")
+            print(f"Warning: failed to load pretrained model: {e}")
+            print("Will train from scratch...")
     elif no_pretrained:
-        print("🆕 跳过预训练模型加载，从头开始训练")
+        print("Skip pretrained model loading; train from scratch")
     else:
-        print("📝 未找到断点文件，从头开始训练")
+        print("No checkpoint found; train from scratch")
     
     # 初始化损失日志文件
     with open(loss_log_path, 'w') as log_file:
@@ -179,7 +179,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                     if has_grad:
                         scaler.step(optimizer)
                     else:
-                        print("⚠️ AMP: 本step未检测到有效梯度，跳过 optimizer.step() 以避免 GradScaler 警告")
+                        print("AMP: no valid gradients detected in this step; skipping optimizer.step() to avoid GradScaler warning")
                     scaler.update()
             else:
                 model_out = model(in_press, time_steps)
@@ -201,7 +201,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
 
             if (i + 1) % 50 == 0 or i == 0:
                 print(
-                    f"    🔄 Epoch [{epoch + 1}/{num_epochs}], Batch [{i + 1}/{len(train_loader)}], Loss: {loss_value.item() * accumulation_steps:.6f}")
+                    f"    Epoch [{epoch + 1}/{num_epochs}], Batch [{i + 1}/{len(train_loader)}], Loss: {loss_value.item() * accumulation_steps:.6f}")
 
         avg_train_loss = total_train_loss / len(train_loader)
         train_loss_history.append(avg_train_loss)
@@ -231,7 +231,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         else:
             avg_valid_loss = float('inf')  # 验证集为空时设置为无穷大
             valid_loss_history.append(avg_valid_loss)
-            print("    ⚠️  验证集为空，跳过验证步骤")
+            print("    Validation set is empty; skipping validation step")
 
         # ===== 测试用标准MSE =====
         total_test_loss = 0
@@ -254,7 +254,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         test_loss_history.append(avg_test_loss)
 
         print(
-            f"🎯 Epoch [{epoch + 1}/{num_epochs}], Train Loss: {avg_train_loss:.6f}, Valid Loss: {avg_valid_loss:.6f}, Test Loss: {avg_test_loss:.6f}")
+            f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {avg_train_loss:.6f}, Valid Loss: {avg_valid_loss:.6f}, Test Loss: {avg_test_loss:.6f}")
 
         with open(loss_log_path, 'a') as log_file:
             log_file.write(f"{epoch + 1}, {avg_train_loss:.6f}, {avg_valid_loss:.6f}, {avg_test_loss:.6f}\n")
@@ -285,22 +285,22 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                     # 确保目录存在
                     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
                     torch.save(model.state_dict(), model_save_path)
-                    print(f"✅ 模型已保存到: {model_save_path} (Best {monitor}: {current_metric:.6f})")
+                    print(f"Model saved to: {model_save_path} (Best {monitor}: {current_metric:.6f})")
                 else:
                     # 回退到原来的保存方式
                     torch.save(model.state_dict(), os.path.join(save_dir, f"best_model_{attention_type}.pt"))
-                    print(f"✅ 模型已保存 (Best {monitor}: {current_metric:.6f})")
+                    print(f"Model saved (Best {monitor}: {current_metric:.6f})")
             else:
                 patience_counter += 1
-                print(f"⚠️ 早停计数: {patience_counter}/{patience} (当前{monitor}: {current_metric:.6f}, 最佳: {best_metric:.6f})")
+                print(f"Early stopping counter: {patience_counter}/{patience} (current {monitor}: {current_metric:.6f}, best: {best_metric:.6f})")
             
             # 检查是否触发早停
             if patience_counter >= patience:
-                print("⏹️ 触发 Early Stopping!")
+                print("Early stopping triggered!")
                 # 恢复最佳权重
                 if restore_best_weights and best_model_state is not None:
                     model.load_state_dict(best_model_state)
-                    print("🔄 已恢复最佳模型权重")
+                    print("Restored best model weights")
                 break
         else:
             # 不启用早停时的传统逻辑
@@ -313,11 +313,11 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                     # 确保目录存在
                     os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
                     torch.save(model.state_dict(), model_save_path)
-                    print(f"✅ 模型已保存到: {model_save_path} (Best Model Updated)")
+                    print(f"Model saved to: {model_save_path} (Best Model Updated)")
                 else:
                     # 回退到原来的保存方式
                     torch.save(model.state_dict(), os.path.join(save_dir, f"best_model_{attention_type}.pt"))
-                    print("✅ 模型已保存 (Best Model Updated)")
+                    print("Model saved (Best Model Updated)")
         
         # ========== 保存断点 ==========
         checkpoint = {
@@ -338,7 +338,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         if scheduler is not None:
             scheduler.step()
             current_lr = optimizer.param_groups[0]['lr']
-            print(f"📈 学习率调度器步进: 当前学习率={current_lr:.8f}")
+            print(f"Scheduler stepped: current lr={current_lr:.8f}")
 
         if vis_enabled and (epoch + 1) % vis_interval == 0:
             model.eval()
@@ -416,7 +416,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
                         )
 
                 except StopIteration:
-                    print("⚠️ 验证集数据不足，无法生成可视化结果。")
+                    print("Validation set is insufficient; cannot generate visualization.")
 
         if (epoch + 1) % vis_interval == 0:
             plot_dir = os.path.join(save_dir, "loss_plots")
@@ -531,7 +531,7 @@ def test_model(model, test_loader, criterion, device='cuda', attention_type='def
                 )
 
     avg_test_loss = total_test_loss / len(test_loader)
-    print(f"🧪 测试完成，{attention_type} Test Loss: {avg_test_loss:.6f}")
+    print(f"Test completed, {attention_type} Test Loss: {avg_test_loss:.6f}")
 
     with open(loss_log_path, 'a') as log_file:
         log_file.write(f"Average Test Loss: {avg_test_loss:.6f}\n")

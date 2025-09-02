@@ -18,10 +18,10 @@ def check_file_content():
     trainer_path = Path("modify_multi_attention/training/trainer.py")
     
     if not trainer_path.exists():
-        print(f"❌ 找不到文件: {trainer_path}")
+        print(f"[ERROR] 找不到文件: {trainer_path}")
         return False
     
-    print(f"📁 检查文件: {trainer_path}")
+    print(f"[INFO] 检查文件: {trainer_path}")
     
     with open(trainer_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
@@ -33,7 +33,7 @@ def check_file_content():
     for i, line in enumerate(lines, 1):
         if "if not isinstance(model, torch.nn.DataParallel):" in line:
             found_fix = True
-            print(f"✅ 第{i}行: 找到修复代码")
+            print(f"[OK] 第{i}行: 找到修复代码")
             # 显示上下文
             start = max(0, i-3)
             end = min(len(lines), i+3)
@@ -44,17 +44,17 @@ def check_file_content():
             break
         elif line.strip() == "model.to(device)":
             found_old_code = True
-            print(f"❌ 第{i}行: 发现未修复的代码")
+            print(f"[ERROR] 第{i}行: 发现未修复的代码")
             print(f"   {i:3d}: {line.rstrip()}")
     
     if found_fix:
-        print("✅ 代码已正确修复")
+        print("[OK] 代码已正确修复")
         return True
     elif found_old_code:
-        print("❌ 代码尚未修复")
+        print("[ERROR] 代码尚未修复")
         return False
     else:
-        print("⚠️ 未找到相关代码行")
+        print("[WARN] 未找到相关代码行")
         return False
 
 def show_fix_instructions():
@@ -87,7 +87,7 @@ def create_patch_file():
 +++ b/modify_multi_attention/training/trainer.py
 @@ -29,7 +29,10 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, opti
  
-     print(f"📊 早停配置: 启用={enable_early_stopping}, 监控={monitor}, 模式={mode}, 耐心值={patience}")
+     print(f"[INFO] 早停配置: 启用={enable_early_stopping}, 监控={monitor}, 模式={mode}, 耐心值={patience}")
  
 -    model.to(device)
 +    # 只有在模型不是DataParallel时才移动到device
@@ -103,7 +103,7 @@ def create_patch_file():
     with open(patch_file, 'w', encoding='utf-8') as f:
         f.write(patch_content)
     
-    print(f"✅ 补丁文件已创建: {patch_file}")
+    print(f"[OK] 补丁文件已创建: {patch_file}")
     print("\n在服务器上应用补丁:")
     print(f"   patch -p1 < {patch_file}")
     print("或者:")
@@ -137,29 +137,29 @@ echo
 
 # 检查文件是否存在
 if [ ! -f "modify_multi_attention/training/trainer.py" ]; then
-    echo "❌ 找不到trainer.py文件"
+    echo "[ERROR] 找不到trainer.py文件"
     exit 1
 fi
 
 # 备份原文件
 cp modify_multi_attention/training/trainer.py modify_multi_attention/training/trainer.py.backup
-echo "📁 已备份原文件"
+echo "[INFO] 已备份原文件"
 
 # 执行替换
 sed -i 's/^    model\.to(device)$/    # 只有在模型不是DataParallel时才移动到device\n    # DataParallel模型已经在主程序中正确设置了设备\n    if not isinstance(model, torch.nn.DataParallel):\n        model.to(device)/' modify_multi_attention/training/trainer.py
 
-echo "✅ 修复完成"
+echo "[OK] 修复完成"
 echo
-echo "🔍 验证修复结果:"
+echo "[INFO] 验证修复结果:"
 if grep -q "if not isinstance(model, torch.nn.DataParallel):" modify_multi_attention/training/trainer.py; then
-    echo "✅ 修复验证成功"
+    echo "[OK] 修复验证成功"
 else
-    echo "❌ 修复验证失败"
+    echo "[ERROR] 修复验证失败"
     echo "请手动修复或使用备份文件恢复"
 fi
 
 echo
-echo "🚀 现在可以运行多GPU训练:"
+echo "[INFO] 现在可以运行多GPU训练:"
 echo "python generate_data/dynamic_resolution_trainer.py --use_dataparallel --config generate_data/dynamic_config.yaml"
 '''
     
@@ -170,7 +170,7 @@ echo "python generate_data/dynamic_resolution_trainer.py --use_dataparallel --co
     # 设置执行权限
     os.chmod(script_file, 0o755)
     
-    print(f"✅ 服务器修复脚本已创建: {script_file}")
+    print(f"[OK] 服务器修复脚本已创建: {script_file}")
     print("\n在服务器上运行:")
     print(f"   chmod +x {script_file}")
     print(f"   ./{script_file}")
@@ -181,7 +181,7 @@ def main():
     
     # 检查当前目录
     if not Path("modify_multi_attention").exists():
-        print("❌ 请在项目根目录下运行此脚本")
+        print("[ERROR] 请在项目根目录下运行此脚本")
         sys.exit(1)
     
     # 检查环境
@@ -201,14 +201,14 @@ def main():
         create_server_fix_script()
         
         print("\n" + "=" * 50)
-        print("📋 修复选项:")
+        print("[INFO] 修复选项:")
         print("1. 手动编辑 (推荐)")
         print("2. 使用补丁文件")
         print("3. 使用自动脚本")
         print("\n请选择适合的方法在服务器上修复代码")
     else:
         print("\n" + "=" * 50)
-        print("✅ 本地代码已正确修复")
+        print("[OK] 本地代码已正确修复")
         print("\n如果服务器上仍有问题，请确保:")
         print("1. 代码已正确同步到服务器")
         print("2. 服务器上的Python环境正确")

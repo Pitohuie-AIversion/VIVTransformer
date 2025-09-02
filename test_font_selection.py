@@ -29,10 +29,10 @@ def check_available_fonts():
     available_chinese = []
     for font in chinese_candidates:
         if font in all_fonts:
-            print(f"  ✅ {font} - 可用")
+            print(f"  [OK] {font} - 可用")
             available_chinese.append(font)
         else:
-            print(f"  ❌ {font} - 不可用")
+            print(f"  [ERROR] {font} - 不可用")
     
     print(f"\n总计可用中文字体: {len(available_chinese)} 个")
     return available_chinese
@@ -70,7 +70,7 @@ def test_actual_font_used():
     
     # 检查是否回退到 DejaVu Sans
     if 'DejaVu' in str(font_path):
-        print("⚠️ 警告: 正在使用 DejaVu Sans，这意味着中文字体设置未生效")
+        print("[WARN] 警告: 正在使用 DejaVu Sans，这意味着中文字体设置未生效")
         
         # 尝试手动设置字体
         available_chinese = check_available_fonts()
@@ -81,7 +81,7 @@ def test_actual_font_used():
             new_font = text_obj.get_fontname()
             print(f"手动设置后的字体: {new_font}")
     else:
-        print("✅ 成功使用中文字体")
+        print("[OK] 成功使用中文字体")
     
     plt.close(fig)
 
@@ -117,7 +117,7 @@ def create_font_test_image():
     plt.savefig(png_path, dpi=300, bbox_inches='tight')
     plt.savefig(svg_path, bbox_inches='tight')
     
-    print(f"✅ 生成测试图像: {png_path}, {svg_path}")
+    print(f"[OK] 生成测试图像: {png_path}, {svg_path}")
     
     plt.close()
     
@@ -125,7 +125,7 @@ def create_font_test_image():
 
 def main():
     """主函数"""
-    print("🔍 开始详细字体诊断...\n")
+    print("[INFO] 开始详细字体诊断...\n")
     
     # 检查系统字体
     available_chinese = check_available_fonts()
@@ -140,24 +140,24 @@ def main():
     png_path, svg_path = create_font_test_image()
     
     print("\n" + "="*50)
-    print("📋 诊断总结:")
+    print("[INFO] 诊断总结:")
     
     if not available_chinese:
-        print("❌ 系统中没有检测到常见的中文字体")
-        print("💡 建议:")
+        print("[ERROR] 系统中没有检测到常见的中文字体")
+        print("[TIP] 建议:")
         print("   1. 安装 Source Han Sans SC (思源黑体)")
         print("   2. 或安装 Noto Sans CJK SC")
         print("   3. 下载地址:")
         print("      - 思源黑体: https://github.com/adobe-fonts/source-han-sans/releases")
         print("      - Noto Sans: https://fonts.google.com/noto/specimen/Noto+Sans+SC")
     else:
-        print(f"✅ 发现 {len(available_chinese)} 个可用中文字体")
+        print(f"[OK] 发现 {len(available_chinese)} 个可用中文字体")
         print("🔧 如果仍显示方框，可能的原因:")
         print("   1. matplotlib 字体缓存需要清理")
         print("   2. 字体优先级设置有问题")
         print("   3. 需要重启 Python 解释器")
     
-    print(f"\n📁 生成的测试文件:")
+    print(f"\n[INFO] 生成的测试文件:")
     print(f"   - {png_path}")
     print(f"   - {svg_path}")
     print("\n请检查这些文件中的中文字符是否正常显示。")

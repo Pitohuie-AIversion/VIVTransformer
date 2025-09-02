@@ -30,7 +30,7 @@ try:
         get_global_svd_stats, print_global_svd_stats, reset_global_svd_stats
     )
 except ImportError:
-    print("❌ 无法导入增强版SVD损失函数，请检查路径配置")
+    print("[ERROR] 无法导入增强版SVD损失函数，请检查路径配置")
     sys.exit(1)
 
 def test_basic_functionality():
@@ -58,14 +58,14 @@ def test_basic_functionality():
     # 计算损失
     loss = criterion(pred, target)
     
-    print(f"✅ 基本功能测试通过")
+    print(f"[OK] 基本功能测试通过")
     print(f"   损失值: {loss.item():.6f}")
     print(f"   设备: {device}")
     print(f"   数据形状: {pred.shape}")
     
     # 测试反向传播
     loss.backward()
-    print(f"✅ 反向传播测试通过")
+    print(f"[OK] 反向传播测试通过")
     print(f"   梯度形状: {pred.grad.shape}")
     
     return criterion
@@ -75,7 +75,7 @@ def test_mixed_precision():
     print("\n=== 测试混合精度兼容性 ===")
     
     if not torch.cuda.is_available():
-        print("⚠️ CUDA不可用，跳过混合精度测试")
+        print("[WARN] CUDA不可用，跳过混合精度测试")
         return
     
     device = torch.device('cuda')
@@ -96,14 +96,14 @@ def test_mixed_precision():
     # 计算损失
     loss = criterion(pred_fp16, target_fp16)
     
-    print(f"✅ 混合精度测试通过")
+    print(f"[OK] 混合精度测试通过")
     print(f"   输入类型: {pred_fp16.dtype}")
     print(f"   损失值: {loss.item():.6f}")
     print(f"   损失类型: {loss.dtype}")
     
     # 测试自动类型转换
     loss.backward()
-    print(f"✅ 混合精度反向传播测试通过")
+    print(f"[OK] 混合精度反向传播测试通过")
     
     return criterion
 
@@ -145,10 +145,10 @@ def test_adaptive_weights():
     
     # 检查权重是否发生变化
     if abs(final_base - initial_base) > 0.001:
-        print(f"✅ 自适应权重测试通过 - 权重发生了调整")
+        print(f"[OK] 自适应权重测试通过 - 权重发生了调整")
         print(f"   权重变化: {final_base - initial_base:+.4f}")
     else:
-        print(f"ℹ️ 自适应权重测试 - 权重未发生显著变化")
+        print(f"[INFO] 自适应权重测试 - 权重未发生显著变化")
     
     # 显示适应历史
     adaptation_history = criterion.weight_manager.get_adaptation_history()
@@ -188,7 +188,7 @@ def test_performance_monitoring():
     # 获取性能统计
     stats = criterion.get_performance_stats()
     
-    print(f"✅ 性能监控测试通过")
+    print(f"[OK] 性能监控测试通过")
     print(f"   总调用次数: {stats['total_calls']}")
     print(f"   平均SVD时间: {stats['avg_svd_time_ms']:.2f}ms")
     print(f"   总SVD时间: {stats['total_svd_time_ms']:.2f}ms")
@@ -240,7 +240,7 @@ def test_error_handling():
         loss_extreme = criterion(pred_extreme, target)
         print(f"   极值数据损失: {loss_extreme.item():.6f}")
     
-    print(f"✅ 错误处理测试通过")
+    print(f"[OK] 错误处理测试通过")
 
 def test_configuration_options():
     """测试配置选项"""
@@ -276,11 +276,11 @@ def test_configuration_options():
         print(f"   自适应权重: {weight_info['adaptation_enabled']}")
         print(f"   Fallback级别: {weight_info['fallback_level']}")
     
-    print(f"✅ 配置选项测试通过")
+    print(f"[OK] 配置选项测试通过")
 
 def main():
     """主测试函数"""
-    print("🧪 增强版SVD损失函数测试开始")
+    print("[TEST] 增强版SVD损失函数测试开始")
     print(f"PyTorch版本: {torch.__version__}")
     print(f"CUDA可用: {torch.cuda.is_available()}")
     if torch.cuda.is_available():
@@ -295,7 +295,7 @@ def main():
         test_error_handling()
         test_configuration_options()
         
-        print("\n🎉 === 所有测试通过 ===")
+        print("\n[OK] === 所有测试通过 ===")
         print("增强版SVD损失函数功能正常，可以安全使用！")
         
         # 显示全局统计信息
@@ -303,7 +303,7 @@ def main():
         print_global_svd_stats()
         
     except Exception as e:
-        print(f"\n❌ 测试失败: {str(e)}")
+        print(f"\n[ERROR] 测试失败: {str(e)}")
         import traceback
         traceback.print_exc()
         return False

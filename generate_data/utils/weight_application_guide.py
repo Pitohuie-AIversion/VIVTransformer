@@ -29,13 +29,13 @@ def load_weight_config(config_path: str) -> dict:
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
-        print(f"✅ 成功加载配置: {config_path}")
+        print(f"[OK] 成功加载配置: {config_path}")
         return config
     except FileNotFoundError:
-        print(f"❌ 配置文件未找到: {config_path}")
+        print(f"[ERROR] 配置文件未找到: {config_path}")
         return {}
     except Exception as e:
-        print(f"❌ 加载配置文件失败: {e}")
+        print(f"[ERROR] 加载配置文件失败: {e}")
         return {}
 
 def demonstrate_basic_svd_loss(base_weight: float, svd_weights: list, topk: int):
@@ -55,13 +55,13 @@ def demonstrate_basic_svd_loss(base_weight: float, svd_weights: list, topk: int)
             topk=topk
         )
         
-        print("✅ 基础 SVD 损失函数创建成功")
+        print("[OK] 基础 SVD 损失函数创建成功")
         
         # 打印权重信息
         criterion.print_weight_info()
         
         # 测试损失计算
-        print("\n📊 测试损失计算...")
+        print("\n[INFO] 测试损失计算...")
         batch_size, channels, height, width = 4, 1, 64, 64
         pred = torch.randn(batch_size, channels, height, width)
         target = torch.randn(batch_size, channels, height, width)
@@ -72,11 +72,11 @@ def demonstrate_basic_svd_loss(base_weight: float, svd_weights: list, topk: int)
         return criterion
         
     except ImportError as e:
-        print(f"❌ 导入基础 SVD 损失模块失败: {e}")
+        print(f"[ERROR] 导入基础 SVD 损失模块失败: {e}")
         print("请确保 modify_multi_attention/utils/loss.py 存在")
         return None
     except Exception as e:
-        print(f"❌ 创建基础 SVD 损失函数失败: {e}")
+        print(f"[ERROR] 创建基础 SVD 损失函数失败: {e}")
         return None
 
 def demonstrate_enhanced_svd_loss(base_weight: float, svd_weights: list, topk: int, 
@@ -101,13 +101,13 @@ def demonstrate_enhanced_svd_loss(base_weight: float, svd_weights: list, topk: i
             fallback_level=2
         )
         
-        print("✅ 增强版 SVD 损失函数创建成功")
+        print("[OK] 增强版 SVD 损失函数创建成功")
         
         # 打印权重信息
         criterion.print_weight_info()
         
         # 测试损失计算
-        print("\n📊 测试损失计算...")
+        print("\n[INFO] 测试损失计算...")
         batch_size, channels, height, width = 4, 1, 64, 64
         pred = torch.randn(batch_size, channels, height, width)
         target = torch.randn(batch_size, channels, height, width)
@@ -118,11 +118,11 @@ def demonstrate_enhanced_svd_loss(base_weight: float, svd_weights: list, topk: i
         return criterion
         
     except ImportError as e:
-        print(f"❌ 导入增强版 SVD 损失模块失败: {e}")
+        print(f"[ERROR] 导入增强版 SVD 损失模块失败: {e}")
         print("请确保 modify_multi_attention/utils/enhanced_svd_loss.py 存在")
         return None
     except Exception as e:
-        print(f"❌ 创建增强版 SVD 损失函数失败: {e}")
+        print(f"[ERROR] 创建增强版 SVD 损失函数失败: {e}")
         return None
 
 def generate_training_code_example(config: dict, output_path: str = None):
@@ -207,11 +207,11 @@ if __name__ == "__main__":
         try:
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(code_template)
-            print(f"✅ 训练代码示例已保存到: {output_path}")
+            print(f"[OK] 训练代码示例已保存到: {output_path}")
         except Exception as e:
-            print(f"❌ 保存训练代码示例失败: {e}")
+            print(f"[ERROR] 保存训练代码示例失败: {e}")
     else:
-        print("🔍 训练代码示例:")
+        print("[GUIDE] SVD 损失权重应用指南")
         print(code_template)
 
 def main():
@@ -230,7 +230,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🎯 SVD 损失权重应用指南")
+    print("[GUIDE] SVD 损失权重应用指南")
     print("="*60)
     
     # 如果没有指定具体操作，则执行所有演示
@@ -242,7 +242,7 @@ def main():
     # 加载配置
     config = load_weight_config(args.config)
     if not config:
-        print("❌ 无法加载配置，使用默认权重演示")
+        print("[ERROR] 无法加载配置，使用默认权重演示")
         config = {
             'base_weight': 0.5,
             'svd_weights': [0.05] * 10,
@@ -253,7 +253,7 @@ def main():
     svd_weights = config.get('svd_weights', [0.05] * 10)
     topk = config.get('topk', 10)
     
-    print(f"\n📋 当前配置:")
+    print(f"\n[INFO] 当前配置:")
     print(f"  - 基础权重: {base_weight:.3f}")
     print(f"  - SVD权重: {[f'{w:.4f}' for w in svd_weights[:5]]}..." if len(svd_weights) > 5 else f"  - SVD权重: {[f'{w:.4f}' for w in svd_weights]}")
     print(f"  - TopK模态: {topk}")
@@ -272,9 +272,9 @@ def main():
         generate_training_code_example(config, output_path)
     
     print("\n" + "="*60)
-    print("🎉 权重应用指南演示完成!")
+    print("[INFO] 权重应用指南演示完成!")
     print("="*60)
-    print("\n📝 使用建议:")
+    print("\n[INFO] 使用建议:")
     print("1. 从较保守的权重开始（基础权重较高）")
     print("2. 根据训练效果逐步调整权重比例")
     print("3. 启用自适应权重功能以获得更好的训练稳定性")

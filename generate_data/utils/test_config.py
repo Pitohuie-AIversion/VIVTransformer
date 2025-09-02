@@ -13,17 +13,17 @@ import sys
 def test_config_parameters():
     """测试配置参数"""
     print("=" * 60)
-    print("🔍 配置参数测试报告")
+    print("[INFO] 配置参数测试报告")
     print("=" * 60)
     
     try:
         # 1. 加载配置文件
         with open('dynamic_config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
-        print("✅ 配置文件加载成功")
+        print("[OK] 配置文件加载成功")
         
         # 2. 基础配置检查
-        print("\n📋 基础配置:")
+        print("\n[INFO] 基础配置:")
         print(f"  设备配置: {config['device']}")
         print(f"  多GPU训练: {config['use_dataparallel']}")
         print(f"  批次大小: {config['data']['batch_size']}")
@@ -33,7 +33,7 @@ def test_config_parameters():
         print(f"  训练轮数: {config['training']['epochs']}")
         
         # 3. 硬件环境检查
-        print("\n🖥️ 硬件环境:")
+        print("\n[DEVICE] 硬件环境:")
         print(f"  CUDA可用: {torch.cuda.is_available()}")
         if torch.cuda.is_available():
             print(f"  GPU数量: {torch.cuda.device_count()}")
@@ -41,20 +41,20 @@ def test_config_parameters():
                 props = torch.cuda.get_device_properties(i)
                 print(f"  GPU {i}: {props.name} ({props.total_memory / 1024**3:.1f}GB)")
         else:
-            print("  ⚠️ CUDA不可用，将使用CPU训练")
+            print("  [WARN] CUDA不可用，将使用CPU训练")
         
         # 4. 数据路径检查
-        print("\n📁 数据路径检查:")
+        print("\n[PATH] 数据路径检查:")
         data_path = config['data']['path']
         if os.path.exists(data_path):
-            print(f"  ✅ 数据文件存在: {data_path}")
+            print(f"  [OK] 数据文件存在: {data_path}")
             file_size = os.path.getsize(data_path) / 1024**3
-            print(f"  📊 文件大小: {file_size:.2f}GB")
+            print(f"  [INFO] 文件大小: {file_size:.2f}GB")
         else:
-            print(f"  ❌ 数据文件不存在: {data_path}")
+            print(f"  [ERROR] 数据文件不存在: {data_path}")
         
         # 5. 内存估算
-        print("\n💾 内存需求估算:")
+        print("\n[MEM] 内存需求估算:")
         input_size = config['data']['input_resolution'][0] * config['data']['input_resolution'][1]
         output_size = config['data']['output_resolution'][0] * config['data']['output_resolution'][1]
         batch_size = config['data']['batch_size']
@@ -70,7 +70,7 @@ def test_config_parameters():
         print(f"  总数据内存: {total_data_memory:.2f}MB")
         
         # 6. 潜在问题检查
-        print("\n⚠️ 潜在问题检查:")
+        print("\n[WARN] 潜在问题检查:")
         issues = []
         
         # 检查批次大小
@@ -100,13 +100,13 @@ def test_config_parameters():
             issues.append(f"数据加载器工作进程数({num_workers})可能过多，建议不超过8")
         
         if not issues:
-            print("  ✅ 未发现明显问题")
+            print("  [OK] 未发现明显问题")
         else:
             for issue in issues:
-                print(f"  ⚠️ {issue}")
+                print(f"  [WARN] {issue}")
         
         # 7. 优化建议
-        print("\n💡 优化建议:")
+        print("\n[TIP] 优化建议:")
         suggestions = []
         
         if batch_size == 1 and torch.cuda.is_available():
@@ -122,17 +122,17 @@ def test_config_parameters():
             suggestions.append("建议启用persistent_workers以减少数据加载开销")
         
         if not suggestions:
-            print("  ✅ 当前配置已较为优化")
+            print("  [OK] 当前配置已较为优化")
         else:
             for suggestion in suggestions:
-                print(f"  💡 {suggestion}")
+                print(f"  [TIP] {suggestion}")
         
         print("\n" + "=" * 60)
-        print("✅ 配置测试完成")
+        print("[OK] 配置测试完成")
         print("=" * 60)
         
     except Exception as e:
-        print(f"❌ 配置测试失败: {str(e)}")
+        print(f"[ERROR] 配置测试失败: {str(e)}")
         import traceback
         traceback.print_exc()
 

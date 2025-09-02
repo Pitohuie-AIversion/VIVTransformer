@@ -15,19 +15,19 @@ NC='\033[0m' # No Color
 
 # 函数：打印彩色消息
 print_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+    echo -e "${BLUE}[INFO]  $1${NC}"
 }
 
 print_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo -e "${GREEN}[OK] $1${NC}"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW}[WARN]  $1${NC}"
 }
 
 print_error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo -e "${RED}[ERROR] $1${NC}"
 }
 
 # 检查是否在正确的目录
@@ -129,7 +129,7 @@ echo "1. 运行训练脚本:"
 echo "   python generate_data/dynamic_resolution_trainer.py --config dynamic_config.yaml"
 echo ""
 echo "2. 确认多GPU训练正常工作，应该看到:"
-echo "   🚀 启用多GPU训练: 检测到 X 张GPU"
+echo "   [INFO] 启用多GPU训练: 检测到 X 张GPU"
 echo "   训练正常进行，无设备错误"
 echo ""
 print_info "如果仍有问题，请检查:"

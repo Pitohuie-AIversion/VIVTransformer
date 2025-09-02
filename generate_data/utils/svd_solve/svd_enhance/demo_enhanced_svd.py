@@ -49,7 +49,7 @@ def generate_demo_data(batch_size=4, resolution=32):
 def demo_basic_functionality():
     """演示基本功能"""
     print("\n" + "="*60)
-    print("🚀 增强版SVD损失函数 - 基本功能演示")
+    print("[INFO] 增强版SVD损失函数 - 基本功能演示")
     print("="*60)
     
     # 重置统计信息
@@ -67,15 +67,15 @@ def demo_basic_functionality():
     input_data, target_data = generate_demo_data(batch_size=8, resolution=32)
     input_data.requires_grad_(True)
     
-    print(f"📊 数据形状: {input_data.shape}")
-    print(f"📊 目标形状: {target_data.shape}")
+    print(f"[INFO] 数据形状: {input_data.shape}")
+    print(f"[INFO] 目标形状: {target_data.shape}")
     
     # 计算损失
     start_time = time.time()
     loss = criterion(input_data, target_data)
     compute_time = time.time() - start_time
     
-    print(f"💰 损失值: {loss.item():.6f}")
+    print(f"[INFO] 损失值: {loss.item():.6f}")
     print(f"⏱️  计算时间: {compute_time*1000:.2f}ms")
     
     # 反向传播测试
@@ -84,7 +84,7 @@ def demo_basic_functionality():
     backward_time = time.time() - start_time
     
     print(f"⏱️  反向传播时间: {backward_time*1000:.2f}ms")
-    print(f"📈 梯度范数: {input_data.grad.norm().item():.6f}")
+    print(f"[INFO] 梯度范数: {input_data.grad.norm().item():.6f}")
     
     # 显示性能统计
     print_global_svd_stats()
@@ -94,7 +94,7 @@ def demo_basic_functionality():
 def demo_adaptive_weights():
     """演示自适应权重机制"""
     print("\n" + "="*60)
-    print("🎯 增强版SVD损失函数 - 自适应权重演示")
+    print("[INFO] 增强版SVD损失函数 - 自适应权重演示")
     print("="*60)
     
     # 重置统计信息
@@ -108,7 +108,7 @@ def demo_adaptive_weights():
         fallback_level=2
     )
     
-    print("🔄 模拟多次训练迭代以观察权重适应...")
+    print("[INFO] 模拟多次训练迭代以观察权重适应...")
     
     losses = []
     for epoch in range(5):
@@ -126,7 +126,7 @@ def demo_adaptive_weights():
             weights = criterion.get_current_weights()
             print(f"  当前权重: MSE={weights.get('mse', 'N/A'):.3f}, SVD={weights.get('svd', 'N/A'):.3f}")
     
-    print(f"\n📈 损失变化趋势: {' -> '.join([f'{l:.4f}' for l in losses])}")
+    print(f"\n[INFO] 损失变化趋势: {' -> '.join([f'{l:.4f}' for l in losses])}")
     print_global_svd_stats()
     
     return losses
@@ -134,7 +134,7 @@ def demo_adaptive_weights():
 def demo_performance_comparison():
     """演示性能对比"""
     print("\n" + "="*60)
-    print("⚡ 增强版SVD损失函数 - 性能对比演示")
+    print("[INFO] 增强版SVD损失函数 - 性能对比演示")
     print("="*60)
     
     # 标准MSE损失
@@ -151,7 +151,7 @@ def demo_performance_comparison():
     results = []
     
     for batch_size in batch_sizes:
-        print(f"\n📊 测试批次大小: {batch_size}")
+        print(f"\n[INFO] 测试批次大小: {batch_size}")
         
         input_data, target_data = generate_demo_data(batch_size=batch_size, resolution=32)
         input_data.requires_grad_(True)
@@ -185,16 +185,16 @@ def demo_performance_comparison():
     valid_ratios = [r['ratio'] for r in results if r['ratio'] != float('inf')]
     if valid_ratios:
         avg_ratio = np.mean(valid_ratios)
-        print(f"\n📈 平均性能比率: {avg_ratio:.2f}x (相对于MSE)")
+        print(f"\n[INFO] 平均性能比率: {avg_ratio:.2f}x (相对于MSE)")
     else:
-        print(f"\n📈 平均性能比率: N/A (MSE时间过短无法比较)")
+        print(f"\n[INFO] 平均性能比率: N/A (MSE时间过短无法比较)")
     
     return results
 
 def demo_error_handling():
     """演示错误处理机制"""
     print("\n" + "="*60)
-    print("🛡️  增强版SVD损失函数 - 错误处理演示")
+    print("[INFO]️  增强版SVD损失函数 - 错误处理演示")
     print("="*60)
     
     # 创建带错误处理的损失函数
@@ -221,32 +221,32 @@ def demo_error_handling():
     ]
     
     for test_name, data_generator in test_cases:
-        print(f"\n🧪 测试: {test_name}")
+        print(f"\n[TEST] 测试: {test_name}")
         try:
             input_data, target_data = data_generator()
             input_data.requires_grad_(True)
             
             loss = criterion(input_data, target_data)
-            print(f"  ✅ 成功计算损失: {loss.item():.6f}")
+            print(f"  [OK] 成功计算损失: {loss.item():.6f}")
             
             # 检查是否有NaN或Inf
             if torch.isnan(loss) or torch.isinf(loss):
-                print(f"  ⚠️  检测到异常值: NaN={torch.isnan(loss)}, Inf={torch.isinf(loss)}")
+                print(f"  [WARN]  检测到异常值: NaN={torch.isnan(loss)}, Inf={torch.isinf(loss)}")
             
         except Exception as e:
-            print(f"  ❌ 错误: {str(e)}")
+            print(f"  [ERROR] 错误: {str(e)}")
     
     print_global_svd_stats()
 
 def main():
     """主演示函数"""
-    print("🎉 增强版SVD损失函数完整演示")
+    print("[OK] 增强版SVD损失函数完整演示")
     print("="*80)
     
     # 设备信息
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"🖥️  使用设备: {device}")
-    print(f"🐍 PyTorch版本: {torch.__version__}")
+    print(f"[INFO]️  使用设备: {device}")
+    print(f"[INFO] PyTorch版本: {torch.__version__}")
     
     try:
         # 基本功能演示
@@ -263,20 +263,20 @@ def main():
         
         # 最终总结
         print("\n" + "="*80)
-        print("🎯 演示总结")
+        print("[INFO] 演示总结")
         print("="*80)
-        print(f"✅ 基本功能: 正常工作，损失值 {loss:.6f}")
-        print(f"✅ 自适应权重: 正常工作，{len(losses)}次迭代")
-        print(f"✅ 性能对比: 完成{len(results)}个批次大小测试")
-        print(f"✅ 错误处理: 通过所有测试用例")
-        print("\n🎉 增强版SVD损失函数演示完成！")
+        print(f"[OK] 基本功能: 正常工作，损失值 {loss:.6f}")
+        print(f"[OK] 自适应权重: 正常工作，{len(losses)}次迭代")
+        print(f"[OK] 性能对比: 完成{len(results)}个批次大小测试")
+        print(f"[OK] 错误处理: 通过所有测试用例")
+        print("\n[OK] 增强版SVD损失函数演示完成！")
         
         # 显示最终统计
-        print("\n📊 最终性能统计:")
+        print("\n[INFO] 最终性能统计:")
         print_global_svd_stats()
         
     except Exception as e:
-        print(f"\n❌ 演示过程中出错: {str(e)}")
+        print(f"\n[ERROR] 演示过程中出错: {str(e)}")
         import traceback
         traceback.print_exc()
 

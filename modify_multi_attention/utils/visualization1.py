@@ -43,7 +43,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
             total_train_loss += loss_value.item()
 
             if (i + 1) % 50 == 0 or i == 0:
-                print(f"    🔄 Epoch [{epoch + 1}/{num_epochs}], Batch [{i + 1}/{len(train_loader)}], Loss: {loss_value.item():.6f}")
+                print(f"    Epoch [{epoch + 1}/{num_epochs}], Batch [{i + 1}/{len(train_loader)}], Loss: {loss_value.item():.6f}")
 
         avg_train_loss = total_train_loss / len(train_loader)
         train_loss_history.append(avg_train_loss)
@@ -75,7 +75,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
         avg_test_loss = total_test_loss / len(test_loader)
         test_loss_history.append(avg_test_loss)
 
-        print(f"🎯 Epoch [{epoch + 1}/{num_epochs}], Train Loss: {avg_train_loss:.6f}, Valid Loss: {avg_valid_loss:.6f}, Test Loss: {avg_test_loss:.6f}")
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {avg_train_loss:.6f}, Valid Loss: {avg_valid_loss:.6f}, Test Loss: {avg_test_loss:.6f}")
 
         if avg_valid_loss < best_valid_loss:
             best_valid_loss = avg_valid_loss
@@ -85,7 +85,7 @@ def train_model(model, train_loader, valid_loader, test_loader, criterion, optim
             os.makedirs(save_dir, exist_ok=True)
 
             torch.save(model.state_dict(), f"{save_dir}/best_model_{attention_type}.pth")
-            print("✅ 模型已保存 (Best Model Updated)")
+            print("Model saved (Best Model Updated)")
 
         else:
             patience_counter += 1

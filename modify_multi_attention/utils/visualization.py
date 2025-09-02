@@ -48,7 +48,7 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
 def plot_losses(train_loss, valid_loss, test_loss, save_path=None):
     import matplotlib.pyplot as plt
     if len(train_loss) == 0 or len(valid_loss) == 0 or len(test_loss) == 0:
-        print("⚠️ 损失列表为空，无法绘制Loss曲线！")
+        print("Warning: 损失列表为空，无法绘制Loss曲线！")
         return
 
     plt.figure(figsize=(10, 6))

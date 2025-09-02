@@ -106,9 +106,9 @@ def main_demo():
         success = run_pdebench_demo()
         
     if success:
-        logger.info("🎉 演示成功完成！")
+        logger.info("[OK] 演示成功完成！")
     else:
-        logger.error("❌ 演示失败，请检查配置和数据文件")
+        logger.error("[ERROR] 演示失败，请检查配置和数据文件")
         
     return success
 

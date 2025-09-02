@@ -43,13 +43,13 @@ class ServerLoadingDiagnostic:
         
     def load_config(self) -> Dict[str, Any]:
         """加载配置文件"""
-        logger.info(f"📋 加载配置文件: {self.config_path}")
+        logger.info(f"[INFO] 加载配置文件: {self.config_path}")
         with open(self.config_path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
     
     def log_system_info(self):
         """记录系统信息"""
-        logger.info("🖥️  系统信息诊断")
+        logger.info("[INFO]️  系统信息诊断")
         logger.info("=" * 50)
         
         # CPU信息
@@ -85,21 +85,21 @@ class ServerLoadingDiagnostic:
     
     def test_data_file_access(self) -> Dict[str, Any]:
         """测试数据文件访问性能"""
-        logger.info("📁 数据文件访问测试")
+        logger.info("[INFO] 数据文件访问测试")
         logger.info("-" * 30)
         
         result = {}
         
         # 检查文件是否存在
         if not Path(self.data_path).exists():
-            logger.error(f"❌ 数据文件不存在: {self.data_path}")
+            logger.error(f"[ERROR] 数据文件不存在: {self.data_path}")
             result['file_exists'] = False
             return result
         
         result['file_exists'] = True
         file_size = Path(self.data_path).stat().st_size / 1024**3  # GB
         result['file_size_gb'] = file_size
-        logger.info(f"✅ 文件大小: {file_size:.2f} GB")
+        logger.info(f"[OK] 文件大小: {file_size:.2f} GB")
         
         # 测试文件打开时间
         start_time = time.time()
@@ -107,7 +107,7 @@ class ServerLoadingDiagnostic:
             with h5py.File(self.data_path, 'r') as f:
                 open_time = time.time() - start_time
                 result['file_open_time'] = open_time
-                logger.info(f"📂 文件打开时间: {open_time:.3f} 秒")
+                logger.info(f"[INFO] 文件打开时间: {open_time:.3f} 秒")
                 
                 # 获取数据集信息
                 if 'tensor' in f:
@@ -117,26 +117,26 @@ class ServerLoadingDiagnostic:
                     result['data_shape'] = shape
                     result['data_dtype'] = str(dtype)
                     
-                    logger.info(f"📊 数据形状: {shape}")
-                    logger.info(f"📊 数据类型: {dtype}")
+                    logger.info(f"[INFO] 数据形状: {shape}")
+                    logger.info(f"[INFO] 数据类型: {dtype}")
                     
                     # 估算数据大小
                     estimated_size = np.prod(shape) * np.dtype(dtype).itemsize / 1024**3
                     result['estimated_data_size_gb'] = estimated_size
-                    logger.info(f"📊 估算数据大小: {estimated_size:.2f} GB")
+                    logger.info(f"[INFO] 估算数据大小: {estimated_size:.2f} GB")
                 else:
-                    logger.error("❌ 数据文件中未找到'tensor'键")
+                    logger.error("[ERROR] 数据文件中未找到'tensor'键")
                     result['has_tensor'] = False
                     
         except Exception as e:
-            logger.error(f"❌ 文件访问失败: {e}")
+            logger.error(f"[ERROR] 文件访问失败: {e}")
             result['file_access_error'] = str(e)
         
         return result
     
     def test_sample_loading_speed(self, num_samples: int = 10) -> Dict[str, Any]:
         """测试样本加载速度"""
-        logger.info(f"⚡ 样本加载速度测试 (测试 {num_samples} 个样本)")
+        logger.info(f"[INFO] 样本加载速度测试 (测试 {num_samples} 个样本)")
         logger.info("-" * 30)
         
         result = {}
@@ -156,8 +156,8 @@ class ServerLoadingDiagnostic:
                 result['sequential_loading_time'] = sequential_time
                 result['samples_per_second'] = test_samples / sequential_time
                 
-                logger.info(f"📈 顺序加载 {test_samples} 个样本耗时: {sequential_time:.3f} 秒")
-                logger.info(f"📈 加载速度: {test_samples / sequential_time:.2f} 样本/秒")
+                logger.info(f"[INFO] 顺序加载 {test_samples} 个样本耗时: {sequential_time:.3f} 秒")
+                logger.info(f"[INFO] 加载速度: {test_samples / sequential_time:.2f} 样本/秒")
                 
                 # 测试随机读取
                 indices = np.random.choice(total_samples, test_samples, replace=False)
@@ -173,7 +173,7 @@ class ServerLoadingDiagnostic:
                 logger.info(f"🎲 随机加载速度: {test_samples / random_time:.2f} 样本/秒")
                 
         except Exception as e:
-            logger.error(f"❌ 样本加载测试失败: {e}")
+            logger.error(f"[ERROR] 样本加载测试失败: {e}")
             result['loading_error'] = str(e)
         
         return result
@@ -216,12 +216,12 @@ class ServerLoadingDiagnostic:
                 result['global_max'] = float(global_max)
                 result['sample_size_used'] = actual_sample_size
                 
-                logger.info(f"📊 采样归一化计算耗时: {sampling_time:.3f} 秒")
-                logger.info(f"📊 全局范围: [{global_min:.6f}, {global_max:.6f}]")
+                logger.info(f"[INFO] 采样归一化计算耗时: {sampling_time:.3f} 秒")
+                logger.info(f"[INFO] 全局范围: [{global_min:.6f}, {global_max:.6f}]")
                 
                 # 如果数据集不太大，测试全数据集计算时间
                 if total_samples <= 1000:
-                    logger.info("🔄 测试全数据集归一化计算...")
+                    logger.info("[INFO] 测试全数据集归一化计算...")
                     start_time = time.time()
                     
                     all_samples = []
@@ -241,23 +241,23 @@ class ServerLoadingDiagnostic:
                     result['full_global_min'] = float(full_min)
                     result['full_global_max'] = float(full_max)
                     
-                    logger.info(f"📊 全数据集归一化计算耗时: {full_time:.3f} 秒")
-                    logger.info(f"📊 全数据集范围: [{full_min:.6f}, {full_max:.6f}]")
+                    logger.info(f"[INFO] 全数据集归一化计算耗时: {full_time:.3f} 秒")
+                    logger.info(f"[INFO] 全数据集范围: [{full_min:.6f}, {full_max:.6f}]")
                     
                     # 比较差异
                     min_diff = abs(global_min - full_min)
                     max_diff = abs(global_max - full_max)
-                    logger.info(f"📊 采样vs全数据集差异: min_diff={min_diff:.6f}, max_diff={max_diff:.6f}")
+                    logger.info(f"[INFO] 采样vs全数据集差异: min_diff={min_diff:.6f}, max_diff={max_diff:.6f}")
                 
         except Exception as e:
-            logger.error(f"❌ 归一化计算测试失败: {e}")
+            logger.error(f"[ERROR] 归一化计算测试失败: {e}")
             result['normalization_error'] = str(e)
         
         return result
     
     def test_dataloader_creation(self) -> Dict[str, Any]:
         """测试数据加载器创建时间"""
-        logger.info("🔄 数据加载器创建测试")
+        logger.info("[INFO] 数据加载器创建测试")
         logger.info("-" * 30)
         
         result = {}
@@ -324,14 +324,14 @@ class ServerLoadingDiagnostic:
             result['total_dataloader_test_time'] = total_time
             
         except Exception as e:
-            logger.error(f"❌ 数据加载器测试失败: {e}")
+            logger.error(f"[ERROR] 数据加载器测试失败: {e}")
             result['dataloader_error'] = str(e)
         
         return result
     
     def analyze_bottlenecks(self) -> Dict[str, Any]:
         """分析性能瓶颈"""
-        logger.info("🔍 性能瓶颈分析")
+        logger.info("[INFO] 性能瓶颈分析")
         logger.info("=" * 50)
         
         analysis = {}
@@ -341,21 +341,21 @@ class ServerLoadingDiagnostic:
             file_result = self.results['file_access']
             if file_result.get('file_open_time', 0) > 1.0:
                 analysis['slow_file_io'] = True
-                logger.warning("⚠️  文件I/O较慢，可能是网络存储或磁盘性能问题")
+                logger.warning("[WARN]  文件I/O较慢，可能是网络存储或磁盘性能问题")
         
         # 分析样本加载性能
         if 'sample_loading' in self.results:
             loading_result = self.results['sample_loading']
             if loading_result.get('samples_per_second', 0) < 10:
                 analysis['slow_sample_loading'] = True
-                logger.warning("⚠️  样本加载速度较慢，建议启用懒加载")
+                logger.warning("[WARN]  样本加载速度较慢，建议启用懒加载")
         
         # 分析归一化计算
         if 'normalization' in self.results:
             norm_result = self.results['normalization']
             if norm_result.get('sampling_normalization_time', 0) > 5.0:
                 analysis['slow_normalization'] = True
-                logger.warning("⚠️  归一化计算较慢，建议使用采样方式或缓存结果")
+                logger.warning("[WARN]  归一化计算较慢，建议使用采样方式或缓存结果")
         
         # 分析数据加载器配置
         if 'dataloader' in self.results:
@@ -364,7 +364,7 @@ class ServerLoadingDiagnostic:
                               key=lambda x: dl_result[x], default=None)
             if high_workers and dl_result[high_workers] > 10.0:
                 analysis['slow_dataloader_creation'] = True
-                logger.warning("⚠️  数据加载器创建较慢，建议减少num_workers")
+                logger.warning("[WARN]  数据加载器创建较慢，建议减少num_workers")
         
         return analysis
     
@@ -412,7 +412,7 @@ class ServerLoadingDiagnostic:
     
     def run_full_diagnosis(self):
         """运行完整诊断"""
-        logger.info("🚀 开始服务器加载性能诊断")
+        logger.info("[INFO] 开始服务器加载性能诊断")
         logger.info("=" * 60)
         
         # 系统信息
@@ -438,7 +438,7 @@ class ServerLoadingDiagnostic:
         
         # 输出总结
         logger.info("\n" + "=" * 60)
-        logger.info("📋 诊断总结")
+        logger.info("[INFO] 诊断总结")
         logger.info("=" * 60)
         
         logger.info("🔧 优化建议:")
@@ -448,7 +448,7 @@ class ServerLoadingDiagnostic:
         # 生成快速修复配置
         self.generate_quick_fix_config()
         
-        logger.info("\n✅ 诊断完成！请查看 server_diagnosis.log 获取详细信息")
+        logger.info("\n[OK] 诊断完成！请查看 server_diagnosis.log 获取详细信息")
     
     def generate_quick_fix_config(self):
         """生成快速修复配置文件"""
@@ -480,8 +480,8 @@ class ServerLoadingDiagnostic:
         with open(output_path, 'w', encoding='utf-8') as f:
             yaml.dump(optimized_config, f, default_flow_style=False, allow_unicode=True)
         
-        logger.info(f"💾 快速修复配置已保存到: {output_path}")
-        logger.info("🚀 使用命令测试: python dynamic_resolution_trainer.py --config dynamic_config_server_quick_fix.yaml")
+        logger.info(f"[INFO] 快速修复配置已保存到: {output_path}")
+        logger.info("[INFO] 使用命令测试: python dynamic_resolution_trainer.py --config dynamic_config_server_quick_fix.yaml")
 
 def main():
     parser = argparse.ArgumentParser(description='服务器数据加载性能诊断工具')
@@ -492,7 +492,7 @@ def main():
     args = parser.parse_args()
     
     if not Path(args.config).exists():
-        logger.error(f"❌ 配置文件不存在: {args.config}")
+        logger.error(f"[ERROR] 配置文件不存在: {args.config}")
         sys.exit(1)
     
     # 运行诊断

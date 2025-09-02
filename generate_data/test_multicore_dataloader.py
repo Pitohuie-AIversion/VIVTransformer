@@ -59,7 +59,7 @@ def monitor_cpu_usage(duration=30, interval=1):
 def test_dataloader_performance(num_workers_list=[0, 1, 4, 8, 16, 32, 64]):
     """测试不同num_workers设置下的数据加载性能"""
     
-    logger.info(f"🖥️ 系统信息: CPU核心数={os.cpu_count()}, 内存={psutil.virtual_memory().total // (1024**3)}GB")
+    logger.info(f"[INFO]️ 系统信息: CPU核心数={os.cpu_count()}, 内存={psutil.virtual_memory().total // (1024**3)}GB")
     
     # 创建测试数据集
     dataset = DummyDataset(size=200, data_shape=(32, 32))
@@ -68,10 +68,10 @@ def test_dataloader_performance(num_workers_list=[0, 1, 4, 8, 16, 32, 64]):
     
     for num_workers in num_workers_list:
         if num_workers > os.cpu_count():
-            logger.warning(f"⚠️ 跳过num_workers={num_workers}，超过CPU核心数{os.cpu_count()}")
+            logger.warning(f"[WARN] 跳过num_workers={num_workers}，超过CPU核心数{os.cpu_count()}")
             continue
             
-        logger.info(f"\n🧪 测试 num_workers={num_workers}")
+        logger.info(f"\n[TEST] 测试 num_workers={num_workers}")
         
         # 创建数据加载器
         dataloader = DataLoader(
@@ -109,10 +109,10 @@ def test_dataloader_performance(num_workers_list=[0, 1, 4, 8, 16, 32, 64]):
                 'samples_per_second': (batch_count * 16) / elapsed_time
             }
             
-            logger.info(f"✅ num_workers={num_workers}: {elapsed_time:.2f}秒, {results[num_workers]['batches_per_second']:.2f} batches/s")
+            logger.info(f"[OK] num_workers={num_workers}: {elapsed_time:.2f}秒, {results[num_workers]['batches_per_second']:.2f} batches/s")
             
         except Exception as e:
-            logger.error(f"❌ num_workers={num_workers} 测试失败: {e}")
+            logger.error(f"[ERROR] num_workers={num_workers} 测试失败: {e}")
             results[num_workers] = {'error': str(e)}
         
         # 等待CPU监控线程结束
@@ -146,16 +146,16 @@ def test_automatic_optimization():
     if num_workers == 0 and cpu_count > 4:
         if cpu_count >= 64:  # 超级服务器
             num_workers = min(64, cpu_count // 3)
-            logger.info(f"🚀 超级服务器优化: 设置num_workers={num_workers} (使用1/3核心)")
+            logger.info(f"[INFO] 超级服务器优化: 设置num_workers={num_workers} (使用1/3核心)")
         else:  # 普通服务器
             num_workers = min(16, cpu_count // 2)
-            logger.info(f"🚀 普通服务器优化: 设置num_workers={num_workers} (使用1/2核心)")
+            logger.info(f"[INFO] 普通服务器优化: 设置num_workers={num_workers} (使用1/2核心)")
     
     return num_workers
 
 def main():
     """主函数"""
-    logger.info("🚀 开始多核数据加载器测试")
+    logger.info("[INFO] 开始多核数据加载器测试")
     
     # 设置多进程启动方法
     try:
@@ -163,7 +163,7 @@ def main():
             mp.set_start_method('spawn', force=True)
             logger.info("🔧 设置多进程启动方法为spawn")
     except RuntimeError:
-        logger.warning("⚠️ 无法设置多进程启动方法")
+        logger.warning("[WARN] 无法设置多进程启动方法")
     
     # 测试自动优化逻辑
     optimal_workers = test_automatic_optimization()
@@ -179,12 +179,12 @@ def main():
     
     test_workers = sorted(list(set(test_workers)))
     
-    logger.info(f"\n📊 将测试以下num_workers设置: {test_workers}")
+    logger.info(f"\n[INFO] 将测试以下num_workers设置: {test_workers}")
     
     results = test_dataloader_performance(test_workers)
     
     # 输出结果总结
-    logger.info("\n📈 性能测试结果总结:")
+    logger.info("\n[INFO] 性能测试结果总结:")
     logger.info("-" * 60)
     logger.info(f"{'num_workers':<12} {'时间(秒)':<10} {'批次/秒':<10} {'样本/秒':<10}")
     logger.info("-" * 60)
@@ -203,11 +203,11 @@ def main():
         
         # 给出建议
         if best_config[0] == 0:
-            logger.info("💡 建议: 单进程模式最优，可能是数据处理较轻或存在进程开销")
+            logger.info("[TIP] 建议: 单进程模式最优，可能是数据处理较轻或存在进程开销")
         elif best_config[0] == optimal_workers:
-            logger.info("💡 建议: 自动优化设置已是最佳配置")
+            logger.info("[TIP] 建议: 自动优化设置已是最佳配置")
         else:
-            logger.info(f"💡 建议: 考虑将配置文件中的num_workers设为{best_config[0]}")
+            logger.info(f"[TIP] 建议: 考虑将配置文件中的num_workers设为{best_config[0]}")
 
 if __name__ == "__main__":
     main()

@@ -33,15 +33,15 @@ def run_command(cmd, description):
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=Path(__file__).parent)
         
         if result.returncode == 0:
-            logger.info(f"✅ {description} 成功完成")
+            logger.info("[OK] {description} 成功完成")
             if result.stdout:
                 logger.info(f"输出: {result.stdout[-500:]}...")  # 显示最后500字符
         else:
-            logger.error(f"❌ {description} 失败")
+            logger.error("[ERROR] {description} 失败")
             logger.error(f"错误: {result.stderr}")
             
     except Exception as e:
-        logger.error(f"❌ 执行 {description} 时出错: {str(e)}")
+        logger.error("[ERROR] 执行 {description} 时出错: {str(e)}")
 
 def demo_command_line_usage():
     """
@@ -246,7 +246,7 @@ def main():
     """
     主函数
     """
-    logger.info("🚀 动态分辨率训练器演示开始")
+    logger.info("[INFO] 动态分辨率训练器演示开始")
     
     # 显示使用示例
     show_usage_examples()
@@ -267,7 +267,7 @@ def main():
         # 演示3: 不同分辨率
         demo_different_resolutions()
         
-        logger.info("\n🎉 所有演示完成!")
+        logger.info("\n[OK] 所有演示完成!")
     else:
         logger.info("演示已跳过，请参考上面的使用示例。")
     

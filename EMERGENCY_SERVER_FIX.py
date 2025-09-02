@@ -25,7 +25,7 @@ def print_header():
 
 def check_environment():
     """检查环境信息"""
-    print("\n📋 环境检查:")
+    print("\n[INFO] 环境检查:")
     print("-" * 40)
     
     # Python版本
@@ -66,7 +66,7 @@ def backup_file(file_path):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = f"{file_path}.emergency_backup_{timestamp}"
     shutil.copy2(file_path, backup_path)
-    print(f"✅ 已创建紧急备份: {backup_path}")
+    print(f"[OK] 已创建紧急备份: {backup_path}")
     return backup_path
 
 def clean_python_cache():
@@ -91,7 +91,7 @@ def clean_python_cache():
             shutil.rmtree(cache_dir)
             print(f"🗑️ 删除缓存目录: {cache_dir}")
         except Exception as e:
-            print(f"⚠️ 无法删除 {cache_dir}: {e}")
+            print(f"[WARN] 无法删除 {cache_dir}: {e}")
     
     # 删除.pyc文件
     for pyc_file in pyc_files:
@@ -99,9 +99,9 @@ def clean_python_cache():
             os.remove(pyc_file)
             print(f"🗑️ 删除.pyc文件: {pyc_file}")
         except Exception as e:
-            print(f"⚠️ 无法删除 {pyc_file}: {e}")
+            print(f"[WARN] 无法删除 {pyc_file}: {e}")
     
-    print(f"✅ 清理完成: {len(cache_dirs)}个缓存目录, {len(pyc_files)}个.pyc文件")
+    print(f"[OK] 清理完成: {len(cache_dirs)}个缓存目录, {len(pyc_files)}个.pyc文件")
 
 def apply_emergency_fix(trainer_path):
     """应用紧急修复"""
@@ -113,7 +113,7 @@ def apply_emergency_fix(trainer_path):
     
     # 检查是否已经修复
     if "if not isinstance(model, torch.nn.DataParallel):" in content:
-        print("✅ 文件已包含修复代码")
+        print("[OK] 文件已包含修复代码")
         return True
     
     # 查找需要修复的行
@@ -138,7 +138,7 @@ def apply_emergency_fix(trainer_path):
             fixed_lines.append(line)
     
     if not fix_applied:
-        print("❌ 未找到需要修复的代码行")
+        print("[ERROR] 未找到需要修复的代码行")
         return False
     
     # 写入修复后的内容
@@ -146,24 +146,24 @@ def apply_emergency_fix(trainer_path):
     with open(trainer_path, 'w', encoding='utf-8') as f:
         f.write(fixed_content)
     
-    print("✅ 紧急修复应用成功")
+    print("[OK] 紧急修复应用成功")
     return True
 
 def verify_fix(trainer_path):
     """验证修复"""
-    print("\n🔍 验证修复...")
+    print("\n[INFO] 验证修复...")
     
     with open(trainer_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
     if "if not isinstance(model, torch.nn.DataParallel):" in content:
-        print("✅ 修复验证成功: 找到DataParallel检查代码")
+        print("[OK] 修复验证成功: 找到DataParallel检查代码")
         
         # 显示修复后的代码
         lines = content.split('\n')
         for i, line in enumerate(lines):
             if "if not isinstance(model, torch.nn.DataParallel):" in line:
-                print("\n📝 修复后的代码:")
+                print("\n[INFO] 修复后的代码:")
                 print("-" * 50)
                 start = max(0, i-1)
                 end = min(len(lines), i+4)
@@ -175,7 +175,7 @@ def verify_fix(trainer_path):
         
         return True
     else:
-        print("❌ 修复验证失败: 未找到DataParallel检查代码")
+        print("[ERROR] 修复验证失败: 未找到DataParallel检查代码")
         return False
 
 def create_test_script():
@@ -191,36 +191,36 @@ import os
 sys.path.append('.')
 sys.path.append('./modify_multi_attention')
 
-print("🧪 测试DataParallel修复...")
+print("[TEST] 测试DataParallel修复...")
 
 try:
     from modify_multi_attention.training.trainer import train_model
-    print("✅ 成功导入trainer模块")
+    print("[OK] 成功导入trainer模块")
     
     # 检查CUDA
     if torch.cuda.is_available():
-        print(f"✅ CUDA可用, GPU数量: {torch.cuda.device_count()}")
+        print(f"[OK] CUDA可用, GPU数量: {torch.cuda.device_count()}")
         
         # 创建简单模型测试
         model = torch.nn.Linear(10, 1)
         if torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(model)
-            print("✅ DataParallel模型创建成功")
+            print("[OK] DataParallel模型创建成功")
         
         # 测试设备移动
         device = torch.device('cuda')
         if not isinstance(model, torch.nn.DataParallel):
             model.to(device)
-            print("✅ 单GPU模型移动成功")
+            print("[OK] 单GPU模型移动成功")
         else:
-            print("✅ DataParallel模型跳过设备移动")
+            print("[OK] DataParallel模型跳过设备移动")
         
-        print("🎉 修复测试通过!")
+        print("[OK] 修复测试通过!")
     else:
-        print("⚠️ CUDA不可用，无法完整测试")
+        print("[WARN] CUDA不可用，无法完整测试")
         
 except Exception as e:
-    print(f"❌ 测试失败: {e}")
+    print(f"[ERROR] 测试失败: {e}")
     import traceback
     traceback.print_exc()
 """
@@ -228,7 +228,7 @@ except Exception as e:
     with open('test_fix.py', 'w', encoding='utf-8') as f:
         f.write(test_script)
     
-    print("\n📝 已创建测试脚本: test_fix.py")
+    print("\n[INFO] 已创建测试脚本: test_fix.py")
     print("   运行测试: python test_fix.py")
 
 def main():
@@ -241,11 +241,11 @@ def main():
     # 查找trainer.py
     trainer_path = find_trainer_file()
     if not trainer_path:
-        print("\n❌ 错误: 未找到trainer.py文件")
+        print("\n[ERROR] 错误: 未找到trainer.py文件")
         print("请确保在正确的项目目录中运行此脚本")
         return False
     
-    print(f"\n📁 找到trainer.py: {trainer_path}")
+    print(f"\n[INFO] 找到trainer.py: {trainer_path}")
     
     # 备份文件
     backup_path = backup_file(trainer_path)
@@ -255,12 +255,12 @@ def main():
     
     # 应用修复
     if not apply_emergency_fix(trainer_path):
-        print("\n❌ 紧急修复失败")
+        print("\n[ERROR] 紧急修复失败")
         return False
     
     # 验证修复
     if not verify_fix(trainer_path):
-        print("\n❌ 修复验证失败")
+        print("\n[ERROR] 修复验证失败")
         return False
     
     # 创建测试脚本
@@ -268,14 +268,14 @@ def main():
     
     # 成功信息
     print("\n" + "=" * 80)
-    print("🎉 紧急修复完成!")
+    print("[OK] 紧急修复完成!")
     print("=" * 80)
-    print("\n📋 接下来的步骤:")
+    print("\n[INFO] 接下来的步骤:")
     print("1. 运行测试: python test_fix.py")
     print("2. 重新运行训练:")
     print("   python generate_data/dynamic_resolution_trainer.py --config dynamic_config.yaml")
-    print("\n🔍 预期结果:")
-    print("- 🚀 启用多GPU训练: 检测到 X 张GPU")
+    print("\n[INFO] 预期结果:")
+    print("- [INFO] 启用多GPU训练: 检测到 X 张GPU")
     print("- 训练正常进行，无设备错误")
     print("\n📞 如果仍有问题:")
     print("- 检查Python环境和PyTorch版本")
@@ -289,10 +289,10 @@ if __name__ == "__main__":
         success = main()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
-        print("\n\n⚠️ 用户中断操作")
+        print("\n\n[WARN] 用户中断操作")
         sys.exit(1)
     except Exception as e:
-        print(f"\n\n❌ 意外错误: {e}")
+        print(f"\n\n[ERROR] 意外错误: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

@@ -59,58 +59,58 @@ def test_smart_optimization():
                 # 降采样需要更多CPU计算，使用更多worker
                 if cpu_count >= 64:  # 超级服务器
                     num_workers = min(max_workers, max(8, cpu_count // 6))  # 使用1/6核心，最少8个
-                    logger.info(f"🎯 超级服务器降采样模式: {cpu_count}核 → {num_workers}个worker (1/6核心)")
+                    logger.info(f"[INFO] 超级服务器降采样模式: {cpu_count}核 → {num_workers}个worker (1/6核心)")
                 else:  # 普通服务器
                     num_workers = min(max_workers, max(4, cpu_count // 4))  # 使用1/4核心，最少4个
-                    logger.info(f"🎯 普通服务器降采样模式: {cpu_count}核 → {num_workers}个worker (1/4核心)")
+                    logger.info(f"[INFO] 普通服务器降采样模式: {cpu_count}核 → {num_workers}个worker (1/4核心)")
             else:
                 # 简单裁剪操作，使用较少worker避免进程开销
                 if batch_size >= 64:  # 大批次可以受益于并行
                     num_workers = min(max_workers, max(2, cpu_count // 8))  # 使用1/8核心，最少2个
-                    logger.info(f"🎯 大批次裁剪模式: {cpu_count}核 → {num_workers}个worker (1/8核心)")
+                    logger.info(f"[INFO] 大批次裁剪模式: {cpu_count}核 → {num_workers}个worker (1/8核心)")
                 else:  # 小批次使用单进程
                     num_workers = max(min_workers, 0)
-                    logger.info(f"🎯 小批次裁剪模式: {cpu_count}核 → {num_workers}个worker (单进程)")
+                    logger.info(f"[INFO] 小批次裁剪模式: {cpu_count}核 → {num_workers}个worker (单进程)")
         else:
             # 传统优化策略
             if cpu_count >= 64:  # 超级服务器
                 num_workers = min(max_workers, cpu_count // 3)  # 使用1/3的核心
-                logger.info(f"🚀 传统超级服务器模式: {cpu_count}核 → {num_workers}个worker (1/3核心)")
+                logger.info(f"[INFO] 传统超级服务器模式: {cpu_count}核 → {num_workers}个worker (1/3核心)")
             else:  # 普通服务器
                 num_workers = min(max_workers, cpu_count // 2)  # 使用1/2的核心
-                logger.info(f"🚀 传统普通服务器模式: {cpu_count}核 → {num_workers}个worker (1/2核心)")
+                logger.info(f"[INFO] 传统普通服务器模式: {cpu_count}核 → {num_workers}个worker (1/2核心)")
         
         # 确保在合理范围内
         final_workers = max(min_workers, min(max_workers, num_workers))
         
         if final_workers != num_workers:
-            logger.info(f"⚠️ 调整到合理范围: {num_workers} → {final_workers}")
+            logger.info(f"[WARN] 调整到合理范围: {num_workers} → {final_workers}")
             num_workers = final_workers
         
-        logger.info(f"🚀 最终设置: num_workers={num_workers}")
+        logger.info(f"[INFO] 最终设置: num_workers={num_workers}")
         
         # 分析结果
         cpu_utilization = (num_workers / cpu_count) * 100
-        logger.info(f"📊 预期CPU利用率: {cpu_utilization:.1f}% ({num_workers}/{cpu_count}核心)")
+        logger.info(f"[INFO] 预期CPU利用率: {cpu_utilization:.1f}% ({num_workers}/{cpu_count}核心)")
         
         if num_workers == 0:
-            logger.info("💡 建议: 单进程模式，适合轻量级数据处理")
+            logger.info("[TIP] 建议: 单进程模式，适合轻量级数据处理")
         elif num_workers <= 4:
-            logger.info("💡 建议: 低并行度，适合简单数据处理")
+            logger.info("[TIP] 建议: 低并行度，适合简单数据处理")
         elif num_workers <= 16:
-            logger.info("💡 建议: 中等并行度，适合中等复杂度数据处理")
+            logger.info("[TIP] 建议: 中等并行度，适合中等复杂度数据处理")
         else:
-            logger.info("💡 建议: 高并行度，适合复杂数据处理（如降采样）")
+            logger.info("[TIP] 建议: 高并行度，适合复杂数据处理（如降采样）")
     
     else:
-        logger.info("ℹ️ 不满足自动优化条件，使用配置文件设置")
+        logger.info("[INFO] 不满足自动优化条件，使用配置文件设置")
     
     return num_workers
 
 def test_different_scenarios():
     """测试不同场景下的优化结果"""
     
-    logger.info("\n🧪 测试不同场景下的智能优化")
+    logger.info("\n[TEST] 测试不同场景下的智能优化")
     
     scenarios = [
         {
@@ -143,7 +143,7 @@ def test_different_scenarios():
     logger.info("-" * 60)
     
     for scenario in scenarios:
-        logger.info(f"\n📋 场景: {scenario['name']}")
+        logger.info(f"\n[INFO] 场景: {scenario['name']}")
         
         use_downsampling = scenario['downsampling']
         batch_size = scenario['batch_size']
@@ -171,7 +171,7 @@ def test_different_scenarios():
 
 def main():
     """主函数"""
-    logger.info("🚀 开始智能优化测试")
+    logger.info("[INFO] 开始智能优化测试")
     
     # 测试当前配置
     optimal_workers = test_smart_optimization()
@@ -179,7 +179,7 @@ def main():
     # 测试不同场景
     test_different_scenarios()
     
-    logger.info("\n✅ 智能优化测试完成")
+    logger.info("\n[OK] 智能优化测试完成")
     logger.info(f"当前配置推荐: {optimal_workers}个worker")
 
 if __name__ == "__main__":

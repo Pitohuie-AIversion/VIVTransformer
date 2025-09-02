@@ -127,7 +127,7 @@ def demo_svd_reconstruction(output_dir: Path):
     dataset.reconstruct_output = reconstruct_output.__get__(dataset, MockDataset)
     dataset.reconstruct_input = reconstruct_input.__get__(dataset, MockDataset)
     
-    logger.info("✅ 数据集实例已配置 SVD 反投影方法")
+    logger.info("[OK] 数据集实例已配置 SVD 反投影方法")
     
     # 4. 进行前向投影
     logger.info("4. 进行前向投影...")
@@ -277,7 +277,7 @@ def demo_svd_reconstruction(output_dir: Path):
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     # plt.show()  # 使用非交互式后端时无需显示
     
-    logger.info(f"📊 可视化结果已保存: {save_path}")
+    logger.info(f"可视化结果已保存: {save_path}")
     
     # 9. 保存演示结果
     logger.info("9. 保存演示结果...")
@@ -296,12 +296,12 @@ def demo_svd_reconstruction(output_dir: Path):
     with open(results_path, 'w') as f:
         json.dump(results, f, indent=2)
     
-    logger.info(f"📊 演示结果已保存: {results_path}")
+    logger.info(f"演示结果已保存: {results_path}")
     
-    logger.info("🎉 SVD 反投影功能演示完成!")
-    logger.info(f"✅ 压缩比: {compression_ratio:.1f}x")
-    logger.info(f"✅ 输入重建相对误差: {input_relative_error:.4f}")
-    logger.info(f"✅ 输出重建相对误差: {output_relative_error:.4f}")
+    logger.info("[OK] SVD 反投影功能演示完成!")
+    logger.info(f"[OK] 压缩比: {compression_ratio:.1f}x")
+    logger.info(f"[OK] 输入重建相对误差: {input_relative_error:.4f}")
+    logger.info(f"[OK] 输出重建相对误差: {output_relative_error:.4f}")
 
 def main():
     """主函数"""

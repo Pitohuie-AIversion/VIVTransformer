@@ -83,12 +83,12 @@ def test_per_mode_similarity():
             svg_exists = svg_path.exists()
             
             print(f"  模态 {mode_idx}:")
-            print(f"    PNG: {'✓' if png_exists else '✗'} {png_path}")
+            print(f"    PNG: {'[OK]' if png_exists else '[FAIL]'} {png_path}")
             if png_exists:
                 png_size = png_path.stat().st_size
                 print(f"         大小: {png_size:,} 字节")
             
-            print(f"    SVG: {'✓' if svg_exists else '✗'} {svg_path}")
+            print(f"    SVG: {'[OK]' if svg_exists else '[FAIL]'} {svg_path}")
             if svg_exists:
                 svg_size = svg_path.stat().st_size
                 print(f"         大小: {svg_size:,} 字节")
@@ -144,7 +144,7 @@ def test_font_warnings():
             for warning in font_warnings:
                 print(f"  - {warning.message}")
         else:
-            print("✓ 没有检测到字体相关警告")
+            print("[OK] 没有检测到字体相关警告")
         
         # 清理测试文件
         if os.path.exists(test_png):
@@ -162,13 +162,13 @@ if __name__ == "__main__":
     main_ok = test_per_mode_similarity()
     
     if main_ok and font_ok:
-        print("\n🎉 所有测试通过！修复成功！")
+        print("\n[OK] 所有测试通过！修复成功！")
         exit_code = 0
     elif main_ok:
-        print("\n⚠️  主功能正常，但仍有字体警告")
+        print("\n[WARN]  主功能正常，但仍有字体警告")
         exit_code = 1
     else:
-        print("\n❌ 测试失败")
+        print("\n[ERROR] 测试失败")
         exit_code = 2
     
     sys.exit(exit_code)

@@ -38,10 +38,10 @@ def test_module_import():
         from pde_process.resolution_downsampler.resolution_downsampler import (
             ResolutionDownsampler, DownsampledResolutionDataset
         )
-        logger.info("✅ 降分辨率模块导入成功")
+        logger.info("[OK] 降分辨率模块导入成功")
         return True
     except ImportError as e:
-        logger.error(f"❌ 降分辨率模块导入失败: {e}")
+        logger.error(f"[ERROR] 降分辨率模块导入失败: {e}")
         return False
 
 def test_config_loading():
@@ -59,14 +59,14 @@ def test_config_loading():
         assert 'downsampling' in config['data']
         assert config['data']['downsampling']['enabled'] == True
         
-        logger.info("✅ 配置文件加载成功")
+        logger.info("[OK] 配置文件加载成功")
         logger.info(f"降采样方法: {config['data']['downsampling']['method']}")
         logger.info(f"输入分辨率: {config['data']['input_resolution']}")
         logger.info(f"输出分辨率: {config['data']['output_resolution']}")
         
         return config
     except Exception as e:
-        logger.error(f"❌ 配置文件加载失败: {e}")
+        logger.error(f"[ERROR] 配置文件加载失败: {e}")
         return None
 
 def test_config_validation():
@@ -95,13 +95,13 @@ def test_config_validation():
         is_valid = validate_config(test_config)
         
         if is_valid:
-            logger.info("✅ 配置验证通过")
+            logger.info("[OK] 配置验证通过")
         else:
-            logger.error("❌ 配置验证失败")
+            logger.error("[ERROR] 配置验证失败")
         
         return is_valid
     except Exception as e:
-        logger.error(f"❌ 配置验证测试失败: {e}")
+        logger.error(f"[ERROR] 配置验证测试失败: {e}")
         return False
 
 def test_dataset_creation():
@@ -143,7 +143,7 @@ def test_dataset_creation():
         # 测试数据加载
         sample_input, sample_output, sample_idx = downsampled_dataset[0]
         
-        logger.info(f"✅ 降采样数据集创建成功")
+        logger.info("[OK] 降采样数据集创建成功")
         logger.info(f"输入形状: {sample_input.shape}")
         logger.info(f"输出形状: {sample_output.shape}")
         logger.info(f"数据集长度: {len(downsampled_dataset)}")
@@ -155,7 +155,7 @@ def test_dataset_creation():
         
         return True
     except Exception as e:
-        logger.error(f"❌ 数据集创建测试失败: {e}")
+        logger.error(f"[ERROR] 数据集创建测试失败: {e}")
         return False
 
 def test_data_loader_integration():
@@ -195,12 +195,12 @@ def test_data_loader_integration():
             }
         }
         
-        logger.info("✅ 数据加载器集成逻辑测试通过")
+        logger.info("[OK] 数据加载器集成逻辑测试通过")
         logger.info("注意: 实际数据加载需要有效的数据文件")
         
         return True
     except Exception as e:
-        logger.error(f"❌ 数据加载器集成测试失败: {e}")
+        logger.error(f"[ERROR] 数据加载器集成测试失败: {e}")
         return False
 
 def test_downsampler_methods():
@@ -226,18 +226,18 @@ def test_downsampler_methods():
                 
                 result = downsampler.downsample_data(test_data, target_size)
                 
-                logger.info(f"✅ {method} 方法测试成功，输出形状: {result.shape}")
+                logger.info(f"[OK] {method} 方法测试成功，输出形状: {result.shape}")
             except Exception as e:
-                logger.warning(f"⚠️ {method} 方法测试失败: {e}")
+                logger.warning(f"[WARN] {method} 方法测试失败: {e}")
         
         return True
     except Exception as e:
-        logger.error(f"❌ 降采样方法测试失败: {e}")
+        logger.error(f"[ERROR] 降采样方法测试失败: {e}")
         return False
 
 def main():
     """主测试函数"""
-    logger.info("🚀 开始降采样集成测试")
+    logger.info("[INFO] 开始降采样集成测试")
     
     test_results = {
         'module_import': test_module_import(),
@@ -254,21 +254,19 @@ def main():
     
     logger.info("=== 测试结果汇总 ===")
     for test_name, result in test_results.items():
-        status = "✅ 通过" if result else "❌ 失败"
+        status = "[OK] 通过" if result else "[ERROR] 失败"
         logger.info(f"{test_name}: {status}")
     
     logger.info(f"总体结果: {passed}/{total} 测试通过")
     
     if passed == total:
-        logger.info("🎉 所有测试通过！降采样功能集成成功")
-        logger.info("")
-        logger.info("📋 使用说明:")
+        logger.info("[INFO] 使用说明:")
         logger.info("1. 在配置文件中设置 data.downsampling.enabled: true")
         logger.info("2. 选择合适的降采样方法 (bilinear, bicubic, nearest, area, lanczos)")
         logger.info("3. 运行训练器: python dynamic_resolution_trainer.py --config dynamic_config_downsampling_demo.yaml")
         return True
     else:
-        logger.error(f"❌ {total - passed} 个测试失败，请检查配置")
+        logger.error(f"[ERROR] {total - passed} 个测试失败，请检查配置")
         return False
 
 if __name__ == "__main__":

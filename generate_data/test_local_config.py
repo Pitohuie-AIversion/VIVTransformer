@@ -133,17 +133,17 @@ def validate_local_config(config):
     
     # 输出结果
     if issues:
-        print("❌ 发现问题:")
+        print("[ERROR] 发现问题:")
         for issue in issues:
             print(f"  - {issue}")
     
     if warnings:
-        print("⚠️  警告:")
+        print("[WARN]  警告:")
         for warning in warnings:
             print(f"  - {warning}")
     
     if not issues and not warnings:
-        print("✅ 配置验证通过")
+        print("[OK] 配置验证通过")
     
     print()
     
@@ -203,11 +203,11 @@ def main():
     
     # 检查配置文件是否存在
     if not local_config_path.exists():
-        print(f"❌ 本地配置文件不存在: {local_config_path}")
+        print(f"[ERROR] 本地配置文件不存在: {local_config_path}")
         return
     
     if not server_config_path.exists():
-        print(f"⚠️  服务器配置文件不存在: {server_config_path}")
+        print(f"[WARN]  服务器配置文件不存在: {server_config_path}")
         server_config = None
     else:
         server_config = load_config(server_config_path)
@@ -228,11 +228,11 @@ def main():
     # 总结
     print("=== 总结 ===")
     if is_valid:
-        print("✅ 本地配置可以使用")
-        print("💡 建议先用小数据集测试训练流程")
-        print("📝 可以根据实际性能调整参数")
+        print("[OK] 本地配置可以使用")
+        print("[TIP] 建议先用小数据集测试训练流程")
+        print("[INFO] 可以根据实际性能调整参数")
     else:
-        print("❌ 本地配置存在问题，请修复后再使用")
+        print("[ERROR] 本地配置存在问题，请修复后再使用")
     
     print("\n使用方法:")
     print(f"python dynamic_resolution_trainer.py --config {local_config_path.name}")

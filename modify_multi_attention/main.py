@@ -95,6 +95,10 @@ def main():
     parser.add_argument("--seq-len", dest="seq_len", type=int, help="Override model.seq_len for quick tests")
     parser.add_argument("--input-hw", type=str, help="Override model.input_hw as 'HxW' or 'H,W'")
     
+    # 新增：输出头类型与逐token通道数覆盖
+    parser.add_argument("--output-head-type", dest="output_head_type", choices=["global", "per_token"], help="Override model.output_head_type")
+    parser.add_argument("--out-channels-per-token", dest="out_channels_per_token", type=int, help="Override model.out_channels_per_token")
+    
     # 新增：限制运行的 loss_config 个数（从头开始取前 N 个），便于快速回归
     parser.add_argument(
         "--limit-loss-configs",
@@ -192,6 +196,39 @@ def main():
                 overrides["model.input_hw"] = (h, w)
         except Exception as _:
             pass
+
+    # 新增：应用输出头与逐token通道的命令行覆盖
+    if getattr(args, "output_head_type", None):
+        cfg["model"]["output_head_type"] = args.output_head_type
+        overrides["model.output_head_type"] = args.output_head_type
+    if getattr(args, "out_channels_per_token", None) is not None:
+        cfg["model"]["out_channels_per_token"] = args.out_channels_per_token
+        overrides["model.out_channels_per_token"] = args.out_channels_per_token
+
+    # 当选择 per_token 输出头时，自动推导并覆盖 output_dim = seq_len * C
+    try:
+        head = cfg["model"].get("output_head_type", "global")
+        if head == "per_token":
+            C = cfg["model"].get("out_channels_per_token")
+            if C is None:
+                log.warning("per_token 输出头已选择，但未设置 out_channels_per_token，默认使用 1")
+                C = 1
+                cfg["model"]["out_channels_per_token"] = C
+            # 优先使用 input_hw 推导 seq_len；否则回退到显式 seq_len
+            ihw = cfg["model"].get("input_hw")
+            if ihw and isinstance(ihw, (list, tuple)) and len(ihw) == 2:
+                seq_len_auto = int(ihw[0]) * int(ihw[1])
+            else:
+                seq_len_auto = cfg["model"].get("seq_len")
+            if seq_len_auto is not None:
+                out_dim_auto = int(seq_len_auto) * int(C)
+                if cfg["model"].get("output_dim") != out_dim_auto:
+                    cfg["model"]["output_dim"] = out_dim_auto
+                    overrides["model.output_dim(auto)"] = out_dim_auto
+            else:
+                log.warning("无法自动推导 seq_len（缺少 input_hw 与 seq_len），未调整 output_dim")
+    except Exception as _auto_err:
+        log.debug("自动调整 output_dim 失败: %s", _auto_err)
 
     if overrides:
         log.info("使用命令行覆盖配置: %s", overrides)
@@ -294,7 +331,10 @@ def main():
                     max_time_steps=cfg["model"]["max_time_steps"],
                     attention_type=attn_type,
                     seq_len=cfg["model"].get("seq_len", 32),  # 默认使用32而不是49
-                    input_hw=tuple(cfg["model"].get("input_hw")) if cfg["model"].get("input_hw") else None
+                    input_hw=tuple(cfg["model"].get("input_hw")) if cfg["model"].get("input_hw") else None,
+                    pe_type=cfg["model"].get("pe_type", "learnable_1d"),
+                    output_head_type=cfg["model"].get("output_head_type", "global"),
+                    out_channels_per_token=cfg["model"].get("out_channels_per_token")
                 )
 
                 if cfg.get("use_dataparallel", False) and torch.cuda.device_count() > 1:

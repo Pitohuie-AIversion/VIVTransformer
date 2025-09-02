@@ -44,7 +44,7 @@ class ServerEnvironmentSetup:
         """
         检测系统资源
         """
-        logger.info("🔍 检测系统资源...")
+        logger.info("[INFO] 检测系统资源...")
         
         # CPU信息
         cpu_count = psutil.cpu_count(logical=True)
@@ -69,13 +69,13 @@ class ServerEnvironmentSetup:
             'platform': sys.platform
         }
         
-        logger.info(f"💻 CPU核心数: {cpu_count}")
-        logger.info(f"💻 CPU使用率: {cpu_usage:.1f}%")
-        logger.info(f"💾 总内存: {total_memory_gb:.1f}GB")
-        logger.info(f"💾 可用内存: {available_memory_gb:.1f}GB")
-        logger.info(f"🚀 GPU可用: {gpu_available}")
-        logger.info(f"🚀 GPU数量: {gpu_count}")
-        logger.info(f"🖥️ 平台: {sys.platform}")
+        logger.info(f"[INFO] CPU核心数: {cpu_count}")
+        logger.info(f"[INFO] CPU使用率: {cpu_usage:.1f}%")
+        logger.info(f"[INFO] 总内存: {total_memory_gb:.1f}GB")
+        logger.info(f"[INFO] 可用内存: {available_memory_gb:.1f}GB")
+        logger.info(f"[INFO] GPU可用: {gpu_available}")
+        logger.info(f"[INFO] GPU数量: {gpu_count}")
+        logger.info(f"[INFO]️ 平台: {sys.platform}")
         
         return self.system_info
     
@@ -83,7 +83,7 @@ class ServerEnvironmentSetup:
         """
         查找可能的数据路径
         """
-        logger.info("🔍 查找数据路径...")
+        logger.info("[INFO] 查找数据路径...")
         
         # 常见的数据路径模式
         possible_paths = [
@@ -122,11 +122,11 @@ class ServerEnvironmentSetup:
                         'path': expanded_path,
                         'files': files_found
                     })
-                    logger.info(f"✅ 找到数据路径: {expanded_path}")
+                    logger.info(f"[OK] 找到数据路径: {expanded_path}")
                     logger.info(f"   包含文件: {', '.join(files_found)}")
         
         if not found_paths:
-            logger.warning("⚠️ 未找到PDEBench数据文件")
+            logger.warning("[WARN] 未找到PDEBench数据文件")
             logger.info("请确保数据文件位于以下位置之一:")
             for path in possible_paths:
                 logger.info(f"  - {path}")
@@ -138,7 +138,7 @@ class ServerEnvironmentSetup:
         """
         根据系统资源生成配置建议
         """
-        logger.info("🎯 生成配置建议...")
+        logger.info("[INFO] 生成配置建议...")
         
         cpu_count = self.system_info.get('cpu_count', 1)
         total_memory_gb = self.system_info.get('total_memory_gb', 1)
@@ -172,7 +172,7 @@ class ServerEnvironmentSetup:
         self.config_recommendations = recommendations
         
         # 打印建议
-        logger.info("📋 配置建议:")
+        logger.info("[INFO] 配置建议:")
         logger.info(f"  数据加载器工作进程: {recommendations['dataloader']['num_workers']}")
         logger.info(f"  批次大小: {recommendations['training']['batch_size']}")
         logger.info(f"  样本数量: {recommendations['training']['num_samples']}")
@@ -218,10 +218,10 @@ class ServerEnvironmentSetup:
         """
         创建适合服务器的配置文件
         """
-        logger.info(f"📝 创建服务器配置文件: {output_path}")
+        logger.info(f"[INFO] 创建服务器配置文件: {output_path}")
         
         if not self.data_paths:
-            logger.error("❌ 无法创建配置文件: 未找到数据路径")
+            logger.error("[ERROR] 无法创建配置文件: 未找到数据路径")
             return None
         
         # 使用第一个找到的数据路径
@@ -299,17 +299,17 @@ class ServerEnvironmentSetup:
         try:
             with open(output_path, 'w', encoding='utf-8') as f:
                 yaml.dump(config, f, default_flow_style=False, allow_unicode=True, indent=2)
-            logger.info(f"✅ 配置文件已保存: {output_path}")
+            logger.info(f"[OK] 配置文件已保存: {output_path}")
             return output_path
         except Exception as e:
-            logger.error(f"❌ 保存配置文件失败: {e}")
+            logger.error(f"[ERROR] 保存配置文件失败: {e}")
             return None
     
     def validate_environment(self) -> bool:
         """
         验证环境是否准备就绪
         """
-        logger.info("🔍 验证环境...")
+        logger.info("[INFO] 验证环境...")
         
         issues = []
         
@@ -320,19 +320,19 @@ class ServerEnvironmentSetup:
         # 检查PyTorch
         try:
             import torch
-            logger.info(f"✅ PyTorch版本: {torch.__version__}")
+            logger.info(f"[OK] PyTorch版本: {torch.__version__}")
         except ImportError:
             issues.append("未安装PyTorch")
         
         # 检查CUDA
         if torch.cuda.is_available():
-            logger.info(f"✅ CUDA版本: {torch.version.cuda}")
+            logger.info(f"[OK] CUDA版本: {torch.version.cuda}")
             for i in range(torch.cuda.device_count()):
                 gpu_name = torch.cuda.get_device_name(i)
                 gpu_memory = torch.cuda.get_device_properties(i).total_memory / (1024**3)
-                logger.info(f"✅ GPU {i}: {gpu_name} ({gpu_memory:.1f}GB)")
+                logger.info(f"[OK] GPU {i}: {gpu_name} ({gpu_memory:.1f}GB)")
         else:
-            logger.warning("⚠️ CUDA不可用，将使用CPU训练")
+            logger.warning("[WARN] CUDA不可用，将使用CPU训练")
         
         # 检查数据路径
         if not self.data_paths:
@@ -345,12 +345,12 @@ class ServerEnvironmentSetup:
             issues.append(f"磁盘空间不足: {free_space_gb:.1f}GB")
         
         if issues:
-            logger.error("❌ 环境验证失败:")
+            logger.error("[ERROR] 环境验证失败:")
             for issue in issues:
                 logger.error(f"  - {issue}")
             return False
         else:
-            logger.info("✅ 环境验证通过")
+            logger.info("[OK] 环境验证通过")
             return True
     
     def print_usage_instructions(self):
@@ -358,7 +358,7 @@ class ServerEnvironmentSetup:
         打印使用说明
         """
         logger.info("\n" + "="*60)
-        logger.info("🚀 服务器使用说明")
+        logger.info("[INFO] 服务器使用说明")
         logger.info("="*60)
         
         if self.data_paths:
@@ -379,7 +379,7 @@ class ServerEnvironmentSetup:
             logger.info(f"   nvidia-smi")
             
         else:
-            logger.info("\n❌ 请先下载PDEBench数据集")
+            logger.info("\n[ERROR] 请先下载PDEBench数据集")
             logger.info("数据下载地址: https://github.com/pdebench/PDEBench")
         
         logger.info("\n" + "="*60)
@@ -388,7 +388,7 @@ def main():
     """
     主函数
     """
-    logger.info("🚀 服务器环境配置和验证")
+    logger.info("[INFO] 服务器环境配置和验证")
     logger.info("="*60)
     
     setup = ServerEnvironmentSetup()
@@ -412,10 +412,10 @@ def main():
     setup.print_usage_instructions()
     
     if env_ok and config_file:
-        logger.info("\n🎉 服务器环境配置完成！")
+        logger.info("\n[OK] 服务器环境配置完成！")
         return True
     else:
-        logger.error("\n❌ 服务器环境配置失败，请检查上述问题")
+        logger.error("\n[ERROR] 服务器环境配置失败，请检查上述问题")
         return False
 
 if __name__ == "__main__":

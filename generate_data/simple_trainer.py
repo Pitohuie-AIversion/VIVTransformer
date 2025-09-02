@@ -30,6 +30,12 @@ import matplotlib
 matplotlib.use('Agg')
 
 import sys
+# Force UTF-8 stdout/stderr with replacement to avoid UnicodeEncodeError on Windows consoles
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
 import torch
 import numpy as np
 
@@ -94,16 +100,16 @@ def log_gpu_memory(stage: str = ""):
         for i in range(torch.cuda.device_count()):
             allocated = torch.cuda.memory_allocated(i) / 1024**3
             reserved = torch.cuda.memory_reserved(i) / 1024**3
-            logger.info(f"🖥️ GPU {i} 内存 {stage}: 已分配={allocated:.2f}GB, 已保留={reserved:.2f}GB")
+            logger.info(f"[GPU] GPU {i} 内存 {stage}: 已分配={allocated:.2f}GB, 已保留={reserved:.2f}GB")
     else:
-        logger.info(f"🖥️ GPU内存 {stage}: CUDA不可用")
+        logger.info(f"[GPU] GPU内存 {stage}: CUDA不可用")
 
 def cleanup_memory():
     """清理内存"""
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-        logger.info("🧹 已清理GPU缓存")
+        logger.info("[CLEANUP] 已清理GPU缓存")
 
 def log_cpu_memory(stage: str = ""):
     """记录CPU内存使用情况"""
@@ -119,9 +125,9 @@ def log_cpu_memory(stage: str = ""):
         system_used_gb = system_memory.used / 1024**3
         system_percent = system_memory.percent
         
-        logger.info(f"💾 CPU内存 {stage}: 进程={memory_mb:.1f}MB ({memory_percent:.1f}%), 系统={system_used_gb:.1f}/{system_total_gb:.1f}GB ({system_percent:.1f}%)")
+        logger.info(f"[CPU] CPU内存 {stage}: 进程={memory_mb:.1f}MB ({memory_percent:.1f}%), 系统={system_used_gb:.1f}/{system_total_gb:.1f}GB ({system_percent:.1f}%)")
     except ImportError:
-        logger.info(f"💾 CPU内存 {stage}: psutil未安装，无法监控")
+        logger.info(f"[CPU] CPU内存 {stage}: psutil未安装，无法监控")
 
 def optimize_cpu_for_data_loading():
     """优化CPU设置以提升数据加载性能"""
@@ -134,7 +140,7 @@ def optimize_cpu_for_data_loading():
     os.environ['MKL_NUM_THREADS'] = str(optimal_threads)
     os.environ['NUMEXPR_NUM_THREADS'] = str(optimal_threads)
     
-    logger.info(f"🚀 CPU优化: 设置线程数={optimal_threads} (总CPU核心数: {cpu_count})")
+    logger.info(f"[OPTIMIZE] CPU优化: 设置线程数={optimal_threads} (总CPU核心数: {cpu_count})")
     logger.info(f"   OMP_NUM_THREADS={os.environ.get('OMP_NUM_THREADS')}")
     logger.info(f"   MKL_NUM_THREADS={os.environ.get('MKL_NUM_THREADS')}")
     logger.info(f"   NUMEXPR_NUM_THREADS={os.environ.get('NUMEXPR_NUM_THREADS')}")
@@ -257,15 +263,15 @@ def create_data_loaders(data_source: str, config: Dict[str, Any]):
         persistent_workers = True
         # 重新设置prefetch_factor，因为num_workers已经改变
         prefetch_factor = dataloader_config.get('prefetch_factor', 2)
-        logger.info(f"🚀 服务器优化: 自动设置num_workers={num_workers} (CPU核心数: {cpu_count})")
+        logger.info(f"[DATALOADER] 服务器优化: 自动设置num_workers={num_workers} (CPU核心数: {cpu_count})")
     
     # 服务器环境下优化prefetch_factor
     if num_workers > 8 and prefetch_factor is not None and prefetch_factor < 4:
         prefetch_factor = 4
-        logger.info(f"🚀 服务器优化: 增加prefetch_factor={prefetch_factor}以提升数据流水线效率")
+        logger.info(f"[DATALOADER] 服务器优化: 增加prefetch_factor={prefetch_factor}以提升数据流水线效率")
     
-    logger.info(f"🔄 数据加载器配置: num_workers={num_workers}, pin_memory={pin_memory}, drop_last={drop_last}, prefetch_factor={prefetch_factor}")
-    logger.info(f"🔄 持久化工作进程: {persistent_workers}, CPU核心数: {cpu_count}")
+    logger.info(f"[DATALOADER] 数据加载器配置: num_workers={num_workers}, pin_memory={pin_memory}, drop_last={drop_last}, prefetch_factor={prefetch_factor}")
+    logger.info(f"[DATALOADER] 持久化工作进程: {persistent_workers}, CPU核心数: {cpu_count}")
     
     # 构建 DataLoader 参数
     dataloader_kwargs = {
@@ -410,6 +416,9 @@ def parse_arguments():
                        help='启用多GPU训练')
     parser.add_argument('--resume', type=str,
                        help='恢复训练的检查点路径')
+    # 新增：输出头与逐token通道
+    parser.add_argument('--output-head-type', dest='output_head_type', choices=['global', 'per_token'], help='覆盖模型输出头类型')
+    parser.add_argument('--out-channels-per-token', dest='out_channels_per_token', type=int, help='覆盖逐token通道数C')
     
     return parser.parse_args()
 
@@ -435,10 +444,10 @@ def main():
         if args.config and os.path.exists(args.config):
             with open(args.config, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
-            logger.info(f"✅ 加载配置文件: {args.config}")
+            logger.info(f"[OK] 加载配置文件: {args.config}")
         else:
             config = load_default_config()
-            logger.info("✅ 使用默认配置")
+            logger.info("[OK] 使用默认配置")
         
         # 命令行参数覆盖配置
         if args.epochs is not None:
@@ -449,6 +458,35 @@ def main():
             config['training']['learning_rate'] = args.learning_rate
         if args.device is not None:
             config['device'] = args.device
+        if args.use_dataparallel:
+            config['use_dataparallel'] = True
+        # 新增：应用输出头与C覆盖
+        if getattr(args, 'output_head_type', None):
+            config['model']['output_head_type'] = args.output_head_type
+        if getattr(args, 'out_channels_per_token', None) is not None:
+            config['model']['out_channels_per_token'] = args.out_channels_per_token
+        # 当为 per_token 时自动调整 output_dim = seq_len * C
+        try:
+            head = config['model'].get('output_head_type', 'global')
+            if head == 'per_token':
+                C = config['model'].get('out_channels_per_token')
+                if C is None:
+                    logger.warning('per_token 头未指定 out_channels_per_token，默认设为 1')
+                    C = 1
+                    config['model']['out_channels_per_token'] = C
+                ihw = config['model'].get('input_hw')
+                if ihw and isinstance(ihw, (list, tuple)) and len(ihw) == 2:
+                    seq_len_auto = int(ihw[0]) * int(ihw[1])
+                else:
+                    seq_len_auto = config['model'].get('seq_len')
+                if seq_len_auto is not None:
+                    output_dim_auto = int(seq_len_auto) * int(C)
+                    config['model']['output_dim'] = output_dim_auto
+                    logger.info(f'自动设置 output_dim={output_dim_auto} (seq_len={seq_len_auto} * C={C})')
+                else:
+                    logger.warning('缺少 input_hw/seq_len，无法自动计算 per_token 输出维度')
+        except Exception as e:
+            logger.debug(f'自动设置 per_token output_dim 失败: {e}')
         if args.use_dataparallel:
             config['use_dataparallel'] = True
         
@@ -464,7 +502,7 @@ def main():
         if config.get('seed'):
             torch.manual_seed(config['seed'])
             np.random.seed(config['seed'])
-            logger.info(f"🎲 设置随机种子: {config['seed']}")
+            logger.info(f"[SEED] 设置随机种子: {config['seed']}")
         
         # 服务器优化：优化CPU设置以提升数据加载性能
         optimal_threads, cpu_count = optimize_cpu_for_data_loading()
@@ -478,7 +516,7 @@ def main():
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         else:
             device = torch.device(config['device'])
-        logger.info(f"🖥️ 使用设备: {device}")
+        logger.info(f"[DEVICE] 使用设备: {device}")
         
         # 设置GPU显存限制
         if device.type == 'cuda' and torch.cuda.is_available():
@@ -488,9 +526,9 @@ def main():
                 gpu_count = torch.cuda.device_count()
                 for i in range(gpu_count):
                     torch.cuda.set_per_process_memory_fraction(max_memory_fraction, device=i)
-                logger.info(f"💾 设置GPU显存限制: {max_memory_fraction*100:.1f}% (应用于 {gpu_count} 张GPU)")
+                logger.info(f"[GPU_MEM] 设置GPU显存限制: {max_memory_fraction*100:.1f}% (应用于 {gpu_count} 张GPU)")
             else:
-                logger.warning(f"⚠️ 无效的max_memory_fraction值: {max_memory_fraction}，应在(0,1]范围内")
+                logger.warning(f"[WARN] 无效的max_memory_fraction值: {max_memory_fraction}，应在(0,1]范围内")
         
         # 创建结果目录和模型保存目录
         results_dir = Path('./results')
@@ -499,7 +537,7 @@ def main():
         model_dir = os.path.dirname(model_save_path)
         if model_dir:
             os.makedirs(model_dir, exist_ok=True)
-            logger.info(f"📁 模型保存目录: {model_dir}")
+            logger.info(f"[PATH] 模型保存目录: {model_dir}")
         
         # 创建数据加载器
         logger.info("=== 创建数据加载器 ===")
@@ -515,7 +553,11 @@ def main():
             d_model=config['model']['d_model'],
             max_time_steps=config['model']['max_time_steps'],
             attention_type=config['model']['attention_type'],
-            seq_len=config['model']['seq_len']
+            seq_len=config['model'].get('seq_len'),
+            input_hw=tuple(config['model'].get('input_hw')) if config['model'].get('input_hw') else None,
+            pe_type=config['model'].get('pe_type', 'learnable_1d'),
+            output_head_type=config['model'].get('output_head_type', 'global'),
+            out_channels_per_token=config['model'].get('out_channels_per_token')
         ).to(device)
         
         logger.info(f"模型参数数量: {sum(p.numel() for p in model.parameters())}")
@@ -523,21 +565,21 @@ def main():
         # 多GPU支持 (DataParallel)
         use_dataparallel = config.get('use_dataparallel', False)
         if use_dataparallel and torch.cuda.is_available() and torch.cuda.device_count() > 1:
-            logger.info(f"🚀 启用多GPU训练: 检测到 {torch.cuda.device_count()} 张GPU")
+            logger.info(f"[MULTI-GPU] 启用多GPU训练: 检测到 {torch.cuda.device_count()} 张GPU")
             
             # 🔧 修复多GPU设备不一致问题
             # 确保模型完全在主设备(cuda:0)上
             if device.type == 'cuda':
                 torch.cuda.set_device(0)  # 设置主设备
                 model = model.cuda(0)     # 确保模型在主设备上
-                logger.info("✅ 已将模型移动到主设备 cuda:0")
+                logger.info("[OK] 已将模型移动到主设备 cuda:0")
             
             # 清理所有GPU缓存，避免设备冲突
             torch.cuda.empty_cache()
             for i in range(torch.cuda.device_count()):
                 with torch.cuda.device(i):
                     torch.cuda.empty_cache()
-            logger.info("🧹 已清理所有GPU缓存")
+            logger.info("[CLEANUP] 已清理所有GPU缓存")
             
             model = torch.nn.DataParallel(model)
             logger.info(f"   使用的GPU设备: {list(range(torch.cuda.device_count()))}")
@@ -548,11 +590,11 @@ def main():
                 logger.info(f"   GPU {i}: {torch.cuda.get_device_name(i)} ({gpu_memory:.1f}GB)")
         elif use_dataparallel:
             if not torch.cuda.is_available():
-                logger.warning("⚠️ CUDA不可用，无法启用多GPU训练")
+                logger.warning("[WARN] CUDA不可用，无法启用多GPU训练")
             elif torch.cuda.device_count() <= 1:
-                logger.warning(f"⚠️ 只检测到 {torch.cuda.device_count()} 张GPU，无法启用多GPU训练")
+                logger.warning(f"[WARN] 只检测到 {torch.cuda.device_count()} 张GPU，无法启用多GPU训练")
         else:
-            logger.info(f"🖥️ 单GPU训练模式")
+            logger.info(f"[DEVICE] 单GPU训练模式")
         
         # 创建损失函数和优化器 - 与dynamic_resolution_trainer.py完全相同
         logger.info("=== 创建增强版损失函数 ===")
@@ -637,10 +679,20 @@ def main():
             logger.info("================================")
         
         # 从配置中获取优化器参数
-        optimizer_config = config['optimizer']
-        training_config = config['training']
+        # 允许缺省配置，提供合理默认值
+        training_config = config.get("training", {
+            "learning_rate": 1e-3,
+            "weight_decay": 0.0
+        })
+        optimizer_config = config.get("optimizer", {
+            "type": "adam",
+            "betas": [0.9, 0.999],
+            "eps": 1e-8,
+            "amsgrad": False,
+            "momentum": 0.9
+        })
         
-        print(f"🔧 优化器配置: 类型={optimizer_config['type']}, 学习率={training_config['learning_rate']}, 权重衰减={training_config['weight_decay']}")
+        print(f"优化器配置: 类型={optimizer_config['type']}, 学习率={training_config['learning_rate']}, 权重衰减={training_config['weight_decay']}")
         
         # 根据配置创建优化器
         if optimizer_config['type'].lower() == 'adam':
@@ -680,11 +732,11 @@ def main():
             )
         
         # 创建学习率调度器
-        scheduler_config = config['scheduler']
+        scheduler_config = config.get('scheduler', {'enabled': False})
         scheduler = None
         
         if scheduler_config['enabled']:
-            print(f"📈 学习率调度器配置: 类型={scheduler_config['type']}, 启用={scheduler_config['enabled']}")
+            print(f"学习率调度器配置: 类型={scheduler_config['type']}, 启用={scheduler_config['enabled']}")
             
             if scheduler_config['type'].lower() == 'cosine':
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -708,7 +760,7 @@ def main():
             else:
                 print(f"⚠️  不支持的调度器类型: {scheduler_config['type']}")
         else:
-            print("📈 学习率调度器: 未启用")
+            print("学习率调度器: 未启用")
         
         # 处理恢复训练
         start_epoch = 0
@@ -850,10 +902,10 @@ def main():
         
         # 服务器资源使用总结
         logger.info("\n=== 服务器资源使用总结 ===")
-        logger.info(f"💾 CPU内存: 充分利用多进程数据加载 (num_workers={config['dataloader']['num_workers']})")
-        logger.info(f"🚀 GPU计算: 核心模型训练和推理")
-        logger.info(f"📊 数据流水线: pin_memory={config['dataloader']['pin_memory']}, prefetch_factor={config['dataloader']['prefetch_factor']}")
-        logger.info(f"⚡ 持久化工作进程: persistent_workers={config['dataloader']['persistent_workers']}")
+        logger.info(f"[CPU] 充分利用多进程数据加载 (num_workers={config['dataloader']['num_workers']})")
+        logger.info(f"[GPU] 核心模型训练和推理")
+        logger.info(f"[DATALOADER] 数据流水线: pin_memory={config['dataloader']['pin_memory']}, prefetch_factor={config['dataloader']['prefetch_factor']}")
+        logger.info(f"[WORKERS] 持久化工作进程: persistent_workers={config['dataloader']['persistent_workers']}")
         
         # 保存最终配置
         config_save_path = results_dir / 'final_config.yaml'

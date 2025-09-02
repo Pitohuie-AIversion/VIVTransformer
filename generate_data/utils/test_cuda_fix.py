@@ -44,7 +44,11 @@ def test_model_forward():
         d_model=512,
         max_time_steps=100,
         attention_type="sge",
-        seq_len=seq_len
+        seq_len=seq_len,
+        input_hw=(seq_len, seq_len),
+        pe_type='learnable_1d',
+        output_head_type='global',
+        out_channels_per_token=None
     ).to(device)
     
     print(f"模型参数数量: {sum(p.numel() for p in model.parameters())}")
@@ -65,14 +69,14 @@ def test_model_forward():
         print(f"期望输出形状: ({batch_size}, {output_dim})")
         
         if output.shape == (batch_size, output_dim):
-            print("✅ 测试通过！模型前向传播正常")
+            print("[OK] 测试通过！模型前向传播正常")
             return True
         else:
-            print("❌ 测试失败！输出形状不匹配")
+            print("[ERROR] 测试失败！输出形状不匹配")
             return False
             
     except Exception as e:
-        print(f"❌ 测试失败！错误: {str(e)}")
+        print(f"[ERROR] 测试失败！错误: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
@@ -105,7 +109,11 @@ def test_different_attention_types():
                 d_model=256,   # 减小模型以加快测试
                 max_time_steps=100,
                 attention_type=attention_type,
-                seq_len=seq_len
+                seq_len=seq_len,
+                input_hw=(seq_len, seq_len),
+                pe_type='learnable_1d',
+                output_head_type='global',
+                out_channels_per_token=None
             ).to(device)
             
             x_in = torch.randn(batch_size, input_dim).to(device)
@@ -115,14 +123,14 @@ def test_different_attention_types():
                 output = model(x_in, x_time)
             
             if output.shape == (batch_size, output_dim):
-                print(f"✅ {attention_type}: 通过")
+                print(f"[OK] {attention_type}: 通过")
                 results[attention_type] = True
             else:
-                print(f"❌ {attention_type}: 输出形状错误")
+                print(f"[ERROR] {attention_type}: 输出形状错误")
                 results[attention_type] = False
                 
         except Exception as e:
-            print(f"❌ {attention_type}: 错误 - {str(e)}")
+            print(f"[ERROR] {attention_type}: 错误 - {str(e)}")
             results[attention_type] = False
     
     return results
@@ -140,11 +148,11 @@ if __name__ == "__main__":
     # 总结结果
     print("\n" + "=" * 50)
     print("测试结果总结:")
-    print(f"基本前向传播: {'✅ 通过' if basic_test else '❌ 失败'}")
+    print(f"基本前向传播: {'[OK] 通过' if basic_test else '[ERROR] 失败'}")
     
     print("\n注意力机制测试结果:")
     for attention_type, result in attention_results.items():
-        status = '✅ 通过' if result else '❌ 失败'
+        status = '[OK] 通过' if result else '[ERROR] 失败'
         print(f"  {attention_type}: {status}")
     
     passed_count = sum(attention_results.values())
@@ -152,6 +160,6 @@ if __name__ == "__main__":
     print(f"\n注意力机制通过率: {passed_count}/{total_count} ({passed_count/total_count*100:.1f}%)")
     
     if basic_test and passed_count > 0:
-        print("\n🎉 CUDA错误修复成功！")
+        print("\n[OK] CUDA错误修复成功！")
     else:
-        print("\n⚠️ 仍有问题需要解决")
+        print("\n[WARN] 仍有问题需要解决")

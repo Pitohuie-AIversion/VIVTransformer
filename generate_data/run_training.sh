@@ -23,8 +23,8 @@ print_banner() {
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                    分离式训练启动器                          ║"
     echo "║                                                              ║"
-    echo "║  🚀 自动化数据预处理和模型训练流程                           ║"
-    echo "║  💡 解决服务器CPU锁定问题的最佳方案                          ║"
+    echo "║  [INFO] 自动化数据预处理和模型训练流程                           ║"
+    echo "║  [TIP] 解决服务器CPU锁定问题的最佳方案                          ║"
     echo "║                                                              ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
@@ -61,21 +61,21 @@ print_help() {
     echo "  $0 /path/to/data.h5 --screen      # 在screen会话中运行"
     echo ""
     echo "功能特点:"
-    echo "  ✅ 自动检测是否需要重新预处理数据"
-    echo "  ✅ 智能资源配置优化"
-    echo "  ✅ 支持断点续训"
-    echo "  ✅ 实时显示训练进度"
-    echo "  ✅ 支持后台运行和screen会话"
+    echo "  [OK] 自动检测是否需要重新预处理数据"
+    echo "  [OK] 智能资源配置优化"
+    echo "  [OK] 支持断点续训"
+    echo "  [OK] 实时显示训练进度"
+    echo "  [OK] 支持后台运行和screen会话"
     echo ""
 }
 
 # 检查依赖
 check_dependencies() {
-    echo -e "${BLUE}🔍 检查依赖...${NC}"
+    echo -e "${BLUE}[INFO] 检查依赖...${NC}"
     
     # 检查Python
     if ! command -v python3 &> /dev/null && ! command -v python &> /dev/null; then
-        echo -e "${RED}❌ 错误: 未找到Python解释器${NC}"
+        echo -e "${RED}[ERROR] 错误: 未找到Python解释器${NC}"
         exit 1
     fi
     
@@ -86,20 +86,20 @@ check_dependencies() {
         PYTHON_CMD="python"
     fi
     
-    echo -e "${GREEN}✅ Python: $(${PYTHON_CMD} --version)${NC}"
+    echo -e "${GREEN}[OK] Python: $(${PYTHON_CMD} --version)${NC}"
     
     # 检查必需的Python包
     local packages=("torch" "numpy" "h5py" "yaml" "tqdm")
     for package in "${packages[@]}"; do
         if ! ${PYTHON_CMD} -c "import ${package}" &> /dev/null; then
-            echo -e "${YELLOW}⚠️ 警告: Python包 '${package}' 未安装${NC}"
+            echo -e "${YELLOW}[WARN] 警告: Python包 '${package}' 未安装${NC}"
         fi
     done
 }
 
 # 检查系统资源
 check_system_resources() {
-    echo -e "${BLUE}📊 系统资源检测:${NC}"
+    echo -e "${BLUE}[INFO] 系统资源检测:${NC}"
     
     # CPU信息
     local cpu_cores=$(nproc)
@@ -138,35 +138,35 @@ run_command() {
     
     case "${mode}" in
         "normal")
-            echo -e "${GREEN}🚀 执行命令: ${cmd}${NC}"
+            echo -e "${GREEN}[INFO] 执行命令: ${cmd}${NC}"
             eval "${cmd}"
             ;;
         "background")
-            echo -e "${GREEN}🚀 后台执行命令: ${cmd}${NC}"
-            echo "📝 日志文件: ${log_file}"
+            echo -e "${GREEN}[INFO] 后台执行命令: ${cmd}${NC}"
+            echo "[INFO] 日志文件: ${log_file}"
             nohup bash -c "${cmd}" > "${log_file}" 2>&1 &
             local pid=$!
             echo "🔢 进程ID: ${pid}"
-            echo "💡 使用以下命令监控进度:"
+            echo "[TIP] 使用以下命令监控进度:"
             echo "   tail -f ${log_file}"
             echo "   ps aux | grep ${pid}"
             ;;
         "screen")
             local session_name="training_$(date +%Y%m%d_%H%M%S)"
-            echo -e "${GREEN}🚀 在screen会话中执行: ${session_name}${NC}"
+            echo -e "${GREEN}[INFO] 在screen会话中执行: ${session_name}${NC}"
             
             if ! command -v screen &> /dev/null; then
-                echo -e "${RED}❌ 错误: screen未安装${NC}"
+                echo -e "${RED}[ERROR] 错误: screen未安装${NC}"
                 echo "请安装screen: sudo apt-get install screen 或 sudo yum install screen"
                 exit 1
             fi
             
             screen -dmS "${session_name}" bash -c "${cmd}; echo '训练完成，按任意键退出'; read"
             echo "📺 Screen会话已创建: ${session_name}"
-            echo "💡 使用以下命令连接到会话:"
+            echo "[TIP] 使用以下命令连接到会话:"
             echo "   screen -r ${session_name}"
-            echo "💡 分离会话: Ctrl+A+D"
-            echo "💡 查看所有会话: screen -ls"
+            echo "[TIP] 分离会话: Ctrl+A+D"
+            echo "[TIP] 查看所有会话: screen -ls"
             ;;
     esac
 }
@@ -226,7 +226,7 @@ main() {
                 exit 0
                 ;;
             -*)
-                echo -e "${RED}❌ 错误: 未知选项 $1${NC}"
+                echo -e "${RED}[ERROR] 错误: 未知选项 $1${NC}"
                 print_help
                 exit 1
                 ;;
@@ -234,7 +234,7 @@ main() {
                 if [[ -z "${data_path}" ]]; then
                     data_path="$1"
                 else
-                    echo -e "${RED}❌ 错误: 多余的参数 $1${NC}"
+                    echo -e "${RED}[ERROR] 错误: 多余的参数 $1${NC}"
                     print_help
                     exit 1
                 fi
@@ -245,19 +245,19 @@ main() {
     
     # 检查必需参数
     if [[ -z "${data_path}" ]]; then
-        echo -e "${RED}❌ 错误: 请提供数据文件路径${NC}"
+        echo -e "${RED}[ERROR] 错误: 请提供数据文件路径${NC}"
         print_help
         exit 1
     fi
     
     # 检查文件存在性
     if [[ ! -f "${data_path}" ]]; then
-        echo -e "${RED}❌ 错误: 数据文件不存在: ${data_path}${NC}"
+        echo -e "${RED}[ERROR] 错误: 数据文件不存在: ${data_path}${NC}"
         exit 1
     fi
     
     if [[ ! -f "${config_file}" ]]; then
-        echo -e "${RED}❌ 错误: 配置文件不存在: ${config_file}${NC}"
+        echo -e "${RED}[ERROR] 错误: 配置文件不存在: ${config_file}${NC}"
         exit 1
     fi
     
@@ -268,7 +268,7 @@ main() {
     check_system_resources
     
     # 显示运行参数
-    echo -e "${PURPLE}📋 运行参数:${NC}"
+    echo -e "${PURPLE}[INFO] 运行参数:${NC}"
     echo "  数据文件: ${data_path}"
     echo "  配置文件: ${config_file}"
     echo "  输出目录: ${output_dir}"
@@ -303,26 +303,26 @@ main() {
         
         if [[ ${exit_code} -eq 0 ]]; then
             echo ""
-            echo -e "${GREEN}🎉 分离式训练流程完成！${NC}"
+            echo -e "${GREEN}[OK] 分离式训练流程完成！${NC}"
             echo ""
-            echo -e "${BLUE}📁 生成的文件:${NC}"
+            echo -e "${BLUE}[INFO] 生成的文件:${NC}"
             
             if [[ -d "${output_dir}" ]]; then
                 echo "  预处理数据目录: ${output_dir}"
-                [[ -f "${output_dir}/train_data.h5" ]] && echo "    ✅ 训练数据: ${output_dir}/train_data.h5"
-                [[ -f "${output_dir}/valid_data.h5" ]] && echo "    ✅ 验证数据: ${output_dir}/valid_data.h5"
-                [[ -f "${output_dir}/test_data.h5" ]] && echo "    ✅ 测试数据: ${output_dir}/test_data.h5"
-                [[ -f "${output_dir}/normalization_info.json" ]] && echo "    ✅ 归一化信息: ${output_dir}/normalization_info.json"
+                [[ -f "${output_dir}/train_data.h5" ]] && echo "    [OK] 训练数据: ${output_dir}/train_data.h5"
+                [[ -f "${output_dir}/valid_data.h5" ]] && echo "    [OK] 验证数据: ${output_dir}/valid_data.h5"
+                [[ -f "${output_dir}/test_data.h5" ]] && echo "    [OK] 测试数据: ${output_dir}/test_data.h5"
+                [[ -f "${output_dir}/normalization_info.json" ]] && echo "    [OK] 归一化信息: ${output_dir}/normalization_info.json"
             fi
             
             echo ""
-            echo -e "${BLUE}📊 检查点文件:${NC}"
+            echo -e "${BLUE}[INFO] 检查点文件:${NC}"
             for checkpoint in *.pth; do
-                [[ -f "${checkpoint}" ]] && echo "    ✅ ${checkpoint}"
+                [[ -f "${checkpoint}" ]] && echo "    [OK] ${checkpoint}"
             done
             
             echo ""
-            echo -e "${YELLOW}💡 后续操作建议:${NC}"
+            echo -e "${YELLOW}[TIP] 后续操作建议:${NC}"
             echo "  - 查看训练日志了解详细进度"
             echo "  - 使用 nvidia-smi 监控GPU使用情况"
             echo "  - 检查生成的模型检查点文件"
@@ -330,7 +330,7 @@ main() {
             echo ""
         else
             echo ""
-            echo -e "${RED}❌ 训练流程失败，错误代码: ${exit_code}${NC}"
+            echo -e "${RED}[ERROR] 训练流程失败，错误代码: ${exit_code}${NC}"
             echo ""
             echo -e "${YELLOW}🔧 故障排除建议:${NC}"
             echo "  1. 检查数据文件路径是否正确"
@@ -346,7 +346,7 @@ main() {
 }
 
 # 信号处理
-trap 'echo -e "\n${YELLOW}⚠️ 程序被中断${NC}"; exit 130' INT TERM
+trap 'echo -e "\n${YELLOW}[WARN] 程序被中断${NC}"; exit 130' INT TERM
 
 # 执行主函数
 main "$@"

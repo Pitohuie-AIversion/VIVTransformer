@@ -150,6 +150,31 @@ def create_training_config(args=None, config_file=None):
                 config['model']['seq_len'] = seq_len
             else:
                 logger.warning(f"输入维度 {args.input_dim} 不是完全平方数，使用默认seq_len")
+        # 新增：覆盖输出头类型与逐token通道
+        if hasattr(args, 'output_head_type') and args.output_head_type:
+            config.setdefault('model', {})['output_head_type'] = args.output_head_type
+        if hasattr(args, 'out_channels_per_token') and args.out_channels_per_token is not None:
+            config.setdefault('model', {})['out_channels_per_token'] = args.out_channels_per_token
+        # 若 per_token，则根据 seq_len 自动设置 output_dim = (seq_len*seq_len)*C
+        try:
+            head = config.get('model', {}).get('output_head_type', 'global')
+            if head == 'per_token':
+                C = config.get('model', {}).get('out_channels_per_token')
+                if C is None:
+                    C = 1
+                    config['model']['out_channels_per_token'] = C
+                seq_len = config.get('model', {}).get('seq_len')
+                if seq_len is None and 'input_dim' in config.get('model', {}):
+                    import math
+                    s = int(math.sqrt(config['model']['input_dim']))
+                    if s * s == config['model']['input_dim']:
+                        seq_len = s
+                        config['model']['seq_len'] = s
+                if seq_len is not None:
+                    config['model']['output_dim'] = (seq_len * seq_len) * int(C)
+                    logger.info(f"per_token 模式: 自动设置 output_dim={config['model']['output_dim']} (H*W*C, 其中 H=W=seq_len)")
+        except Exception as _e:
+            logger.debug(f"自动设置 per_token 输出维度失败: {_e}")
     
     # 设备自动检测
     if config['device'] == 'auto':
@@ -331,6 +356,9 @@ def main():
     parser.add_argument('--num_layers', type=int, default=None, help='模型层数')
     parser.add_argument('--d_model', type=int, default=None, help='模型隐藏维度')
     parser.add_argument('--num_heads', type=int, default=None, help='注意力头数')
+    # 新增：输出头类型与逐token通道数
+    parser.add_argument('--output-head-type', dest='output_head_type', choices=['global', 'per_token'], help='覆盖模型输出头类型')
+    parser.add_argument('--out-channels-per-token', dest='out_channels_per_token', type=int, help='覆盖逐token通道数C')
     
     args = parser.parse_args()
     
@@ -380,7 +408,11 @@ def main():
             d_model=config['model']['d_model'],
             max_time_steps=config['model']['max_time_steps'],
             attention_type=config['attention']['type'],
-            seq_len=config['model']['seq_len']
+            seq_len=config['model']['seq_len'],
+            input_hw=tuple(config['model'].get('input_hw')) if config['model'].get('input_hw') else None,
+            pe_type=config['model'].get('pe_type', 'learnable_1d'),
+            output_head_type=config['model'].get('output_head_type', 'global'),
+            out_channels_per_token=config['model'].get('out_channels_per_token')
         )
         
         logger.info(f"创建模型: {model.__class__.__name__}")

@@ -41,7 +41,7 @@ def test_svd_loss_creation():
             topk=10
         )
         
-        logger.info(f"✅ SVD损失函数创建成功: {type(criterion).__name__}")
+        logger.info(f"[OK] SVD损失函数创建成功: {type(criterion).__name__}")
         
         # 测试损失计算
         batch_size = 2
@@ -52,7 +52,7 @@ def test_svd_loss_creation():
         test_target = torch.randn(batch_size, output_dim)
         
         loss = criterion(test_pred, test_target)
-        logger.info(f"✅ SVD损失计算成功: {loss.item():.6f}")
+        logger.info(f"[OK] SVD损失计算成功: {loss.item():.6f}")
         
         # 检查权重信息
         weight_info = criterion.get_weight_info()
@@ -62,7 +62,7 @@ def test_svd_loss_creation():
         return True
         
     except Exception as e:
-        logger.error(f"❌ SVD损失函数测试失败: {e}")
+        logger.error(f"[ERROR] SVD损失函数测试失败: {e}")
         return False
 
 def test_mse_loss_creation():
@@ -75,7 +75,7 @@ def test_mse_loss_creation():
         # 创建MSE损失函数
         criterion = torch.nn.MSELoss()
         
-        logger.info(f"✅ MSE损失函数创建成功: {type(criterion).__name__}")
+        logger.info(f"[OK] MSE损失函数创建成功: {type(criterion).__name__}")
         
         # 测试损失计算
         batch_size = 2
@@ -85,12 +85,12 @@ def test_mse_loss_creation():
         test_target = torch.randn(batch_size, output_dim)
         
         loss = criterion(test_pred, test_target)
-        logger.info(f"✅ MSE损失计算成功: {loss.item():.6f}")
+        logger.info(f"[OK] MSE损失计算成功: {loss.item():.6f}")
         
         return True
         
     except Exception as e:
-        logger.error(f"❌ MSE损失函数测试失败: {e}")
+        logger.error(f"[ERROR] MSE损失函数测试失败: {e}")
         return False
 
 def test_loss_function_selection():
@@ -118,10 +118,10 @@ def test_loss_function_selection():
             svd_weights=loss_config1['svd_weights'],
             topk=loss_config1['topk']
         )
-        logger.info(f"✅ 配置1 - SVD损失启用: {type(criterion1).__name__}")
+        logger.info(f"[OK] 配置1 - SVD损失启用: {type(criterion1).__name__}")
     else:
         criterion1 = torch.nn.MSELoss()
-        logger.info(f"❌ 配置1 - 应该启用SVD但使用了: {type(criterion1).__name__}")
+        logger.info(f"[ERROR] 配置1 - 应该启用SVD但使用了: {type(criterion1).__name__}")
         return False
     
     # 测试配置2：禁用SVD损失
@@ -143,20 +143,20 @@ def test_loss_function_selection():
             svd_weights=loss_config2['svd_weights'],
             topk=loss_config2['topk']
         )
-        logger.error(f"❌ 配置2 - 应该禁用SVD但使用了: {type(criterion2).__name__}")
+        logger.error(f"[ERROR] 配置2 - 应该禁用SVD但使用了: {type(criterion2).__name__}")
         return False
     else:
         criterion2 = torch.nn.MSELoss()
-        logger.info(f"✅ 配置2 - SVD损失禁用: {type(criterion2).__name__}")
+        logger.info(f"[OK] 配置2 - SVD损失禁用: {type(criterion2).__name__}")
     
-    logger.info("✅ 损失函数选择逻辑测试通过")
+    logger.info("[OK] 损失函数选择逻辑测试通过")
     return True
 
 def main():
     """
     主测试函数
     """
-    logger.info("🧪 开始简化SVD机制测试")
+    logger.info("[TEST] 开始简化SVD机制测试")
     
     tests = [
         ("SVD损失函数创建", test_svd_loss_creation),
@@ -174,11 +174,11 @@ def main():
             result = test_func()
             results.append((test_name, result))
             if result:
-                logger.info(f"✅ {test_name} 通过")
+                logger.info(f"[OK] {test_name} 通过")
             else:
-                logger.error(f"❌ {test_name} 失败")
+                logger.error(f"[ERROR] {test_name} 失败")
         except Exception as e:
-            logger.error(f"❌ {test_name} 异常: {e}")
+            logger.error(f"[ERROR] {test_name} 异常: {e}")
             results.append((test_name, False))
     
     # 总结测试结果
@@ -190,16 +190,16 @@ def main():
     total = len(results)
     
     for test_name, result in results:
-        status = "✅ 通过" if result else "❌ 失败"
+        status = "[OK] 通过" if result else "[ERROR] 失败"
         logger.info(f"{test_name}: {status}")
     
     logger.info(f"\n总计: {passed}/{total} 测试通过")
     
     if passed == total:
-        logger.info("🎉 所有测试通过！SVD机制修复成功！")
+        logger.info("[OK] 所有测试通过！SVD机制修复成功！")
         return True
     else:
-        logger.error(f"⚠️ {total - passed} 个测试失败，需要进一步检查")
+        logger.error(f"[WARN] {total - passed} 个测试失败，需要进一步检查")
         return False
 
 if __name__ == "__main__":

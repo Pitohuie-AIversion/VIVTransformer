@@ -105,10 +105,10 @@ def test_early_stopping_enabled():
         # 运行训练
         train_main()
         
-        print("✅ 测试1通过: 启用早停功能正常")
+        print("[OK] 测试1通过: 启用早停功能正常")
         
     except Exception as e:
-        print(f"❌ 测试1失败: {str(e)}")
+        print(f"[ERROR] 测试1失败: {str(e)}")
         import traceback
         traceback.print_exc()
     finally:
@@ -152,10 +152,10 @@ def test_early_stopping_disabled():
         # 运行训练
         train_main()
         
-        print("✅ 测试2通过: 禁用早停功能正常")
+        print("[OK] 测试2通过: 禁用早停功能正常")
         
     except Exception as e:
-        print(f"❌ 测试2失败: {str(e)}")
+        print(f"[ERROR] 测试2失败: {str(e)}")
         import traceback
         traceback.print_exc()
     finally:
@@ -204,10 +204,10 @@ def test_different_monitor_metrics():
             # 运行训练
             train_main()
             
-            print(f"✅ 监控指标 {monitor} 测试通过")
+            print(f"[OK] 监控指标 {monitor} 测试通过")
             
         except Exception as e:
-            print(f"❌ 监控指标 {monitor} 测试失败: {str(e)}")
+            print(f"[ERROR] 监控指标 {monitor} 测试失败: {str(e)}")
             import traceback
             traceback.print_exc()
         finally:
@@ -243,19 +243,19 @@ def test_config_validation():
         print("检查配置文件中的早停参数:")
         for param in expected_params:
             if param in training_config:
-                print(f"  ✅ {param}: {training_config[param]}")
+                print(f"  [OK] {param}: {training_config[param]}")
             else:
-                print(f"  ❌ 缺少参数: {param}")
+                print(f"  [ERROR] 缺少参数: {param}")
         
-        print("\n✅ 测试4通过: 配置文件验证完成")
+        print("\n[OK] 测试4通过: 配置文件验证完成")
     else:
-        print(f"❌ 测试4失败: 配置文件 {config_path} 不存在")
+        print(f"[ERROR] 测试4失败: 配置文件 {config_path} 不存在")
 
 def main():
     """
     运行所有测试
     """
-    print("🧪 开始早停功能测试")
+    print("[TEST] 开始早停功能测试")
     print("=" * 50)
     
     # 创建结果目录
@@ -270,10 +270,10 @@ def main():
         test_different_monitor_metrics()
         
         print("\n" + "=" * 50)
-        print("🎉 所有早停功能测试完成!")
+        print("[OK] 所有早停功能测试完成!")
         
     except Exception as e:
-        print(f"\n❌ 测试过程中出现错误: {str(e)}")
+        print(f"\n[ERROR] 测试过程中出现错误: {str(e)}")
         import traceback
         traceback.print_exc()
 

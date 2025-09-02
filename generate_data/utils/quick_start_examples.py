@@ -15,14 +15,14 @@ from pathlib import Path
 def run_command(cmd, description):
     """运行命令并显示结果"""
     print(f"\n{'='*60}")
-    print(f"🚀 {description}")
+    print(f"[INFO] {description}")
     print(f"命令: {cmd}")
     print(f"{'='*60}")
     
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         if result.returncode == 0:
-            print("✅ 执行成功!")
+            print("[OK] 执行成功!")
             # 只显示最后几行输出
             lines = result.stdout.strip().split('\n')
             if len(lines) > 5:
@@ -32,14 +32,14 @@ def run_command(cmd, description):
             else:
                 print(result.stdout)
         else:
-            print("❌ 执行失败!")
+            print("[ERROR] 执行失败!")
             print(f"错误: {result.stderr}")
     except Exception as e:
-        print(f"❌ 执行异常: {e}")
+        print(f"[ERROR] 执行异常: {e}")
 
 def main():
     """主函数 - 运行各种示例"""
-    print("🎯 动态分辨率训练器使用示例")
+    print("[INFO] 动态分辨率训练器使用示例")
     print("这些示例展示了如何使用不同的配置进行训练")
     
     # 确保在正确的目录
@@ -75,22 +75,22 @@ def main():
         choice = input("\n请输入选择 (0-5): ").strip()
         
         if choice == '0':
-            print("👋 退出程序")
+            print("[INFO] 退出程序")
             return
         elif choice == '5':
-            print("🔄 运行所有示例...")
+            print("[INFO] 运行所有示例...")
             for example in examples:
                 run_command(example['cmd'], example['desc'])
         elif choice in ['1', '2', '3', '4']:
             idx = int(choice) - 1
             run_command(examples[idx]['cmd'], examples[idx]['desc'])
         else:
-            print("❌ 无效选择")
+            print("[ERROR] 无效选择")
             
     except KeyboardInterrupt:
-        print("\n👋 用户中断程序")
+        print("\n[INFO] 用户中断程序")
     except Exception as e:
-        print(f"❌ 程序异常: {e}")
+        print(f"[ERROR] 程序异常: {e}")
 
 if __name__ == "__main__":
     main()

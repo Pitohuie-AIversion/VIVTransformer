@@ -12,7 +12,7 @@ import math
 def analyze_model_complexity():
     """分析模型复杂度"""
     print("=" * 60)
-    print("🧠 模型复杂度分析报告")
+    print("[MODEL] 模型复杂度分析报告")
     print("=" * 60)
     
     try:
@@ -35,7 +35,7 @@ def analyze_model_complexity():
         max_time_steps = model_config['max_time_steps']
         attention_type = model_config['attention_type']
         
-        print("📊 模型架构参数:")
+        print("[INFO] 模型架构参数:")
         print(f"  输入维度: {input_dim} ({data_config['input_resolution'][0]}x{data_config['input_resolution'][1]})")
         print(f"  输出维度: {output_dim} ({data_config['output_resolution'][0]}x{data_config['output_resolution'][1]})")
         print(f"  模型维度: {d_model}")
@@ -46,7 +46,7 @@ def analyze_model_complexity():
         print(f"  注意力类型: {attention_type}")
         
         # 参数量估算
-        print("\n🔢 参数量估算:")
+        print("\n[PARAMS] 参数量估算:")
         
         # 输入投影层
         input_proj_params = input_dim * d_model
@@ -75,7 +75,7 @@ def analyze_model_complexity():
         print(f"  总参数量: {total_params:,} ({total_params/1e6:.2f}M)")
         
         # 内存估算
-        print("\n💾 内存需求估算:")
+        print("\n[MEM] 内存需求估算:")
         
         # 模型参数内存 (float32)
         model_memory_mb = total_params * 4 / 1024**2
@@ -101,7 +101,7 @@ def analyze_model_complexity():
         print(f"  总内存需求: {total_memory_mb:.1f}MB ({total_memory_mb/1024:.2f}GB)")
         
         # 计算复杂度分析
-        print("\n⚡ 计算复杂度分析:")
+        print("\n[COMPUTE] 计算复杂度分析:")
         
         # 注意力计算复杂度 O(n²d)
         attention_flops = num_layers * max_time_steps**2 * d_model
@@ -116,7 +116,7 @@ def analyze_model_complexity():
         print(f"  总计算量: {total_flops:,} FLOPs ({total_flops/1e9:.2f}G FLOPs)")
         
         # 潜在限制分析
-        print("\n⚠️ 潜在限制分析:")
+        print("\n[WARN] 潜在限制分析:")
         limitations = []
         
         # GPU内存检查
@@ -147,13 +147,13 @@ def analyze_model_complexity():
             limitations.append(f"模型维度({d_model})不能被注意力头数({num_heads})整除")
         
         if not limitations:
-            print("  ✅ 未发现明显限制")
+            print("  [OK] 未发现明显限制")
         else:
             for limitation in limitations:
-                print(f"  ⚠️ {limitation}")
+                print(f"  [WARN] {limitation}")
         
         # 优化建议
-        print("\n💡 优化建议:")
+        print("\n[TIP] 优化建议:")
         suggestions = []
         
         if batch_size == 1 and torch.cuda.is_available():
@@ -169,17 +169,17 @@ def analyze_model_complexity():
             suggestions.append(f"前馈网络维度({dim_feedforward})相对模型维度({d_model})过大，可适当减小")
         
         if not suggestions:
-            print("  ✅ 当前配置较为合理")
+            print("  [OK] 当前配置较为合理")
         else:
             for suggestion in suggestions:
-                print(f"  💡 {suggestion}")
+                print(f"  [TIP] {suggestion}")
         
         print("\n" + "=" * 60)
-        print("✅ 模型复杂度分析完成")
+        print("[OK] 模型复杂度分析完成")
         print("=" * 60)
         
     except Exception as e:
-        print(f"❌ 分析失败: {str(e)}")
+        print(f"[ERROR] 分析失败: {str(e)}")
         import traceback
         traceback.print_exc()
 

@@ -129,19 +129,19 @@ def generate_test_visualization():
     # 输出检查结果
     svg_ok = check_svg_fonttype_is_path()
     print(f"SVG 路径化设置: {'OK' if svg_ok else '未生效'} (matplotlib.rcParams['svg.fonttype']={matplotlib.rcParams.get('svg.fonttype')})")
-    print(f"✅ PNG: {png_path}")
-    print(f"✅ SVG: {svg_path}")
+    print(f"[OK] PNG: {png_path}")
+    print(f"[OK] SVG: {svg_path}")
 
 
 def main():
     """主函数"""
-    print("🔍 开始检查项目中文字体与 SVG 路径化配置...\n")
+    print("[INFO] 开始检查项目中文字体与 SVG 路径化配置...\n")
     print(f"全局 svg.fonttype = {matplotlib.rcParams.get('svg.fonttype')}")
     
     # 查找所有matplotlib文件
     root_dir = Path(__file__).parent
     matplotlib_files = find_matplotlib_files(root_dir)
-    print(f"📊 发现 {len(matplotlib_files)} 个包含matplotlib的文件:\n")
+    print(f"[INFO] 发现 {len(matplotlib_files)} 个包含matplotlib的文件:\n")
     
     files_with_local_config = []
     files_clean = []
@@ -153,26 +153,26 @@ def main():
                 content = f.read()
             if file_has_local_font_config(content):
                 files_with_local_config.append(rel_path)
-                print(f"⚠️ 仍包含局部字体/负号/SVG设置: {rel_path}")
+                print(f"[WARN] 仍包含局部字体/负号/SVG设置: {rel_path}")
             else:
                 files_clean.append(rel_path)
-                print(f"✅ 无局部配置: {rel_path}")
+                print(f"[OK] 无局部配置: {rel_path}")
         except Exception as e:
             print(f"读取失败: {rel_path}, 错误: {e}")
     
-    print(f"\n📈 统计:")
-    print(f"  ✅ 无局部配置: {len(files_clean)} 个文件")
-    print(f"  ⚠️ 含局部配置: {len(files_with_local_config)} 个文件")
+    print(f"\n[INFO] 统计:")
+    print(f"  [OK] 无局部配置: {len(files_clean)} 个文件")
+    print(f"  [WARN] 含局部配置: {len(files_with_local_config)} 个文件")
     total = len(files_clean) + len(files_with_local_config)
     if total:
-        print(f"  📊 清理进度: {len(files_clean)/total*100:.1f}%")
+        print(f"  [INFO] 清理进度: {len(files_clean)/total*100:.1f}%")
     
     if files_with_local_config:
-        print("\n⚠️ 以下文件仍设置了局部 rcParams（建议继续清理）:")
+        print("\n[WARN] 以下文件仍设置了局部 rcParams（建议继续清理）:")
         for file in files_with_local_config:
             print(f"   - {file}")
     else:
-        print("\n🎉 所有文件均已移除局部 rcParams 设置，统一使用全局 sitecustomize 配置！")
+        print("\n[OK] 所有文件均已移除局部 rcParams 设置，统一使用全局 sitecustomize 配置！")
     
     # 生成测试可视化
     print(f"\n🎨 生成测试可视化图片 (PNG + SVG 路径化)...")
@@ -183,7 +183,7 @@ def main():
     status = 'OK' if ok else '未完全路径化'
     print(f"SVG 文件检查: {status} - {msg}")
     
-    print("\n✨ 验证完成!")
+    print("\n[OK] 验证完成!")
 
 if __name__ == "__main__":
     main()

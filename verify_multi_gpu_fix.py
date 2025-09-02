@@ -15,11 +15,11 @@ def check_gpu_availability():
     print("=== GPU环境检查 ===")
     
     if not torch.cuda.is_available():
-        print("❌ CUDA不可用")
+        print("[ERROR] CUDA不可用")
         return False
     
     gpu_count = torch.cuda.device_count()
-    print(f"✅ 检测到 {gpu_count} 张GPU")
+    print(f"[OK] 检测到 {gpu_count} 张GPU")
     
     for i in range(gpu_count):
         gpu_name = torch.cuda.get_device_name(i)
@@ -35,17 +35,17 @@ def check_trainer_fix():
     trainer_path = Path("modify_multi_attention/training/trainer.py")
     
     if not trainer_path.exists():
-        print(f"❌ 找不到文件: {trainer_path}")
+        print(f"[ERROR] 找不到文件: {trainer_path}")
         return False
     
     with open(trainer_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
     if "if not isinstance(model, torch.nn.DataParallel):" in content:
-        print("✅ trainer.py 已正确修复")
+        print("[OK] trainer.py 已正确修复")
         return True
     else:
-        print("❌ trainer.py 尚未修复")
+        print("[ERROR] trainer.py 尚未修复")
         print("   请运行: python fix_multi_gpu_error.py")
         return False
 
@@ -66,21 +66,21 @@ def test_dataparallel():
         # 测试单GPU模式
         device = torch.device('cuda:0')
         model = TestModel().to(device)
-        print("✅ 单GPU模式正常")
+        print("[OK] 单GPU模式正常")
         
         # 测试多GPU模式
         if torch.cuda.device_count() > 1:
             model_parallel = torch.nn.DataParallel(model)
             test_input = torch.randn(4, 10).to(device)
             output = model_parallel(test_input)
-            print("✅ DataParallel模式正常")
+            print("[OK] DataParallel模式正常")
             return True
         else:
-            print("⚠️ 只有1张GPU，跳过DataParallel测试")
+            print("[WARN] 只有1张GPU，跳过DataParallel测试")
             return True
             
     except Exception as e:
-        print(f"❌ DataParallel测试失败: {e}")
+        print(f"[ERROR] DataParallel测试失败: {e}")
         return False
 
 def check_config():
@@ -90,21 +90,21 @@ def check_config():
     config_path = Path("generate_data/dynamic_config.yaml")
     
     if not config_path.exists():
-        print(f"❌ 找不到配置文件: {config_path}")
+        print(f"[ERROR] 找不到配置文件: {config_path}")
         return False
     
     with open(config_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
     if "use_dataparallel: true" in content:
-        print("✅ 配置文件已启用多GPU训练")
+        print("[OK] 配置文件已启用多GPU训练")
         return True
     elif "use_dataparallel: false" in content:
-        print("⚠️ 配置文件中多GPU训练未启用")
+        print("[WARN] 配置文件中多GPU训练未启用")
         print("   建议设置: use_dataparallel: true")
         return False
     else:
-        print("❌ 配置文件中未找到use_dataparallel设置")
+        print("[ERROR] 配置文件中未找到use_dataparallel设置")
         return False
 
 def main():
@@ -113,7 +113,7 @@ def main():
     
     # 检查当前目录
     if not Path("modify_multi_attention").exists():
-        print("❌ 请在项目根目录下运行此脚本")
+        print("[ERROR] 请在项目根目录下运行此脚本")
         sys.exit(1)
     
     all_checks_passed = True
@@ -121,7 +121,7 @@ def main():
     # 1. 检查GPU环境
     gpu_available = check_gpu_availability()
     if not gpu_available:
-        print("\n⚠️ 多GPU环境不可用，但单GPU训练应该正常工作")
+        print("\n[WARN] 多GPU环境不可用，但单GPU训练应该正常工作")
     
     # 2. 检查代码修复
     trainer_fixed = check_trainer_fix()
@@ -142,12 +142,12 @@ def main():
     # 总结
     print("\n" + "=" * 50)
     if all_checks_passed:
-        print("🎉 所有检查通过！多GPU训练应该可以正常工作")
-        print("\n🚀 现在可以运行多GPU训练:")
+        print("[OK] 所有检查通过！多GPU训练应该可以正常工作")
+        print("\n[INFO] 现在可以运行多GPU训练:")
         print("   python generate_data/dynamic_resolution_trainer.py --use_dataparallel --config generate_data/dynamic_config.yaml")
     else:
-        print("❌ 部分检查未通过，请根据上述提示进行修复")
-        print("\n📋 修复步骤:")
+        print("[ERROR] 部分检查未通过，请根据上述提示进行修复")
+        print("\n[INFO] 修复步骤:")
         if not trainer_fixed:
             print("   1. 运行: python fix_multi_gpu_error.py")
         if not config_ok:

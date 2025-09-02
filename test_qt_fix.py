@@ -32,40 +32,40 @@ print(f"  HEADLESS: {os.environ.get('HEADLESS')}")
 
 try:
     # 测试matplotlib导入
-    print("\n📊 测试matplotlib导入...")
+    print("\n[INFO] 测试matplotlib导入...")
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    print(f"✅ matplotlib后端: {matplotlib.get_backend()}")
+    print(f"[OK] matplotlib后端: {matplotlib.get_backend()}")
     
     # 测试创建简单图形
     fig, ax = plt.subplots()
     ax.plot([1, 2, 3], [1, 4, 2])
     plt.close(fig)
-    print("✅ matplotlib图形创建成功")
+    print("[OK] matplotlib图形创建成功")
     
 except Exception as e:
-    print(f"❌ matplotlib测试失败: {e}")
+    print(f"[ERROR] matplotlib测试失败: {e}")
     sys.exit(1)
 
 try:
     # 测试训练器导入
-    print("\n🚀 测试训练器导入...")
+    print("\n[INFO] 测试训练器导入...")
     from generate_data.dynamic_resolution_trainer import DynamicResolutionDataset
-    print("✅ 动态分辨率训练器导入成功")
+    print("[OK] 动态分辨率训练器导入成功")
     
 except Exception as e:
-    print(f"❌ 训练器导入失败: {e}")
+    print(f"[ERROR] 训练器导入失败: {e}")
     sys.exit(1)
 
 try:
     # 测试可视化模块导入
     print("\n🎨 测试可视化模块导入...")
     from modify_multi_attention.utils.visualization import plot_comparison_figure
-    print("✅ 可视化模块导入成功")
+    print("[OK] 可视化模块导入成功")
     
 except Exception as e:
-    print(f"❌ 可视化模块导入失败: {e}")
+    print(f"[ERROR] 可视化模块导入失败: {e}")
     sys.exit(1)
 
 try:
@@ -76,21 +76,21 @@ try:
     if config_path.exists():
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
-        print(f"✅ 配置文件加载成功")
+        print(f"[OK] 配置文件加载成功")
         print(f"  可视化启用状态: {config.get('visualization', {}).get('enabled', 'N/A')}")
         print(f"  环境配置: {config.get('environment', 'N/A')}")
     else:
-        print(f"⚠️ 配置文件不存在: {config_path}")
+        print(f"[WARN] 配置文件不存在: {config_path}")
         
 except Exception as e:
-    print(f"❌ 配置文件测试失败: {e}")
+    print(f"[ERROR] 配置文件测试失败: {e}")
     sys.exit(1)
 
-print("\n🎉 所有测试通过！Qt错误修复成功！")
-print("\n📝 修复总结:")
+print("\n[OK] 所有测试通过！Qt错误修复成功！")
+print("\n[INFO] 修复总结:")
 print("  1. 设置了QT_QPA_PLATFORM=offscreen")
 print("  2. 强制使用matplotlib的Agg后端")
 print("  3. 禁用了DISPLAY环境变量")
 print("  4. 在所有相关文件中添加了无头模式设置")
 print("  5. 配置文件中禁用了可视化功能")
-print("\n🚀 现在可以在服务器环境下正常运行训练！")
+print("\n[INFO] 现在可以在服务器环境下正常运行训练！")

@@ -106,7 +106,7 @@ def demo_global_normalization():
     
     is_consistent = (dataset.input_min == dataset.output_min and 
                     dataset.input_max == dataset.output_max)
-    print(f"归一化一致性: {'✓ 一致' if is_consistent else '✗ 不一致'}")
+    print(f"归一化一致性: {'[OK] 一致' if is_consistent else '[FAIL] 不一致'}")
     
     # 9. 清理临时文件
     print("\n9. 清理临时文件...")
@@ -203,11 +203,11 @@ if __name__ == "__main__":
         
         print("\n" + "=" * 60)
         print("总结:")
-        print("✓ 实现了基于全局数据的归一化")
-        print("✓ 确保输入输出使用相同的归一化标准")
-        print("✓ 提供了完整的反归一化功能")
-        print("✓ 支持归一化信息的保存和加载")
-        print("✓ 适用于输入是输出子集的场景")
+        print("[OK] 实现了基于全局数据的归一化")
+        print("[OK] 确保输入输出使用相同的归一化标准")
+        print("[OK] 提供了完整的反归一化功能")
+        print("[OK] 支持归一化信息的保存和加载")
+        print("[OK] 适用于输入是输出子集的场景")
         print("=" * 60)
         
     except Exception as e:

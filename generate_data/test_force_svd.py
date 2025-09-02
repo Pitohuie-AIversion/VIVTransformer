@@ -107,9 +107,9 @@ def test_force_svd():
         
         # 验证强制SVD模式下不应该有fallback
         if stats_force.get('fallback_count', 0) == 0:
-            print("✅ 强制SVD模式正常工作 - 没有使用fallback策略")
+            print("[OK] 强制SVD模式正常工作 - 没有使用fallback策略")
         else:
-            print("❌ 强制SVD模式异常 - 仍然使用了fallback策略")
+            print("[ERROR] 强制SVD模式异常 - 仍然使用了fallback策略")
             
     except Exception as e:
         print(f"强制SVD模式出错: {e}")

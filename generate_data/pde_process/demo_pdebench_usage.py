@@ -64,17 +64,17 @@ def demo_basic_usage():
             # 获取处理后的数据
             if 'darcy' in processor.processed_data:
                 result = processor.processed_data['darcy']
-                print(f"✓ 成功处理数据")
+                print(f"[OK] 成功处理数据")
                 print(f"  输入形状: {result['inputs'].shape}")
                 print(f"  输出形状: {result['outputs'].shape}")
                 print(f"  数据类型: {result['inputs'].dtype}")
                 print(f"  数据范围: [{result['inputs'].min():.6f}, {result['inputs'].max():.6f}]")
             else:
-                print("✗ 数据处理成功但无法获取结果")
+                print("[FAIL] 数据处理成功但无法获取结果")
         else:
-            print("✗ 数据处理失败")
+            print("[FAIL] 数据处理失败")
     except Exception as e:
-        print(f"✗ 处理过程中出错: {str(e)}")
+        print(f"[FAIL] 处理过程中出错: {str(e)}")
 
 def demo_custom_processing():
     """
@@ -101,16 +101,16 @@ def demo_custom_processing():
         if success:
             if 'darcy' in processor.processed_data:
                 result = processor.processed_data['darcy']
-                print(f"✓ 自定义处理成功")
+                print(f"[OK] 自定义处理成功")
                 print(f"  输入形状: {result['inputs'].shape}")
                 print(f"  输出形状: {result['outputs'].shape}")
                 print(f"  处理的样本数: {result['sample_info']}")
             else:
-                print("✗ 自定义处理成功但无法获取结果")
+                print("[FAIL] 自定义处理成功但无法获取结果")
         else:
-            print("✗ 自定义处理失败")
+            print("[FAIL] 自定义处理失败")
     except Exception as e:
-        print(f"✗ 自定义处理出错: {str(e)}")
+        print(f"[FAIL] 自定义处理出错: {str(e)}")
 
 def demo_multiple_pde_types():
     """
@@ -136,11 +136,11 @@ def demo_multiple_pde_types():
             if success and pde_type in processor.processed_data:
                 result = processor.processed_data[pde_type]
                 all_results[pde_type] = result
-                print(f"✓ {pde_type}: 输入{result['inputs'].shape}, 输出{result['outputs'].shape}")
+                print(f"[OK] {pde_type}: 输入{result['inputs'].shape}, 输出{result['outputs'].shape}")
             else:
-                print(f"✗ {pde_type}: 处理失败")
+                print(f"[FAIL] {pde_type}: 处理失败")
         except Exception as e:
-            print(f"✗ {pde_type}: {str(e)}")
+            print(f"[FAIL] {pde_type}: {str(e)}")
     
     if all_results:
         # 保存所有结果
@@ -244,11 +244,11 @@ def demo_config_usage():
         
         if success and 'darcy' in processor.processed_data:
             result = processor.processed_data['darcy']
-            print(f"✓ 配置文件处理成功")
+            print(f"[OK] 配置文件处理成功")
             print(f"  输入形状: {result['inputs'].shape}")
             print(f"  输出形状: {result['outputs'].shape}")
         else:
-            print("✗ 配置文件处理失败")
+            print("[FAIL] 配置文件处理失败")
             
     except Exception as e:
         print(f"配置文件使用出错: {str(e)}")
@@ -269,7 +269,7 @@ def cleanup_demo_files():
     for file in demo_files:
         if os.path.exists(file):
             os.remove(file)
-            print(f"✓ 已删除: {file}")
+            print(f"[OK] 已删除: {file}")
         else:
             print(f"- 不存在: {file}")
 
@@ -293,11 +293,11 @@ def main():
         print("\n=== 演示完成 ===")
         print("所有演示都已运行完成！")
         print("\n主要功能:")
-        print("1. ✓ 基本数据处理")
-        print("2. ✓ 自定义处理参数")
-        print("3. ✓ 多种PDE类型支持")
-        print("4. ✓ 数据分析和可视化")
-        print("5. ✓ 配置文件管理")
+        print("1. [OK] 基本数据处理")
+        print("2. [OK] 自定义处理参数")
+        print("3. [OK] 多种PDE类型支持")
+        print("4. [OK] 数据分析和可视化")
+        print("5. [OK] 配置文件管理")
         
         # 询问是否清理文件
         response = input("\n是否清理演示生成的文件? (y/n): ")

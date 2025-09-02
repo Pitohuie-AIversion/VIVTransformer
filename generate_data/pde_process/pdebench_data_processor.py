@@ -621,9 +621,9 @@ def main():
     if success:
         # 保存数据
         processor.save_processed_data()
-        logger.info("✓ 数据处理完成！")
+        logger.info("[OK] 数据处理完成！")
     else:
-        logger.error("✗ 数据处理失败")
+        logger.error("[FAIL] 数据处理失败")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 #!/bin/bash
-# 🚀 服务器自动部署脚本 (无sudo权限版本)
+# [INFO] 服务器自动部署脚本 (无sudo权限版本)
 # 用于在Linux服务器上快速配置和启动训练任务 - 适用于普通用户权限
 
 set -e  # 遇到错误立即退出
@@ -35,11 +35,11 @@ TRAINER_SCRIPT="dynamic_resolution_trainer.py"
 LOG_FILE="training.log"
 
 echo "=========================================================="
-log_info "🚀 VIVTransformer 服务器部署脚本 (无sudo权限版本)"
+log_info "[INFO] VIVTransformer 服务器部署脚本 (无sudo权限版本)"
 echo "=========================================================="
 
 # 1. 检查环境 (无需sudo权限)
-log_info "🔍 检查环境..."
+log_info "[INFO] 检查环境..."
 
 # 检查Python (用户环境)
 if ! command -v python &> /dev/null; then
@@ -82,7 +82,7 @@ PYTORCH_VERSION=$(python -c "import torch; print(torch.__version__)")
 log_success "PyTorch版本: $PYTORCH_VERSION"
 
 # 检查其他必要的Python包
-log_info "🔍 检查Python依赖..."
+log_info "[INFO] 检查Python依赖..."
 REQUIRED_PACKAGES=("yaml" "numpy" "matplotlib" "h5py")
 MISSING_PACKAGES=()
 
@@ -121,7 +121,7 @@ else
 fi
 
 # 2. 检查数据文件
-log_info "📁 检查数据文件..."
+log_info "[INFO] 检查数据文件..."
 if [ -f "$DATA_PATH" ]; then
     if [ -r "$DATA_PATH" ]; then
         FILE_SIZE=$(du -h "$DATA_PATH" 2>/dev/null | cut -f1 || echo "未知大小")
@@ -138,7 +138,7 @@ else
 fi
 
 # 3. 检查必要文件
-log_info "📋 检查必要文件..."
+log_info "[INFO] 检查必要文件..."
 REQUIRED_FILES=("$CONFIG_FILE" "$TRAINER_SCRIPT")
 for file in "${REQUIRED_FILES[@]}"; do
     if [ -f "$file" ]; then
@@ -155,7 +155,7 @@ for file in "${REQUIRED_FILES[@]}"; do
 done
 
 # 4. 创建结果目录 (在用户目录下)
-log_info "📂 创建结果目录..."
+log_info "[INFO] 创建结果目录..."
 RESULT_DIR="./results"
 mkdir -p "$RESULT_DIR"/{models,logs,loss_logs,sge/{difference_results,visualization_results}} 2>/dev/null || {
     log_warning "无法在当前目录创建results，尝试在用户主目录"
@@ -165,7 +165,7 @@ mkdir -p "$RESULT_DIR"/{models,logs,loss_logs,sge/{difference_results,visualizat
 log_success "结果目录已创建: $RESULT_DIR"
 
 # 5. 显示系统资源 (无需sudo权限)
-log_info "💻 系统资源信息:"
+log_info "[INFO] 系统资源信息:"
 echo "  CPU核心数: $(nproc 2>/dev/null || echo '未知')"
 echo "  内存信息: $(free -h 2>/dev/null | grep '^Mem:' | awk '{print $2" 总计, "$7" 可用"}' || echo '无法获取内存信息')"
 echo "  当前用户: $(whoami)"
@@ -190,7 +190,7 @@ fi
 
 # 7. 提供运行选项
 echo ""
-log_info "🎯 选择运行模式:"
+log_info "[INFO] 选择运行模式:"
 echo "1. 快速测试 (1轮训练, 100样本)"
 echo "2. 完整训练 (后台运行)"
 echo "3. 交互式训练 (前台运行)"
@@ -202,11 +202,11 @@ read -p "请选择 [1-6]: " choice
 
 case $choice in
     1)
-        log_info "🧪 启动快速测试..."
+        log_info "[TEST] 启动快速测试..."
         python "$TRAINER_SCRIPT" --config "$CONFIG_FILE" --epochs 1 --num_samples 100
         ;;
     2)
-        log_info "🚀 启动后台训练..."
+        log_info "[INFO] 启动后台训练..."
         nohup python "$TRAINER_SCRIPT" --config "$CONFIG_FILE" > "$LOG_FILE" 2>&1 &
         PID=$!
         log_success "训练已启动，PID: $PID"
@@ -216,35 +216,35 @@ case $choice in
         log_info "PID已保存到 training.pid 文件"
         ;;
     3)
-        log_info "🎮 启动交互式训练..."
+        log_info "[INFO] 启动交互式训练..."
         python "$TRAINER_SCRIPT" --config "$CONFIG_FILE"
         ;;
     4)
-        log_info "✅ 验证配置文件..."
+        log_info "[OK] 验证配置文件..."
         python -c "
 import yaml
 import os
 try:
     with open('$CONFIG_FILE', 'r') as f:
         config = yaml.safe_load(f)
-    print('✅ 配置文件验证通过')
-    print(f'📁 数据路径: {config[\"data\"][\"data_path\"]}')
+    print('[OK] 配置文件验证通过')
+    print(f'[INFO] 数据路径: {config[\"data\"][\"data_path\"]}')
     print(f'📦 批次大小: {config[\"data\"][\"dataloader\"][\"batch_size\"]}')
-    print(f'🔄 训练轮数: {config[\"training\"][\"epochs\"]}')
-    print(f'📊 样本数量: {config[\"data\"][\"num_samples\"]}')
+    print(f'[INFO] 训练轮数: {config[\"training\"][\"epochs\"]}')
+    print(f'[INFO] 样本数量: {config[\"data\"][\"num_samples\"]}')
     
     # 检查数据文件是否可访问
     data_path = config[\"data\"][\"data_path\"]
     if os.path.exists(data_path) and os.access(data_path, os.R_OK):
-        print(f'✅ 数据文件可访问')
+        print(f'[OK] 数据文件可访问')
     else:
-        print(f'❌ 数据文件不可访问: {data_path}')
+        print(f'[ERROR] 数据文件不可访问: {data_path}')
 except Exception as e:
-    print(f'❌ 配置文件验证失败: {e}')
+    print(f'[ERROR] 配置文件验证失败: {e}')
 "
         ;;
     5)
-        log_info "🔍 检查环境依赖..."
+        log_info "[INFO] 检查环境依赖..."
         python -c "
 import sys
 print(f'Python版本: {sys.version}')
@@ -280,7 +280,7 @@ except ImportError:
 "
         ;;
     6)
-        log_info "👋 退出部署脚本"
+        log_info "[INFO] 退出部署脚本"
         exit 0
         ;;
     *)
@@ -290,11 +290,11 @@ except ImportError:
 esac
 
 echo ""
-log_success "🎉 部署完成！"
+log_success "[OK] 部署完成！"
 
 # 显示有用的命令 (无需sudo权限)
 echo ""
-log_info "📚 常用命令 (无需sudo权限):"
+log_info "[INFO] 常用命令 (无需sudo权限):"
 echo "  监控训练: tail -f $LOG_FILE"
 echo "  查看进程: ps aux | grep python | grep $USER"
 echo "  查看结果: ls -la $RESULT_DIR/"
@@ -304,6 +304,6 @@ echo "  查看磁盘使用: df -h ."
 echo "  查看内存使用: free -h"
 
 echo "=========================================================="
-log_success "✨ 祝您训练顺利！(无sudo权限版本)"
-log_info "💡 如遇到权限问题，请联系系统管理员"
+log_success "[OK] 祝您训练顺利！(无sudo权限版本)"
+log_info "[TIP] 如遇到权限问题，请联系系统管理员"
 echo "=========================================================="

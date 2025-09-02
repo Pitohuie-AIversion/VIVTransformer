@@ -77,7 +77,7 @@ else
 fi
 
 # 3. 检查必要文件
-log_info "📋 检查必要文件..."
+log_info "[INFO] 检查必要文件..."
 REQUIRED_FILES=("$CONFIG_FILE" "$TRAINER_SCRIPT")
 for file in "${REQUIRED_FILES[@]}"; do
     if [ -f "$file" ]; then
@@ -131,7 +131,7 @@ case $choice in
         python $TRAINER_SCRIPT --config $CONFIG_FILE
         ;;
     4)
-        log_info "✅ 验证配置文件..."
+        log_info "[OK] 验证配置文件..."
         python -c "
 import yaml
 with open('$CONFIG_FILE', 'r') as f:
@@ -154,7 +154,7 @@ print(f'样本数量: {config[\"data\"][\"num_samples\"]}')
 esac
 
 echo ""
-log_success "🎉 部署完成！"
+log_success "[OK] 部署完成！"
 
 # 显示有用的命令
 echo ""

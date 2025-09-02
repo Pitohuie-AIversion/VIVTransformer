@@ -222,7 +222,7 @@ def run_preprocessing(data_path: str, output_dir: str, config_path: str, num_sam
     print("\n🔄 开始数据预处理...")
     
     cmd = [
-        sys.executable, 'data_preprocessor.py',
+        sys.executable, '-m', 'generate_data.data_preprocessor',
         '--config', config_path,
         '--data_path', data_path,
         '--output_dir', output_dir
@@ -240,7 +240,37 @@ def run_preprocessing(data_path: str, output_dir: str, config_path: str, num_sam
         print(f"错误输出: {e.stderr}")
         return False
 
-def run_training(data_dir: str, config_path: str, resume: Optional[str] = None) -> bool:
+def run_onnx_verification(output_head_type: Optional[str] = None,
+                          out_channels_per_token: Optional[int] = None) -> bool:
+    print("\n🔎 运行 ONNX 导出与验证...")
+    try:
+        # 导出 ONNX（使用 modify_multi_attention/mymodels/export_to_onnx.py）
+        onnx_cmd = [
+            sys.executable,
+            '-m', 'modify_multi_attention.mymodels.export_to_onnx'
+        ]
+        if output_head_type:
+            onnx_cmd.extend(['--output-head-type', output_head_type])
+        if out_channels_per_token is not None:
+            onnx_cmd.extend(['--out-channels-per-token', str(out_channels_per_token)])
+        subprocess.run(onnx_cmd, check=True)
+
+        # 运行 ONNX 形状验证（定位到仓库根目录下的 verify_onnx_runtime.py）
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+        verify_script = os.path.join(repo_root, 'verify_onnx_runtime.py')
+        verify_cmd = [sys.executable, verify_script]
+        env = os.environ.copy()
+        subprocess.run(verify_cmd, check=True, env=env)
+        print("✅ ONNX 验证通过")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"❌ ONNX 验证失败: {e}")
+        return False
+
+def run_training(data_dir: str, config_path: str, resume: Optional[str] = None,
+                 output_head_type: Optional[str] = None,
+                 out_channels_per_token: Optional[int] = None,
+                 epochs: Optional[int] = None) -> bool:
     """
     运行模型训练
     
@@ -248,6 +278,8 @@ def run_training(data_dir: str, config_path: str, resume: Optional[str] = None) 
         data_dir: 预处理数据目录
         config_path: 配置文件路径
         resume: 恢复训练的检查点
+        output_head_type: 覆盖模型输出头类型（global/per_token）
+        out_channels_per_token: 覆盖逐token通道数 C
         
     Returns:
         是否成功
@@ -255,13 +287,19 @@ def run_training(data_dir: str, config_path: str, resume: Optional[str] = None) 
     print("\n🚀 开始模型训练...")
     
     cmd = [
-        sys.executable, 'simple_trainer.py',
+        sys.executable, '-m', 'generate_data.simple_trainer',
         '--config', config_path,
         '--data_dir', data_dir
     ]
     
     if resume:
         cmd.extend(['--resume', resume])
+    if output_head_type:
+        cmd.extend(['--output-head-type', output_head_type])
+    if out_channels_per_token is not None:
+        cmd.extend(['--out-channels-per-token', str(out_channels_per_token)])
+    if epochs is not None:
+        cmd.extend(['--epochs', str(epochs)])
     
     try:
         # 使用实时输出
@@ -339,6 +377,17 @@ def parse_arguments():
                        help='自动优化配置')
     parser.add_argument('--skip_resource_check', action='store_true',
                        help='跳过资源检测')
+    # 新增：ONNX 验证
+    parser.add_argument('--verify-onnx', action='store_true',
+                       help='在训练前导出并验证 ONNX')
+    
+    # 新增：透传训练脚本的输出头配置
+    parser.add_argument('--output-head-type', dest='output_head_type', choices=['global', 'per_token'],
+                        help='覆盖模型输出头类型')
+    parser.add_argument('--out-channels-per-token', dest='out_channels_per_token', type=int,
+                        help='覆盖逐token通道数C')
+    # 新增：训练轮数
+    parser.add_argument('--epochs', type=int, help='训练轮数')
     
     return parser.parse_args()
 
@@ -403,13 +452,22 @@ def main():
                 print("\n✅ 发现有效的预处理数据，跳过预处理步骤")
         
         if success and args.mode in ['auto', 'train']:
+            # 可选：ONNX 验证
+            if args.verify_onnx:
+                ok = run_onnx_verification(args.output_head_type, args.out_channels_per_token)
+                if not ok:
+                    print("❌ ONNX 验证未通过，中止训练")
+                    return 1
             # 确保预处理数据存在
             if not Path(args.output_dir).exists():
                 print(f"❌ 预处理数据目录不存在: {args.output_dir}")
                 print("请先运行预处理步骤")
                 return 1
             
-            success = run_training(args.output_dir, args.config, args.resume)
+            success = run_training(args.output_dir, args.config, args.resume,
+                                   output_head_type=args.output_head_type,
+                                   out_channels_per_token=args.out_channels_per_token,
+                                   epochs=args.epochs)
         
         if success:
             print("\n🎉 分离式训练流程完成！")

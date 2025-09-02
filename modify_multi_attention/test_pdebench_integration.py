@@ -129,10 +129,10 @@ def test_auto_detection():
                     dataset_type="auto",
                     max_samples=20
                 )
-                logger.info(f"✓ 成功检测并加载 {expected_type} 格式数据")
+                logger.info(f"[OK] 成功检测并加载 {expected_type} 格式数据")
                 
             except Exception as e:
-                logger.error(f"✗ 自动检测失败: {e}")
+                logger.error(f"[FAIL] 自动检测失败: {e}")
         else:
             logger.warning(f"路径不存在: {data_path}")
 
@@ -166,9 +166,9 @@ def main():
     logger.info(f"测试完成: {passed}/{total} 个测试通过")
     
     if passed == total:
-        logger.info("✓ 所有测试通过！PDEBench集成成功")
+        logger.info("[OK] 所有测试通过！PDEBench集成成功")
     else:
-        logger.warning("⚠ 部分测试失败，请检查配置")
+        logger.warning("[WARN] 部分测试失败，请检查配置")
 
 
 if __name__ == "__main__":

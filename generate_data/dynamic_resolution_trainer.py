@@ -984,6 +984,10 @@ def parse_arguments():
     # 结果输出根目录（可选，便于外部脚本指定写盘位置）
     parser.add_argument('--results-root', type=str, help='训练产物的根目录（如 ./attention_results/loss_config_0/eca）')
     
+    # 新增：输出头类型与逐token通道数
+    parser.add_argument('--output-head-type', dest='output_head_type', choices=['global', 'per_token'], help='覆盖模型输出头类型')
+    parser.add_argument('--out-channels-per-token', dest='out_channels_per_token', type=int, help='覆盖逐token通道数C')
+    
     # 其他参数
     parser.add_argument('--device', type=str, choices=['auto', 'cpu', 'cuda'], default='auto',
                         help='计算设备')
@@ -1093,7 +1097,34 @@ def load_config_with_args(config_path, args):
         output_res = config['data']['output_resolution']
         config['model']['input_dim'] = input_res[0] * input_res[1]
         config['model']['output_dim'] = output_res[0] * output_res[1]
-    
+
+    # 新增：应用输出头覆盖，并在 per_token 时自动修正 output_dim
+    if getattr(args, 'output_head_type', None):
+        config['model']['output_head_type'] = args.output_head_type
+    if getattr(args, 'out_channels_per_token', None) is not None:
+        config['model']['out_channels_per_token'] = args.out_channels_per_token
+
+    try:
+        head = config['model'].get('output_head_type', 'global')
+        if head == 'per_token':
+            C = config['model'].get('out_channels_per_token')
+            if C is None:
+                logger.warning('per_token 头未指定 out_channels_per_token，默认设为 1')
+                C = 1
+                config['model']['out_channels_per_token'] = C
+            ihw = config['model'].get('input_hw')
+            if ihw and isinstance(ihw, (list, tuple)) and len(ihw) == 2:
+                seq_len_auto = int(ihw[0]) * int(ihw[1])
+            else:
+                seq_len_auto = config['model'].get('seq_len')
+            if seq_len_auto is not None:
+                config['model']['output_dim'] = int(seq_len_auto) * int(C)
+                logger.info(f"自动设置 model.output_dim={config['model']['output_dim']} (seq_len={seq_len_auto} * C={C})")
+            else:
+                logger.warning('缺少 input_hw/seq_len，无法自动计算 per_token 输出维度')
+    except Exception as e:
+        logger.debug(f'自动设置 per_token output_dim 失败: {e}')
+ 
     # 确保必要的配置存在
     if 'dataloader' not in config:
         config['dataloader'] = {
@@ -1226,7 +1257,12 @@ def run_training_with_config(config: Dict[str, Any], results_root: Optional[Path
         num_layers=config['model']['num_layers'],
         d_model=config['model']['d_model'],
         max_time_steps=config['model'].get('max_time_steps', 1),
-        attention_type=config['model'].get('attention_type', 'sge')
+        attention_type=config['model'].get('attention_type', 'sge'),
+        seq_len=config['model'].get('seq_len', 32),
+        input_hw=tuple(config['model'].get('input_hw')) if config['model'].get('input_hw') else None,
+        pe_type=config['model'].get('pe_type', 'learnable_1d'),
+        output_head_type=config['model'].get('output_head_type', 'global'),
+        out_channels_per_token=config['model'].get('out_channels_per_token')
     ).to(device)
     logger.info(f"模型参数数量: {sum(p.numel() for p in model.parameters())}")
 
@@ -1526,7 +1562,12 @@ def run_smoke_forward_attentions(config, attentions, batch_size=2):
                 num_layers=config['model'].get('num_layers', 1),
                 d_model=config['model'].get('d_model', 8),
                 max_time_steps=config['model'].get('max_time_steps', 100),
-                attention_type=attn_name
+                attention_type=attn_name,
+                seq_len=config['model'].get('seq_len', 32),
+                input_hw=tuple(config['model'].get('input_hw')) if config['model'].get('input_hw') else None,
+                pe_type=config['model'].get('pe_type', 'learnable_1d'),
+                output_head_type=config['model'].get('output_head_type', 'global'),
+                out_channels_per_token=config['model'].get('out_channels_per_token')
             ).to(device)
 
             x_in = torch.randn(batch_size, input_dim, device=device)

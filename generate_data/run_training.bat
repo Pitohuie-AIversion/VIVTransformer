@@ -10,8 +10,8 @@ echo.
 echo ╔══════════════════════════════════════════════════════════════╗
 echo ║                    分离式训练启动器                          ║
 echo ║                                                              ║
-echo ║  🚀 自动化数据预处理和模型训练流程                           ║
-echo ║  💡 解决服务器CPU锁定问题的最佳方案                          ║
+echo ║  [INFO] 自动化数据预处理和模型训练流程                           ║
+echo ║  [TIP] 解决服务器CPU锁定问题的最佳方案                          ║
 echo ║                                                              ║
 echo ╚══════════════════════════════════════════════════════════════╝
 echo.
@@ -27,7 +27,7 @@ set "AUTO_OPTIMIZE=false"
 
 REM 检查命令行参数
 if "%1"=="" (
-    echo ❌ 错误: 请提供数据文件路径
+    echo [ERROR] 错误: 请提供数据文件路径
     echo.
     echo 使用方法:
     echo   %0 ^<数据文件路径^> [选项]
@@ -102,10 +102,10 @@ if "%1"=="--help" (
     echo   train       - 仅执行模型训练
     echo.
     echo 功能特点:
-    echo   ✅ 自动检测是否需要重新预处理数据
-    echo   ✅ 智能资源配置优化
-    echo   ✅ 支持断点续训
-    echo   ✅ 实时显示训练进度
+    echo   [OK] 自动检测是否需要重新预处理数据
+    echo   [OK] 智能资源配置优化
+    echo   [OK] 支持断点续训
+    echo   [OK] 实时显示训练进度
     echo.
     pause
     exit /b 0
@@ -117,18 +117,18 @@ goto :parse_args
 
 REM 检查文件存在性
 if not exist "%DATA_PATH%" (
-    echo ❌ 错误: 数据文件不存在: %DATA_PATH%
+    echo [ERROR] 错误: 数据文件不存在: %DATA_PATH%
     pause
     exit /b 1
 )
 
 if not exist "%CONFIG_FILE%" (
-    echo ❌ 错误: 配置文件不存在: %CONFIG_FILE%
+    echo [ERROR] 错误: 配置文件不存在: %CONFIG_FILE%
     pause
     exit /b 1
 )
 
-echo 📋 运行参数:
+echo [INFO] 运行参数:
 echo   数据文件: %DATA_PATH%
 echo   配置文件: %CONFIG_FILE%
 echo   输出目录: %OUTPUT_DIR%
@@ -157,7 +157,7 @@ if "%AUTO_OPTIMIZE%"=="true" (
     set "PYTHON_CMD=%PYTHON_CMD% --auto_optimize"
 )
 
-echo 🚀 执行命令: %PYTHON_CMD%
+echo [INFO] 执行命令: %PYTHON_CMD%
 echo.
 
 REM 执行Python脚本
@@ -166,25 +166,25 @@ REM 执行Python脚本
 REM 检查执行结果
 if %ERRORLEVEL% EQU 0 (
     echo.
-    echo 🎉 分离式训练流程完成！
+    echo [OK] 分离式训练流程完成！
     echo.
-    echo 📁 生成的文件:
+    echo [INFO] 生成的文件:
     if exist "%OUTPUT_DIR%" (
         echo   预处理数据目录: %OUTPUT_DIR%
-        if exist "%OUTPUT_DIR%\train_data.h5" echo     ✅ 训练数据: %OUTPUT_DIR%\train_data.h5
-        if exist "%OUTPUT_DIR%\valid_data.h5" echo     ✅ 验证数据: %OUTPUT_DIR%\valid_data.h5
-        if exist "%OUTPUT_DIR%\test_data.h5" echo     ✅ 测试数据: %OUTPUT_DIR%\test_data.h5
-        if exist "%OUTPUT_DIR%\normalization_info.json" echo     ✅ 归一化信息: %OUTPUT_DIR%\normalization_info.json
+        if exist "%OUTPUT_DIR%\train_data.h5" echo     [OK] 训练数据: %OUTPUT_DIR%\train_data.h5
+        if exist "%OUTPUT_DIR%\valid_data.h5" echo     [OK] 验证数据: %OUTPUT_DIR%\valid_data.h5
+        if exist "%OUTPUT_DIR%\test_data.h5" echo     [OK] 测试数据: %OUTPUT_DIR%\test_data.h5
+        if exist "%OUTPUT_DIR%\normalization_info.json" echo     [OK] 归一化信息: %OUTPUT_DIR%\normalization_info.json
     )
     
     echo.
-    echo 📊 检查点文件:
+    echo [INFO] 检查点文件:
     for %%f in (*.pth) do (
-        echo     ✅ %%f
+        echo     [OK] %%f
     )
     
     echo.
-    echo 💡 后续操作建议:
+    echo [TIP] 后续操作建议:
     echo   - 查看训练日志了解详细进度
     echo   - 使用 nvidia-smi 监控GPU使用情况
     echo   - 检查生成的模型检查点文件
@@ -192,7 +192,7 @@ if %ERRORLEVEL% EQU 0 (
     echo.
 ) else (
     echo.
-    echo ❌ 训练流程失败，错误代码: %ERRORLEVEL%
+    echo [ERROR] 训练流程失败，错误代码: %ERRORLEVEL%
     echo.
     echo 🔧 故障排除建议:
     echo   1. 检查数据文件路径是否正确

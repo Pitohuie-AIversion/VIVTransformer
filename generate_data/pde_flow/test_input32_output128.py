@@ -61,7 +61,11 @@ def load_model(model_path, input_dim=1024, output_dim=16384, device='cpu'):
         num_heads=8,
         max_time_steps=100,
         seq_len=32,
-        attention_type='sge'
+        attention_type='sge',
+        input_hw=(32, 32),
+        pe_type='learnable_1d',
+        output_head_type='global',
+        out_channels_per_token=None
     )
     
     # 加载权重

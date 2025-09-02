@@ -73,18 +73,18 @@ def test_per_mode_similarity():
             if png_key in result:
                 png_path = result[png_key]
                 if png_path.exists():
-                    print(f"✓ 模态 {mode_idx} PNG: {png_path.name}")
+                    print(f"[OK] 模态 {mode_idx} PNG: {png_path.name}")
                     png_count += 1
                 else:
-                    print(f"✗ 模态 {mode_idx} PNG 文件不存在: {png_path}")
+                    print(f"[ERROR] 模态 {mode_idx} PNG 文件不存在: {png_path}")
             
             if svg_key in result:
                 svg_path = result[svg_key]
                 if svg_path.exists():
-                    print(f"✓ 模态 {mode_idx} SVG: {svg_path.name}")
+                    print(f"[OK] 模态 {mode_idx} SVG: {svg_path.name}")
                     svg_count += 1
                 else:
-                    print(f"✗ 模态 {mode_idx} SVG 文件不存在: {svg_path}")
+                    print(f"[ERROR] 模态 {mode_idx} SVG 文件不存在: {svg_path}")
                     
             # 显示统计信息
             cosine_stats_key = f'mode_{mode_idx}_cosine_stats'
@@ -100,14 +100,14 @@ def test_per_mode_similarity():
         success = (png_count == n_modes and svg_count == n_modes)
         
         if success:
-            print("\n🎉 测试通过！所有预期的热力图都已成功生成")
+            print("\n[OK] 测试通过！所有预期的热力图都已成功生成")
         else:
-            print(f"\n❌ 测试失败！预期 {n_modes} 张PNG和SVG，实际生成 {png_count} PNG, {svg_count} SVG")
+            print(f"\n[ERROR] 测试失败！预期 {n_modes} 张PNG和SVG，实际生成 {png_count} PNG, {svg_count} SVG")
             
         return success
         
     except Exception as e:
-        print(f"\n❌ 测试失败，发生异常: {e}")
+        print(f"\n[ERROR] 测试失败，发生异常: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     
     print("\n" + "=" * 60)
     if success:
-        print("✅ 所有测试通过！")
+        print("[OK] 所有测试通过！")
     else:
-        print("❌ 测试失败！")
+        print("[ERROR] 测试失败！")
     print("=" * 60)

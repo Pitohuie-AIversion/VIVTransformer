@@ -164,12 +164,12 @@ class PDEBenchRunner:
                 if not os.path.exists(file_path):
                     missing_files.append(file_path)
                 else:
-                    logger.info(f"✓ 找到数据文件: {filename}")
+                    logger.info(f"[OK] 找到数据文件: {filename}")
         
         if missing_files:
             logger.error("以下数据文件不存在:")
             for file_path in missing_files:
-                logger.error(f"  ✗ {file_path}")
+                logger.error(f"  [FAIL] {file_path}")
             return False
         
         return True
@@ -236,14 +236,14 @@ class PDEBenchRunner:
                 
                 if self.processor.process_pde_dataset(pde_type, sequence_length):
                     success_count += 1
-                    logger.info(f"✓ {pde_type} 处理成功")
+                    logger.info(f"[OK] {pde_type} 处理成功")
                 else:
-                    logger.error(f"✗ {pde_type} 处理失败")
+                    logger.error(f"[FAIL] {pde_type} 处理失败")
             
             if success_count > 0:
                 # 保存处理后的数据
                 if self.processor.save_processed_data():
-                    logger.info(f"\n✓ 数据处理完成！")
+                    logger.info(f"\n[OK] 数据处理完成！")
                     logger.info(f"  成功处理: {success_count}/{len(valid_pde_types)} 种PDE类型")
                     logger.info(f"  输出文件: {config.OUTPUT_FILE}")
                     return True
@@ -279,7 +279,7 @@ class PDEBenchRunner:
                 import torch
                 try:
                     data = torch.load("quick_test_output.pt")
-                    logger.info("✓ 快速测试成功")
+                    logger.info("[OK] 快速测试成功")
                     logger.info(f"  处理的PDE类型: {data['pde_types']}")
                     
                     # 清理测试文件

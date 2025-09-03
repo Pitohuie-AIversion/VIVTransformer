@@ -1,3 +1,4 @@
+import sitecustomize
 import os
 import time
 import argparse
@@ -93,6 +94,13 @@ def main():
     parser.add_argument('--pe_type', type=str, default='learnable_1d')
     parser.add_argument('--output_head_type', type=str, default='global')
     parser.add_argument('--out_channels_per_token', type=int, default=None)
+    # Memory fusion toggles
+    parser.add_argument('--use_memory_concat', dest='use_memory_concat', action='store_true', help='Enable memory concat fusion in decoder cross pathways')
+    parser.add_argument('--no_use_memory_concat', dest='use_memory_concat', action='store_false')
+    parser.set_defaults(use_memory_concat=False)
+    parser.add_argument('--use_memory_film', dest='use_memory_film', action='store_true', help='Enable FiLM gating using memory in decoder cross pathways')
+    parser.add_argument('--no_use_memory_film', dest='use_memory_film', action='store_false')
+    parser.set_defaults(use_memory_film=True)
     parser.add_argument('--batches', type=str, default='8,16,32')
     parser.add_argument('--warmup', type=int, default=8)
     parser.add_argument('--iters', type=int, default=30)
@@ -130,6 +138,8 @@ def main():
         pe_type=args.pe_type,
         output_head_type=args.output_head_type,
         out_channels_per_token=args.out_channels_per_token,
+        use_memory_concat=args.use_memory_concat,
+        use_memory_film=args.use_memory_film,
     )
 
     batch_sizes = [int(s) for s in args.batches.split(',') if s.strip()]
@@ -142,7 +152,7 @@ def main():
 
     print(f"[Device] {device}")
     print(f"[Precision] {dtype}")
-    print(f"[Model] heads={args.num_heads}, layers={args.num_layers}, d_model={args.d_model}, input_dim={args.input_dim}, output_dim={args.output_dim}, input_hw={input_hw}, pe_type={args.pe_type}, output_head_type={args.output_head_type}")
+    print(f"[Model] heads={args.num_heads}, layers={args.num_layers}, d_model={args.d_model}, input_dim={args.input_dim}, output_dim={args.output_dim}, input_hw={input_hw}, pe_type={args.pe_type}, output_head_type={args.output_head_type}, use_memory_concat={args.use_memory_concat}, use_memory_film={args.use_memory_film}")
     print(f"[Benchmark] batch_sizes={batch_sizes}, warmup={warmup}, iters={iters}")
 
     results = benchmark(device, batch_sizes, warmup, iters, model_kwargs, dtype)

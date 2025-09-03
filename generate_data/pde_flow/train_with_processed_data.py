@@ -22,22 +22,23 @@ from pathlib import Path
 import argparse
 import yaml
 
-# 添加项目路径
-sys.path.append(str(Path(__file__).parent.parent / 'modify_multi_attention'))
-sys.path.append(str(Path(__file__).parent))
+# 统一添加仓库根目录到 sys.path，确保可以以包形式导入 modify_multi_attention
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+# 同时加入当前目录，便于本目录脚本之间互相导入
+sys.path.insert(0, str(Path(__file__).parent))
 
-# 导入训练相关模块
-from data.dataloader import get_loaders
-from mymodels.transformer import TransformerFlowReconstructionModel
-from training.trainer import train_model, test_model
-from utils.visualization import plot_losses
-from utils.svd10_loss import TotalLossWithSVD
-from utils.config import load_config
-from utils.logging_utils import setup_logging
+# 导入训练相关模块（使用包前缀，避免顶层不存在的同名包）
+from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
+from modify_multi_attention.training.trainer import train_model, test_model
+from modify_multi_attention.utils.visualization import plot_losses
+from modify_multi_attention.utils.svd10_loss import TotalLossWithSVD
+from modify_multi_attention.utils.config import load_config
+from modify_multi_attention.utils.logging_utils import setup_logging
 
 # 导入数据处理模块
-from pdebench_data_processor import PDEBenchProcessor, PDEBenchConfig
-from config_loader import ConfigLoader
+from generate_data.pde_process.pdebench_data_processor import PDEBenchProcessor, PDEBenchConfig
+from generate_data.pde_process.config_loader import ConfigLoader
 
 # 设置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

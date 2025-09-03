@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import sitecustomize
 """
 字体选择诊断脚本
 检查系统中实际可用的中文字体以及 matplotlib 实际使用的字体

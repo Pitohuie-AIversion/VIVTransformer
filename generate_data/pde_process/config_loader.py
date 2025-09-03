@@ -14,7 +14,7 @@ import yaml
 import os
 from typing import Dict, Any, Optional
 import logging
-from pdebench_data_processor import PDEBenchConfig
+from generate_data.pde_process.pdebench_data_processor import PDEBenchConfig
 
 logger = logging.getLogger(__name__)
 

@@ -21,11 +21,13 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import logging
 
-# 添加路径
-sys.path.append(str(Path(__file__).parent.parent / 'modify_multi_attention'))
-sys.path.append(str(Path(__file__).parent))
+# 确保可以从仓库根目录进行导入
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))  # 允许 `import modify_multi_attention`
+# 同时加入当前目录，便于直接导入同目录脚本
+sys.path.insert(0, str(Path(__file__).parent))  # 允许 `from train_with_processed_data import ...`
 
-from mymodels.transformer import TransformerFlowReconstructionModel
+from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
 from train_with_processed_data import ProcessedPDEBenchDataset
 
 # 设置中文字体
@@ -92,7 +94,7 @@ def load_test_data(data_path):
     logger.info(f"数据集大小: {len(dataset)}")
     return dataset
 
-def test_model_prediction(model, dataset, num_samples=5, device='cpu'):
+def run_model_prediction(model, dataset, num_samples=5, device='cpu'):
     """
     测试模型预测效果
     
@@ -238,7 +240,7 @@ def main():
         
         # 3. 测试模型预测
         logger.info("=== 步骤3: 测试模型预测 ===")
-        results = test_model_prediction(model, dataset, num_test_samples, device)
+        results = run_model_prediction(model, dataset, num_test_samples, device)
         
         # 4. 分析重建质量
         logger.info("=== 步骤4: 分析重建质量 ===")
@@ -254,6 +256,10 @@ def main():
         logger.error(f"测试过程中出错: {str(e)}")
         import traceback
         traceback.print_exc()
+
+def test_smoke_imports_only():
+    """轻量化冒烟测试：验证模块导入成功，避免收集期报错"""
+    assert ProcessedPDEBenchDataset is not None
 
 if __name__ == "__main__":
     main()

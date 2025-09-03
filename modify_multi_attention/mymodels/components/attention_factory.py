@@ -85,6 +85,33 @@ ATTENTION_MODULES = {
     "lsh": LSHSelfAttention,
 }
 
+# 能力标签：根据 attention_type 返回能力集合，供上层按能力分派，避免直接 isinstance
+def get_attention_capabilities(attention_type: str) -> dict:
+    attn = (attention_type or '').lower()
+    caps = {
+        'is_identity': False,
+        'expects_bhwc': False,        # 期望 [B,H,W,C] 输入（如 ViP, Outlook）
+        'is_2d_conv_family': False,   # 典型 CNN/注意力块，期望 [B,C,H,W]
+        'is_seq_mha_like': False,     # 典型 Transformer 接口，接受 (Q,K,V) 的 [B,L,D]
+    }
+    conv2d_set = {
+        'se','sk','cbam','bam','eca','shuffle','sge','residual','s2','triplet','coord',
+        'psa','danet','cot','polarized','coatnet','halo','a2','parnet'
+    }
+    bhwc_set = {'vip','outlook'}
+    seq_mha_set = {'relative','sparse','lsh','self','simplified_self','external','aft'}
+    identity_set = {'gfnet','mobilevit','mobilevitv2','dat','crossformer','moa','crisscross','axial'}
+
+    if attn in conv2d_set:
+        caps['is_2d_conv_family'] = True
+    if attn in bhwc_set:
+        caps['expects_bhwc'] = True
+    if attn in seq_mha_set:
+        caps['is_seq_mha_like'] = True
+    if attn in identity_set:
+        caps['is_identity'] = True
+    return caps
+
 # 解析 (H,W)
 
 def _resolve_hw(seq_len=None, input_hw=None):

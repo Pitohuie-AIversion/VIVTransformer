@@ -12,6 +12,14 @@
 
 import os
 import warnings
+# Silence third-party deprecation warnings from timm import path change
+warnings.filterwarnings('ignore', message='.*Importing from timm.models.layers.*', category=FutureWarning)
+# Proactively silence common Matplotlib glyph-related warnings
+warnings.filterwarnings('ignore', message='.*Glyph.*missing from font.*')
+warnings.filterwarnings('ignore', message='.*does not have a glyph.*')
+warnings.filterwarnings('ignore', message='.*substituting with a dummy symbol.*')
+# Silence known PyTorch CUDA allocator noise on Windows
+warnings.filterwarnings('ignore', message='.*expandable_segments not supported on this platform.*', category=UserWarning)
 
 # ---- 全局 OpenMP 运行时冲突兜底设置 ----
 # 说明：当同一进程中存在多个 OpenMP 运行时（如 Intel MKL 与其他库）时，会触发 OMP Error #15。

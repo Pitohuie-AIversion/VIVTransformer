@@ -6,7 +6,7 @@
 
 import torch
 import numpy as np
-from svd10_loss import TotalLossWithSVD, get_svd_modes, svd_topk_losses
+from modify_multi_attention.utils.svd10_loss import TotalLossWithSVD, get_svd_modes, svd_topk_losses
 
 def create_problematic_tensors():
     """创建可能导致SVD失败的测试张量"""

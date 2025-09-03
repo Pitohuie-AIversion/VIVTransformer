@@ -106,6 +106,12 @@ def main():
         type=int,
         help="Limit number of loss_configs to run from the start (e.g., 5)")
 
+    # 新增：位置编码与时间编码的命令行覆盖
+    parser.add_argument("--pe-type", dest="pe_type", choices=["learnable_1d", "sinusoidal_1d", "learnable_2d"], help="Override model.pe_type")
+    parser.add_argument("--time-encoding", dest="time_encoding", choices=["embedding", "mlp"], help="Override model.time_encoding")
+    # 新增：记忆融合 concat+1x1 conv 开关
+    parser.add_argument("--use-memory-concat", dest="use_memory_concat", action="store_true", help="Enable memory fusion by concatenation + 1x1 conv in decoder")
+
     args, remaining = parser.parse_known_args()
     sys.argv = [sys.argv[0]] + remaining
 
@@ -204,6 +210,18 @@ def main():
     if getattr(args, "out_channels_per_token", None) is not None:
         cfg["model"]["out_channels_per_token"] = args.out_channels_per_token
         overrides["model.out_channels_per_token"] = args.out_channels_per_token
+
+    # 新增：应用 pe_type 与 time_encoding 的命令行覆盖
+    if getattr(args, "pe_type", None):
+        cfg["model"]["pe_type"] = args.pe_type
+        overrides["model.pe_type"] = args.pe_type
+    if getattr(args, "time_encoding", None):
+        cfg["model"]["time_encoding"] = args.time_encoding
+        overrides["model.time_encoding"] = args.time_encoding
+    # 新增：应用 memory concat+1x1 conv 开关
+    if getattr(args, "use_memory_concat", False):
+        cfg["model"]["use_memory_concat"] = True
+        overrides["model.use_memory_concat"] = True
 
     # 当选择 per_token 输出头时，自动推导并覆盖 output_dim = seq_len * C
     try:
@@ -334,7 +352,10 @@ def main():
                     input_hw=tuple(cfg["model"].get("input_hw")) if cfg["model"].get("input_hw") else None,
                     pe_type=cfg["model"].get("pe_type", "learnable_1d"),
                     output_head_type=cfg["model"].get("output_head_type", "global"),
-                    out_channels_per_token=cfg["model"].get("out_channels_per_token")
+                    out_channels_per_token=cfg["model"].get("out_channels_per_token"),
+                    time_encoding=cfg["model"].get("time_encoding", "embedding"),
+                    use_memory_film=cfg["model"].get("use_memory_film", True),
+                    use_memory_concat=cfg["model"].get("use_memory_concat", False),
                 )
 
                 if cfg.get("use_dataparallel", False) and torch.cuda.device_count() > 1:

@@ -81,3 +81,8 @@ tools/
 
 # 训练分辨率降采样分析输出（自动生成）
 generate_data/utils/train_resolution_downsampler/analysis_outputs/
+# 允许跟踪代码目录：modify_multi_attention/data（避免被上面的 "data/" 规则误伤）
+# 注：Git 的 .gitignore 使用正斜杠作为分隔符
+!modify_multi_attention/data/
+# 指定需要纳入版本控制的文件（本次用户请求）
+!modify_multi_attention/data/pdebench_dataset.py

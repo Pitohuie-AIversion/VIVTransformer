@@ -59,7 +59,7 @@ def quick_test():
     logger.info("=== 快速测试PDEBench数据加载 ===")
     
     try:
-        from data.dataloader import get_loaders
+        from .data.dataloader import get_loaders
         
         data_path = "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/PDEBench/pdebench/data_download/2D_DarcyFlow_beta0.1_Train.hdf5"
         

@@ -10,8 +10,8 @@ from pathlib import Path
 # 添加项目路径
 sys.path.append(str(Path(__file__).parent))
 
-from data.dataloader import get_loaders
-from data.pdebench_dataset import PDEBenchDataset
+from .data.dataloader import get_loaders
+from .data.pdebench_dataset import PDEBenchDataset
 import torch
 
 # 设置日志

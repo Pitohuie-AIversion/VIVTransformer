@@ -121,9 +121,29 @@ def svd_topk_losses(pred, target, topk=10):
 class TotalLossWithSVD(nn.Module):
     def __init__(self, base_weight=0.5, svd_weights=None, topk=10):
         super().__init__()
+        # 强制类型校正，避免 YAML/外部传入的字符串导致比较错误
+        topk = int(topk)
+        try:
+            base_weight = float(base_weight)
+        except Exception:
+            base_weight = float(str(base_weight).strip())
+
         if svd_weights is None:
             svd_weights = [0.5 / topk] * topk  # 默认均分0.5权重给10个模态
-        
+        else:
+            # 将所有权重转换为 float
+            try:
+                svd_weights = [float(w) for w in svd_weights]
+            except Exception:
+                svd_weights = [float(str(w).strip()) for w in svd_weights]
+
+        # 长度自适应（防御性处理）：不足则补零，超出则截断
+        if len(svd_weights) != topk:
+            if len(svd_weights) < topk:
+                svd_weights = list(svd_weights) + [0.0] * (topk - len(svd_weights))
+            else:
+                svd_weights = list(svd_weights)[:topk]
+
         # 验证权重参数
         if base_weight < 0:
             raise ValueError(f"基础权重必须为非负数，当前值: {base_weight}")
@@ -131,26 +151,26 @@ class TotalLossWithSVD(nn.Module):
             raise ValueError(f"SVD权重必须为非负数，当前值: {svd_weights}")
         if len(svd_weights) != topk:
             raise ValueError(f"SVD权重数量({len(svd_weights)})必须等于topk({topk})")
-        
+
         # 计算权重总和
         all_weights = [base_weight] + svd_weights
         weight_sum = sum(all_weights)
-        
+
         if weight_sum == 0:
             raise ValueError("所有权重之和不能为0")
-        
+
         # 权重归一化
         self.base_weight = base_weight / weight_sum
         self.svd_weights = [w / weight_sum for w in svd_weights]
         self.topk = topk
         self.base_loss = nn.MSELoss()
-        
+
         # 权重分布警告
         if self.base_weight < 0.1:
             print(f"警告: 基础MSE权重占比过低({self.base_weight:.3f})，可能影响训练稳定性")
         if self.base_weight > 0.9:
             print(f"警告: 基础MSE权重占比过高({self.base_weight:.3f})，SVD损失可能失效")
-        
+
         # 记录原始和归一化后的权重
         self._original_base_weight = base_weight
         self._original_svd_weights = svd_weights.copy()
@@ -223,3 +243,4 @@ class TotalLossWithSVD(nn.Module):
         print(f"归一化SVD权重: {[f'{w:.4f}' for w in info['normalized_svd_weights']]}")
         print(f"TopK模态数: {info['topk']}")
         print(f"=========================")
+

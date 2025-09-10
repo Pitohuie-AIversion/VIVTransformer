@@ -24,6 +24,10 @@ class PressureDataset(Dataset):
 
         in_press_flat = self.in_pressures[reynolds_idx, time_step_idx].view(-1)
         pressure_flat = self.pressures[reynolds_idx, time_step_idx].view(-1)
+        # 数据净化：将 NaN -> 0，Inf -> 有界值，避免后续产生 NaN/Inf 损失
+        in_press_flat = torch.nan_to_num(in_press_flat, nan=0.0, posinf=1e6, neginf=-1e6)
+        pressure_flat = torch.nan_to_num(pressure_flat, nan=0.0, posinf=1e6, neginf=-1e6)
+
         time_step = self.time_steps[reynolds_idx][time_step_idx]
 
         return in_press_flat, pressure_flat, time_step

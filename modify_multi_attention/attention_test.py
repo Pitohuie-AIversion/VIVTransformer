@@ -13,7 +13,7 @@ import torch
 # plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
 # plt.rcParams['axes.unicode_minus'] = False
 
-from utils.config import load_config
+from .utils.config import load_config
 
 from modify_multi_attention.data.dataloader import get_loaders
 from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
@@ -164,3 +164,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

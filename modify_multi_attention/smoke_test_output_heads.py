@@ -7,7 +7,7 @@ root = Path(r"X:\2025\Graduation_project\Pdebench_input_Transformer\VIVTransform
 sys.path.insert(0, str(root / 'modify_multi_attention'))
 sys.path.insert(0, str(root))
 
-from mymodels.transformer import TransformerFlowReconstructionModel
+from .mymodels.transformer import TransformerFlowReconstructionModel
 
 def main():
     B = 2

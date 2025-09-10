@@ -28,14 +28,23 @@ import matplotlib.pyplot as plt
 # plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
 # plt.rcParams['axes.unicode_minus'] = False
 
-from data.dataloader import get_loaders
-from mymodels.transformer import TransformerFlowReconstructionModel
-from training.trainer import train_model, test_model
-from utils.visualization import plot_losses
-from utils.svd10_loss import TotalLossWithSVD
-from utils.config import load_config
-from utils.logging_utils import setup_logging
-from mymodels.components.attention_factory import ATTENTION_MODULES
+from .data.dataloader import get_loaders
+from .mymodels.transformer import TransformerFlowReconstructionModel
+from .mymodels.baselines import PODLSEModel
+from .mymodels.baselines import (
+    LinearBaselineModel,
+    MLPBaselineModel,
+    CNNBaselineModel,
+    UNetBaselineModel,
+    CNNResizeBaselineModel,
+    UNetResizeBaselineModel,
+)
+from .training.trainer import train_model, test_model
+from .utils.visualization import plot_losses
+from .utils.svd10_loss import TotalLossWithSVD
+from .utils.config import load_config
+from .utils.logging_utils import setup_logging
+from .mymodels.components.attention_factory import ATTENTION_MODULES
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -56,6 +65,38 @@ def parse_loss_idx_from_argv():
         if arg == "--loss_idx" and i+1 < len(sys.argv):
             return int(sys.argv[i+1])
     return None
+
+# === POD 工具函数：从训练集快照计算 POD 基底 ===
+def compute_pod_basis_from_loader(train_loader, output_dim, topk=32, max_samples=256, device="cpu"):
+    with torch.no_grad():
+        snaps = []
+        collected = 0
+        for batch in train_loader:
+            if batch is None:
+                continue
+            try:
+                _, y, _ = batch
+            except Exception:
+                # 兼容性保护
+                continue
+            y = y.detach().cpu().reshape(y.shape[0], -1)  # [B, D_out]
+            snaps.append(y)
+            collected += y.shape[0]
+            if collected >= max_samples:
+                break
+        if not snaps:
+            raise RuntimeError("POD 基底计算失败：未从训练集收集到任何样本")
+        Y = torch.cat(snaps, dim=0)  # [N, D_out]
+        if Y.shape[1] != int(output_dim):
+            raise ValueError(f"输出维度不匹配: Y.shape[1]={Y.shape[1]} vs output_dim={output_dim}")
+        # 快照矩阵转置 -> [D_out, N]
+        S = Y.T.float()
+        # 取经济型 SVD
+        U, Svals, Vh = torch.linalg.svd(S, full_matrices=False)
+        k = min(int(topk), U.shape[1])
+        U_k = U[:, :k].contiguous()  # [D_out, k]
+        return U_k
+
 
 def main():
     this_file = Path(__file__).resolve()
@@ -108,9 +149,12 @@ def main():
 
     # 新增：位置编码与时间编码的命令行覆盖
     parser.add_argument("--pe-type", dest="pe_type", choices=["learnable_1d", "sinusoidal_1d", "learnable_2d"], help="Override model.pe_type")
-    parser.add_argument("--time-encoding", dest="time_encoding", choices=["embedding", "mlp"], help="Override model.time_encoding")
+    parser.add_argument("--time-encoding", dest="time_encoding", choices=["embedding", "mlp", "concat"], help="Override model.time_encoding")
     # 新增：记忆融合 concat+1x1 conv 开关
     parser.add_argument("--use-memory-concat", dest="use_memory_concat", action="store_true", help="Enable memory fusion by concatenation + 1x1 conv in decoder")
+
+    # 新增：模型类型开关
+    parser.add_argument("--model-type", dest="model_type", choices=["transformer", "pod_lse", "linear", "mlp", "cnn", "unet", "cnn_resize", "unet_resize"], help="Select model type. Default from config (model.model_type)")
 
     args, remaining = parser.parse_known_args()
     sys.argv = [sys.argv[0]] + remaining
@@ -223,6 +267,11 @@ def main():
         cfg["model"]["use_memory_concat"] = True
         overrides["model.use_memory_concat"] = True
 
+    # 新增：应用模型类型覆盖
+    if getattr(args, "model_type", None):
+        cfg["model"]["model_type"] = args.model_type
+        overrides["model.model_type"] = args.model_type
+
     # 当选择 per_token 输出头时，自动推导并覆盖 output_dim = seq_len * C
     try:
         head = cfg["model"].get("output_head_type", "global")
@@ -294,7 +343,12 @@ def main():
                 pass
         loss_config_ids = [f"loss_config_{i}" for i in range(len(loss_configs))]
 
-    ATTENTION_TYPES = cfg["attention_types"]
+    # 根据模型类型决定 ATTENTION_TYPES（非transformer模型不扫注意力）
+    model_type = cfg["model"].get("model_type", "transformer").lower()
+    if model_type != "transformer":
+        ATTENTION_TYPES = [model_type]
+    else:
+        ATTENTION_TYPES = cfg["attention_types"]
     vis_enabled = cfg["visualization"]["enabled"]
     failed_attention_types = []
 
@@ -308,6 +362,29 @@ def main():
         dataset_type=dataset_type,
         max_samples=max_samples
     )
+
+    # 若选择 POD+LSE，预先计算或加载 POD 基底
+    pod_U = None
+    if model_type == "pod_lse":
+        pod_cfg = cfg.get("pod", {})
+        pod_topk = int(pod_cfg.get("topk", 32))
+        pod_basis_path = pod_cfg.get("basis_path", None)
+        max_snaps = int(pod_cfg.get("max_samples_for_basis", 256))
+        out_dim = int(cfg["model"].get("output_dim"))
+        try:
+            if pod_basis_path and Path(pod_basis_path).exists():
+                log.info("加载已有 POD 基底: %s", pod_basis_path)
+                pod_U = torch.load(pod_basis_path, map_location="cpu")
+            else:
+                log.info("开始计算 POD 基底: topk=%s, max_samples=%s", pod_topk, max_snaps)
+                pod_U = compute_pod_basis_from_loader(train_loader, out_dim, topk=pod_topk, max_samples=max_snaps)
+                if pod_basis_path:
+                    Path(pod_basis_path).parent.mkdir(parents=True, exist_ok=True)
+                    torch.save(pod_U, pod_basis_path)
+                    log.info("POD 基底已保存: %s", pod_basis_path)
+        except Exception as e:
+            log.error("POD 基底构建失败: %s", e)
+            raise
 
     for idx, (loss_cfg, loss_config_id) in enumerate(zip(loss_configs, loss_config_ids)):
         base_weight = loss_cfg.get("base_weight", 0.5)
@@ -340,23 +417,110 @@ def main():
                 log.warning("创建子日志文件失败: %s", _log_err)
 
             try:
-                model = TransformerFlowReconstructionModel(
-                    input_dim=cfg["model"]["input_dim"],
-                    output_dim=cfg["model"]["output_dim"],
-                    num_heads=cfg["model"]["num_heads"],
-                    num_layers=cfg["model"]["num_layers"],
-                    d_model=cfg["model"]["d_model"],
-                    max_time_steps=cfg["model"]["max_time_steps"],
-                    attention_type=attn_type,
-                    seq_len=cfg["model"].get("seq_len", 32),  # 默认使用32而不是49
-                    input_hw=tuple(cfg["model"].get("input_hw")) if cfg["model"].get("input_hw") else None,
-                    pe_type=cfg["model"].get("pe_type", "learnable_1d"),
-                    output_head_type=cfg["model"].get("output_head_type", "global"),
-                    out_channels_per_token=cfg["model"].get("out_channels_per_token"),
-                    time_encoding=cfg["model"].get("time_encoding", "embedding"),
-                    use_memory_film=cfg["model"].get("use_memory_film", True),
-                    use_memory_concat=cfg["model"].get("use_memory_concat", False),
-                )
+                # 根据模型类型实例化模型
+                model_cfg = cfg.get("model", {})
+                if model_type == "transformer":
+                    model = TransformerFlowReconstructionModel(
+                        input_dim=cfg["model"]["input_dim"],
+                        output_dim=cfg["model"]["output_dim"],
+                        num_heads=cfg["model"]["num_heads"],
+                        num_layers=cfg["model"]["num_layers"],
+                        d_model=cfg["model"]["d_model"],
+                        max_time_steps=cfg["model"].get("max_time_steps", 100),
+                        attention_type=attn_type,
+                        seq_len=cfg["model"].get("seq_len", 32),  # 默认使用32而不是49
+                        input_hw=tuple(cfg["model"].get("input_hw")) if cfg["model"].get("input_hw") else None,
+                        pe_type=cfg["model"].get("pe_type", "learnable_1d"),
+                        output_head_type=cfg["model"].get("output_head_type", "global"),
+                        out_channels_per_token=cfg["model"].get("out_channels_per_token"),
+                        time_encoding=cfg["model"].get("time_encoding", "embedding"),
+                        use_memory_film=cfg["model"].get("use_memory_film", True),
+                        use_memory_concat=cfg["model"].get("use_memory_concat", False),
+                    )
+                elif model_type == "pod_lse":
+                    if pod_U is None:
+                        raise RuntimeError("POD 基底未就绪，无法实例化 PODLSEModel")
+                    # POD 模型时间编码：若为 embedding，则回退到 mlp（拼接标量）
+                    time_enc = cfg["model"].get("time_encoding", "embedding")
+                    if time_enc == "embedding":
+                        log.info("PODLSE: time_encoding=embedding -> 回退为 mlp (concat 时间标量)")
+                        time_enc = "mlp"
+                    model = PODLSEModel(
+                        input_dim=cfg["model"]["input_dim"],
+                        output_dim=cfg["model"]["output_dim"],
+                        pod_basis=pod_U,
+                        max_time_steps=cfg["model"].get("max_time_steps", 100),
+                        d_model=cfg["model"].get("d_model", 512),
+                        time_encoding=time_enc,
+                    )
+                elif model_type == "linear":
+                    model = LinearBaselineModel(
+                        input_dim=cfg["model"]["input_dim"],
+                        output_dim=cfg["model"]["output_dim"],
+                        max_time_steps=cfg["model"].get("max_time_steps", 100),
+                        time_encoding=cfg["model"].get("time_encoding", "none"),
+                        d_model=cfg["model"].get("d_model", 128),
+                    )
+                elif model_type == "mlp":
+                    model = MLPBaselineModel(
+                        input_dim=cfg["model"]["input_dim"],
+                        output_dim=cfg["model"]["output_dim"],
+                        hidden_dim=cfg["model"].get("hidden_dim", 512),
+                        max_time_steps=cfg["model"].get("max_time_steps", 100),
+                        time_encoding=cfg["model"].get("time_encoding", "mlp"),
+                    )
+                elif model_type == "cnn":
+                    input_hw = tuple(model_cfg.get("input_hw") or []) if model_cfg.get("input_hw") is not None else None
+                    if input_hw is None:
+                        raise ValueError("CNNBaselineModel 需要在 config.model.input_hw 指定输入空间尺寸 [H, W]")
+                    model = CNNBaselineModel(
+                        input_dim=model_cfg.get("input_dim"),
+                        output_dim=model_cfg.get("output_dim"),
+                        input_hw=input_hw,
+                        max_time_steps=model_cfg.get("max_time_steps", 100),
+                        time_encoding=model_cfg.get("time_encoding", "mlp"),
+                    )
+                elif model_type == "unet":
+                    input_hw = tuple(model_cfg.get("input_hw") or []) if model_cfg.get("input_hw") is not None else None
+                    if input_hw is None:
+                        raise ValueError("UNetBaselineModel 需要在 config.model.input_hw 指定输入空间尺寸 [H, W]")
+                    model = UNetBaselineModel(
+                        input_dim=model_cfg.get("input_dim"),
+                        output_dim=model_cfg.get("output_dim"),
+                        input_hw=input_hw,
+                        base_ch=model_cfg.get("base_ch", 16),
+                        max_time_steps=model_cfg.get("max_time_steps", 100),
+                        time_encoding=model_cfg.get("time_encoding", "mlp"),
+                    )
+                elif model_type == "cnn_resize":
+                    input_hw = tuple(model_cfg.get("input_hw") or []) if model_cfg.get("input_hw") is not None else None
+                    output_hw = tuple(model_cfg.get("output_hw") or []) if model_cfg.get("output_hw") is not None else None
+                    if input_hw is None or output_hw is None:
+                        raise ValueError("CNNResizeBaselineModel 需要在 config.model.input_hw 与 config.model.output_hw 指定 [H,W]")
+                    model = CNNResizeBaselineModel(
+                        input_dim=model_cfg.get("input_dim"),
+                        output_dim=model_cfg.get("output_dim"),
+                        input_hw=input_hw,
+                        output_hw=output_hw,
+                        max_time_steps=model_cfg.get("max_time_steps", 100),
+                        time_encoding=model_cfg.get("time_encoding", "mlp"),
+                    )
+                elif model_type == "unet_resize":
+                    input_hw = tuple(model_cfg.get("input_hw") or []) if model_cfg.get("input_hw") is not None else None
+                    output_hw = tuple(model_cfg.get("output_hw") or []) if model_cfg.get("output_hw") is not None else None
+                    if input_hw is None or output_hw is None:
+                        raise ValueError("UNetResizeBaselineModel 需要在 config.model.input_hw 与 config.model.output_hw 指定 [H,W]")
+                    model = UNetResizeBaselineModel(
+                        input_dim=model_cfg.get("input_dim"),
+                        output_dim=model_cfg.get("output_dim"),
+                        input_hw=input_hw,
+                        output_hw=output_hw,
+                        base_ch=model_cfg.get("base_ch", 16),
+                        max_time_steps=model_cfg.get("max_time_steps", 100),
+                        time_encoding=model_cfg.get("time_encoding", "mlp"),
+                    )
+                else:
+                    raise ValueError(f"未知的模型类型: {model_type}")
 
                 if cfg.get("use_dataparallel", False) and torch.cuda.device_count() > 1:
                     log.info("Using DataParallel on %s GPUs!", torch.cuda.device_count())
@@ -426,7 +590,7 @@ def main():
                         torch.cuda.empty_cache()
                 except Exception as _cleanup_err:
                     log.debug("清理CUDA缓存异常: %s", _cleanup_err)
-    
+
                 if not failed:
                     log.info("[OK] %s (%s) 训练完成!", attn_type, loss_config_id)
                     # 记录已完成的 attention 类型
@@ -436,16 +600,17 @@ def main():
                 else:
                     # 记录失败的 attention 类型
                     failed_attention_types.append(f"{loss_config_id}::{attn_type}")
-    
-            if failed_attention_types:
-                log.warning("\n[WARN] 以下loss+注意力机制训练失败，并已记录在 failed_attention_log.txt：")
-                with open(parent_dir / "failed_attention_log.txt", "w") as f:
-                    for item in failed_attention_types:
-                        log.warning(" - %s", item)
-                        f.write(item + "\n")
-            else:
-                log.info("\n[OK] 所有loss配置和注意力机制均运行成功！")
+
+                if failed_attention_types:
+                    log.warning("\n[WARN] 以下loss+注意力机制训练失败，并已记录在 failed_attention_log.txt：")
+                    with open(parent_dir / "failed_attention_log.txt", "w") as f:
+                        for item in failed_attention_types:
+                            log.warning(" - %s", item)
+                            f.write(item + "\n")
+                        else:
+                            log.info("\n[OK] 所有loss配置和注意力机制均运行成功！")
 
 if __name__ == "__main__":
     main()
+
 

@@ -224,15 +224,32 @@ loss_configs:
       topk: 10
 
 model:
+  # 默认仍为 transformer，可换为 pod_lse/linear/mlp/cnn/unet/cnn_resize/unet_resize
+  model_type: transformer
   input_dim: 400
   output_dim: 40000
-  d_model: 512
-  num_heads: 8
-  num_layers: 6
-  max_time_steps: 100
-  attention_type: "relative"  # 这里的默认类型可以随时更改
-  seq_len: 32  # 明确指定空间尺寸，支持CNN注意力
+  # 对于 CNN/UNet 需要提供输入 HxW；对于 *resize* 版本还需提供输出 HxW
   input_hw: [20, 20]
+  output_hw: [200, 200]  # 仅 cnn_resize/unet_resize 需要；若与 output_dim 不匹配将报错
+  # 其他 transformer 相关参数保持不变
+  num_layers: 6
+  num_heads: 8
+  d_model: 512
+  max_time_steps: 100
+  pe_type: learnable_1d
+  output_head_type: global
+  out_channels_per_token: null
+  time_encoding: embedding
+  use_memory_film: true
+  use_memory_concat: false
+  # UNet 额外参数（可选）
+  base_ch: 16
+
+# POD 相关（POD+LSE 或可选其他POD基线时使用）
+pod:
+  topk: 32                 # POD 模态数量
+  max_samples_for_basis: 256  # 用于构造快照矩阵的最大样本数（来自训练集）
+  basis_path: null         # 可选：预保存/复用的基底文件路径（.pt）。为 null 时每次重新计算
 attention_types:
   - "external"
   - "self"

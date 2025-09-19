@@ -26,6 +26,9 @@ import logging
 from pathlib import Path
 from datetime import datetime
 import json
+import psutil
+import gc
+import time
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent
@@ -41,6 +44,161 @@ from models.enhanced_unet import create_enhanced_unet2d
 # 设置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# ===== 自适应资源管理工具函数 =====
+
+def detect_system_resources():
+    """检测系统资源并返回详细信息"""
+    resources = {}
+    
+    # CPU信息
+    resources['cpu_count'] = os.cpu_count()
+    resources['cpu_usage'] = psutil.cpu_percent(interval=1)
+    
+    # 内存信息
+    memory = psutil.virtual_memory()
+    resources['total_memory_gb'] = memory.total / (1024**3)
+    resources['available_memory_gb'] = memory.available / (1024**3)
+    resources['memory_usage_percent'] = memory.percent
+    
+    # GPU信息
+    if torch.cuda.is_available():
+        resources['gpu_count'] = torch.cuda.device_count()
+        resources['gpu_devices'] = []
+        for i in range(torch.cuda.device_count()):
+            gpu_props = torch.cuda.get_device_properties(i)
+            gpu_memory = torch.cuda.get_device_properties(i).total_memory / (1024**3)
+            resources['gpu_devices'].append({
+                'id': i,
+                'name': gpu_props.name,
+                'total_memory_gb': gpu_memory,
+                'compute_capability': f"{gpu_props.major}.{gpu_props.minor}"
+            })
+    else:
+        resources['gpu_count'] = 0
+        resources['gpu_devices'] = []
+    
+    return resources
+
+def get_gpu_memory_info(device_id=0):
+    """获取GPU内存使用信息"""
+    if not torch.cuda.is_available():
+        return None
+    
+    try:
+        torch.cuda.set_device(device_id)
+        total_memory = torch.cuda.get_device_properties(device_id).total_memory
+        allocated_memory = torch.cuda.memory_allocated(device_id)
+        cached_memory = torch.cuda.memory_reserved(device_id)
+        
+        return {
+            'total_gb': total_memory / (1024**3),
+            'allocated_gb': allocated_memory / (1024**3),
+            'cached_gb': cached_memory / (1024**3),
+            'free_gb': (total_memory - allocated_memory) / (1024**3),
+            'usage_percent': (allocated_memory / total_memory) * 100
+        }
+    except Exception as e:
+        logger.warning(f"无法获取GPU内存信息: {e}")
+        return None
+
+def adaptive_batch_size(base_batch_size, gpu_memory_gb, model_complexity='medium'):
+    """根据GPU内存自适应调整批次大小"""
+    if gpu_memory_gb is None:
+        return base_batch_size
+    
+    # 根据模型复杂度设置内存需求系数
+    complexity_factors = {
+        'simple': 0.5,    # MLP等简单模型
+        'medium': 1.0,    # Transformer等中等模型
+        'complex': 2.0    # FNO、UNet等复杂模型
+    }
+    
+    factor = complexity_factors.get(model_complexity, 1.0)
+    
+    # 基于GPU内存调整批次大小
+    if gpu_memory_gb >= 40:  # 高端GPU (A100, H100等)
+        multiplier = 8
+    elif gpu_memory_gb >= 24:  # 中高端GPU (RTX 4090, A6000等)
+        multiplier = 4
+    elif gpu_memory_gb >= 12:  # 中端GPU (RTX 4070Ti等)
+        multiplier = 2
+    elif gpu_memory_gb >= 8:   # 入门GPU (RTX 4060Ti等)
+        multiplier = 1
+    else:  # 低端GPU
+        multiplier = 0.5
+    
+    # 应用复杂度因子
+    adjusted_multiplier = multiplier / factor
+    new_batch_size = max(1, int(base_batch_size * adjusted_multiplier))
+    
+    logger.info(f"🎯 自适应批次大小: {base_batch_size} → {new_batch_size} "
+                f"(GPU: {gpu_memory_gb:.1f}GB, 复杂度: {model_complexity})")
+    
+    return new_batch_size
+
+def adaptive_num_workers(base_workers, cpu_count, data_complexity='medium'):
+    """根据CPU核心数自适应调整数据加载器工作进程数"""
+    # 根据数据处理复杂度设置CPU使用策略
+    complexity_factors = {
+        'simple': 0.25,   # 简单数据处理
+        'medium': 0.5,    # 中等复杂度
+        'complex': 0.75   # 复杂数据处理（如降采样）
+    }
+    
+    factor = complexity_factors.get(data_complexity, 0.5)
+    
+    # 基于CPU核心数计算最优工作进程数
+    if cpu_count >= 64:  # 超级服务器
+        optimal_workers = int(cpu_count * factor)
+    elif cpu_count >= 16:  # 高性能服务器
+        optimal_workers = int(cpu_count * factor)
+    elif cpu_count >= 8:   # 普通服务器/工作站
+        optimal_workers = int(cpu_count * 0.5)
+    else:  # 个人电脑
+        optimal_workers = max(0, cpu_count - 2)
+    
+    # 限制在合理范围内
+    optimal_workers = max(0, min(32, optimal_workers))
+    
+    # 如果base_workers为0，使用计算出的值；否则取较大值
+    if base_workers == 0:
+        final_workers = optimal_workers
+    else:
+        final_workers = max(base_workers, optimal_workers)
+    
+    logger.info(f"🚀 自适应工作进程: {base_workers} → {final_workers} "
+                f"(CPU: {cpu_count}核, 复杂度: {data_complexity})")
+    
+    return final_workers
+
+def cleanup_memory():
+    """清理内存和GPU缓存"""
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+
+def log_system_status(stage=""):
+    """记录系统资源状态"""
+    resources = detect_system_resources()
+    
+    logger.info(f"📊 [{stage}] 系统资源状态:")
+    logger.info(f"  💻 CPU: {resources['cpu_count']}核, 使用率: {resources['cpu_usage']:.1f}%")
+    logger.info(f"  💾 内存: {resources['available_memory_gb']:.1f}GB可用 / {resources['total_memory_gb']:.1f}GB总计 "
+                f"({resources['memory_usage_percent']:.1f}%)")
+    
+    if resources['gpu_count'] > 0:
+        logger.info(f"  🎮 GPU: {resources['gpu_count']}张")
+        for gpu in resources['gpu_devices']:
+            gpu_mem = get_gpu_memory_info(gpu['id'])
+            if gpu_mem:
+                logger.info(f"    GPU{gpu['id']}: {gpu['name']} "
+                           f"({gpu_mem['free_gb']:.1f}GB可用 / {gpu_mem['total_gb']:.1f}GB总计)")
+    else:
+        logger.info("  🎮 GPU: 未检测到CUDA设备")
+    
+    return resources
 
 class SimpleMLP(nn.Module):
     """简单的MLP模型，支持不同输入输出维度"""
@@ -451,6 +609,56 @@ def run_model_test(config_path, models=None):
     device = torch.device('cuda' if torch.cuda.is_available() and config['device']['use_cuda'] else 'cpu')
     logger.info(f"使用设备: {device}")
     
+    # 读取自适应资源配置
+    adaptive_config = config.get('adaptive_resources', {})
+    enable_adaptive = adaptive_config.get('enable_adaptive', True)
+    
+    if enable_adaptive:
+        # 智能资源检测和优化
+        system_info = detect_system_resources()
+        log_system_status("初始化")
+        
+        # 自适应批次大小调整
+        batch_config = adaptive_config.get('batch_size_adaptation', {})
+        if batch_config.get('enable', True):
+            original_batch_size = config['data'].get('batch_size', 32)
+            strategy = batch_config.get('strategy', 'medium')
+            
+            if device.type == 'cuda' and torch.cuda.is_available():
+                gpu_info = get_gpu_memory_info()
+                if gpu_info:
+                    optimized_batch_size = adaptive_batch_size(
+                        original_batch_size, 
+                        gpu_info['total_gb'], 
+                        strategy
+                    )
+                    # 应用批次大小限制
+                    min_batch = batch_config.get('min_batch_size', 1)
+                    max_batch = batch_config.get('max_batch_size', 64)
+                    optimized_batch_size = max(min_batch, min(optimized_batch_size, max_batch))
+                    config['data']['batch_size'] = optimized_batch_size
+                    logger.info(f"批次大小优化: {original_batch_size} → {optimized_batch_size} (策略: {strategy})")
+                    logger.info(f"GPU内存: 总计 {gpu_info['total_gb']:.1f}GB, 已用 {gpu_info['allocated_gb']:.1f}GB, 可用 {gpu_info['free_gb']:.1f}GB")
+        
+        # 自适应数据加载器工作进程数
+        dataloader_config = adaptive_config.get('dataloader_adaptation', {})
+        if dataloader_config.get('enable', True):
+            original_num_workers = config['data'].get('num_workers', 4)
+            strategy = dataloader_config.get('strategy', 'medium')
+            optimized_num_workers = adaptive_num_workers(
+                original_num_workers, 
+                system_info['cpu_count'], 
+                strategy
+            )
+            # 应用工作进程数限制
+            min_workers = dataloader_config.get('min_workers', 0)
+            max_workers = dataloader_config.get('max_workers', 16)
+            optimized_num_workers = max(min_workers, min(optimized_num_workers, max_workers))
+            config['data']['num_workers'] = optimized_num_workers
+            logger.info(f"工作进程数优化: {original_num_workers} → {optimized_num_workers} (策略: {strategy})")
+    else:
+        logger.info("自适应资源优化已禁用")
+    
     # 创建数据加载器
     logger.info("创建数据加载器...")
     train_loader, val_loader, test_loader = create_crop_dataloader(config)
@@ -513,6 +721,9 @@ def run_model_test(config_path, models=None):
             num_params = sum(p.numel() for p in model.parameters())
             logger.info(f"模型参数数量: {num_params:,}")
             
+            # 训练前内存状态记录
+            log_system_status(f"训练前-{model_name}")
+            
             # 训练模型
             logger.info("开始训练...")
             logger.info("调用train_model函数...")
@@ -520,11 +731,19 @@ def run_model_test(config_path, models=None):
             train_results = train_model(model, train_loader, val_loader, config, device)
             train_time = (datetime.now() - train_start_time).total_seconds()
             
+            # 训练后内存清理
+            cleanup_memory()
+            log_system_status(f"训练后-{model_name}")
+            
             # 评估模型
             logger.info("开始评估...")
             eval_start_time = datetime.now()
             eval_results = evaluate_model(model, test_loader, device)
             eval_time = (datetime.now() - eval_start_time).total_seconds()
+            
+            # 评估后内存清理
+            cleanup_memory()
+            log_system_status(f"评估后-{model_name}")
             
             # 保存结果
             results[model_name] = {
@@ -589,12 +808,26 @@ def main():
     parser = argparse.ArgumentParser(description='运行裁剪模型测试')
     parser.add_argument('--config', default='modify_multi_attention/configs/real_data_crop_config.yaml',
                         help='配置文件路径')
-    parser.add_argument('--models', default='mlp,transformer',
-                        help='要测试的模型，用逗号分隔')
+    parser.add_argument('--models', default='all',
+                        help='要测试的模型，用逗号分隔，或使用"all"运行所有模型')
     
     args = parser.parse_args()
     
-    models = [m.strip() for m in args.models.split(',')]
+    # 如果指定为"all"，则从配置文件中读取所有可用模型
+    if args.models.lower() == 'all':
+        try:
+            # 加载配置文件获取所有可用模型
+            with open(args.config, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+            available_models = list(config.get('models', {}).keys())
+            models = available_models
+            logger.info(f"自动检测到可用模型: {available_models}")
+        except Exception as e:
+            logger.warning(f"无法读取配置文件中的模型列表: {e}")
+            logger.info("使用默认模型列表")
+            models = ['mlp', 'transformer', 'custom_transformer', 'fno', 'unet']
+    else:
+        models = [m.strip() for m in args.models.split(',')]
     
     logger.info("开始裁剪模型测试...")
     logger.info(f"配置文件: {args.config}")

@@ -3,6 +3,33 @@
 # 参考: generate_data/pde_process/create_input32_output128_dataset.py
 # 自动生成时间: 2025-09-16T10:45:00
 
+# 自适应资源管理配置
+adaptive_resources:
+  # 是否启用自适应优化
+  enable_adaptive: true
+  
+  # 批次大小自适应配置
+  batch_size_adaptation:
+    enable: true
+    strategy: "medium"  # conservative, medium, aggressive
+    min_batch_size: 1
+    max_batch_size: 64
+    memory_threshold: 0.8  # GPU内存使用阈值
+  
+  # 数据加载器自适应配置
+  dataloader_adaptation:
+    enable: true
+    strategy: "medium"  # conservative, medium, aggressive
+    min_workers: 0
+    max_workers: 16
+    cpu_threshold: 0.8  # CPU使用阈值
+  
+  # 内存监控配置
+  memory_monitoring:
+    enable: true
+    cleanup_frequency: "per_model"  # per_epoch, per_model, manual
+    log_frequency: "detailed"  # minimal, normal, detailed
+
 # 数据配置
 data:
   data_path: "X:/2025/Graduation_project/report/data/pdebench/2D/DarcyFlow/2D_DarcyFlow_beta0.01_Train.hdf5"
@@ -18,10 +45,11 @@ data:
   output_resolution: [128, 128]
   output_dim: 16384  # 128*128 = 16384
   
-  batch_size: 8     # 减小批次大小以适应内存
+  batch_size: 8     # 减小批次大小以适应内存（将被自适应调整）
   validation_split: 0.2
   test_split: 0.1
   max_samples: 1000  # 从10000个样本中选择1000个
+  num_workers: 4    # 数据加载器工作进程数（将被自适应调整）
   
   # 数据预处理
   normalize: true

@@ -1,0 +1,60 @@
+transformer_light:
+  creation_time: 0.012238025665283203
+  error: null
+  expected_output_shape:
+  - 8
+  - 128
+  inference_time: 0.0054700374603271484
+  input_shape:
+  - 8
+  - 64
+  memory_used_mb: 9.732421875
+  model_name: transformer_light
+  output_shape:
+  - 8
+  - 128
+  param_count: 417312
+  param_ratio: 0.834624
+  shape_match: true
+  success: true
+  target_params: 500000
+transformer_medium:
+  creation_time: 0.025389671325683594
+  error: null
+  expected_output_shape:
+  - 8
+  - 128
+  inference_time: 0.0051991939544677734
+  input_shape:
+  - 8
+  - 64
+  memory_used_mb: 13.296875
+  model_name: transformer_medium
+  output_shape:
+  - 8
+  - 128
+  param_count: 1353824
+  param_ratio: 0.676912
+  shape_match: true
+  success: true
+  target_params: 2000000
+transformer_micro:
+  creation_time: 0.13533616065979004
+  error: null
+  expected_output_shape:
+  - 8
+  - 128
+  inference_time: 0.4113199710845947
+  input_shape:
+  - 8
+  - 64
+  memory_used_mb: 8.7470703125
+  model_name: transformer_micro
+  output_shape:
+  - 8
+  - 128
+  param_count: 159528
+  param_ratio: 1.59528
+  shape_match: true
+  success: true
+  target_params: 100000

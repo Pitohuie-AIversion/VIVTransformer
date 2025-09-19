@@ -1,0 +1,411 @@
+# 增强版PDEBench训练器配置文件
+# 支持稀疏到稠密流场重建任务的横向对比实验
+
+# 数据配置
+data:
+  data_path: "./preprocessed_data/sample_data.h5"
+  input_resolution: [32, 32]  # 稀疏输入分辨率
+  output_resolution: [128, 128]  # 稠密输出分辨率
+  num_samples: 1000
+  batch_size: 8
+  num_workers: 4
+  crop_mode: "center"
+  normalize_data: true
+  lazy_loading: false
+
+# 模型配置 - 基线模型清单
+models:
+  # === 非学习方法 ===
+  interpolation_baseline:
+    type: "interpolation"
+    enabled: false  # 需要单独实现
+    method: "bicubic"
+    
+  # === 简单神经网络 ===
+  simple_mlp:
+    type: "mlp"
+    enabled: false  # 需要单独实现
+    hidden_dims: [256, 512, 256]
+    activation: "relu"
+    
+  simple_cnn:
+    type: "cnn"
+    enabled: false  # 需要单独实现
+    channels: [32, 64, 128, 64, 32]
+    kernel_size: 3
+    
+  # === PDEBench原生模型 ===
+  # 小型配置
+  fno1d_small:
+    type: "fno1d"
+    enabled: true
+    num_channels: 1
+    modes: 8
+    width: 32
+    initial_step: 10
+    target_params: 50000  # 约5万参数
+    
+  unet1d_small:
+    type: "unet1d"
+    enabled: true
+    in_channels: 1
+    out_channels: 1
+    init_features: 16
+    target_params: 50000
+    
+  mlp_small:
+    type: "enhanced_mlp"
+    enabled: true
+    hidden_dim: 64
+    num_layers: 4
+    fourier_features: 32
+    target_params: 50000
+    
+  # 中型配置
+  fno1d_medium:
+    type: "fno1d"
+    enabled: true
+    num_channels: 1
+    modes: 16
+    width: 64
+    initial_step: 10
+    target_params: 500000  # 约50万参数
+    
+  unet1d_medium:
+    type: "unet1d"
+    enabled: true
+    in_channels: 1
+    out_channels: 1
+    init_features: 32
+    target_params: 500000
+    
+  # 大型配置
+  fno1d_large:
+    type: "fno1d"
+    enabled: true
+    num_channels: 1
+    modes: 32
+    width: 128
+    initial_step: 10
+    target_params: 2000000  # 约200万参数
+    
+  unet1d_large:
+    type: "unet1d"
+    enabled: true
+    in_channels: 1
+    out_channels: 1
+    init_features: 64
+    target_params: 2000000
+    
+  # === 增强模型 ===
+  # 小型配置
+  enhanced_fno1d_small:
+    type: "enhanced_fno1d"
+    enabled: true
+    modes: 8
+    width: 32
+    num_layers: 3
+    attention_heads: 4
+    target_params: 50000
+    
+  enhanced_unet1d_small:
+    type: "enhanced_unet1d"
+    enabled: true
+    hidden_dim: 32
+    num_layers: 3
+    attention_heads: 4
+    target_params: 50000
+    
+  enhanced_mlp_small:
+    type: "enhanced_mlp"
+    enabled: true
+    hidden_dim: 64
+    num_layers: 4
+    fourier_features: 32
+    target_params: 50000
+    
+  # 中型配置
+  enhanced_fno1d_medium:
+    type: "enhanced_fno1d"
+    enabled: true
+    modes: 16
+    width: 64
+    num_layers: 4
+    attention_heads: 8
+    target_params: 500000
+    
+  enhanced_unet1d_medium:
+    type: "enhanced_unet1d"
+    enabled: true
+    hidden_dim: 64
+    num_layers: 4
+    attention_heads: 8
+    target_params: 500000
+    
+  enhanced_mlp_medium:
+    type: "enhanced_mlp"
+    enabled: true
+    hidden_dim: 128
+    num_layers: 6
+    fourier_features: 64
+    target_params: 500000
+    
+  # 大型配置
+  enhanced_fno1d_large:
+    type: "enhanced_fno1d"
+    enabled: true
+    modes: 32
+    width: 128
+    num_layers: 6
+    attention_heads: 16
+    target_params: 2000000
+    
+  enhanced_unet1d_large:
+    type: "enhanced_unet1d"
+    enabled: true
+    hidden_dim: 128
+    num_layers: 6
+    attention_heads: 16
+    target_params: 2000000
+    
+  enhanced_mlp_large:
+    type: "enhanced_mlp"
+    enabled: true
+    hidden_dim: 256
+    num_layers: 8
+    fourier_features: 128
+    target_params: 2000000
+    
+  # === 注意力类模型 ===
+  # Transformer模型
+  transformer_small:
+    type: "transformer"
+    enabled: true
+    num_heads: 4
+    num_layers: 3
+    d_model: 256
+    attention_type: "sge"
+    max_time_steps: 1
+    seq_len: 32
+    target_params: 50000
+    
+  transformer_medium:
+    type: "transformer"
+    enabled: true
+    num_heads: 8
+    num_layers: 6
+    d_model: 512
+    attention_type: "sge"
+    max_time_steps: 1
+    seq_len: 32
+    target_params: 500000
+    
+  transformer_large:
+    type: "transformer"
+    enabled: true
+    num_heads: 8
+    num_layers: 6
+    d_model: 512
+    attention_type: "sge"
+    max_time_steps: 1
+    seq_len: 32
+    target_params: 1000000
+
+# 训练配置
+training:
+  epochs: 100
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 1e-6
+  
+  # 学习率调度
+  scheduler:
+    type: "cosine"
+    T_max: 100
+    eta_min: 1e-6
+    
+  # 梯度裁剪
+  gradient_clipping:
+    enabled: true
+    max_norm: 1.0
+    
+  # 混合精度训练
+  mixed_precision:
+    enabled: true
+    
+  # 检查点保存
+  checkpoint:
+    enabled: true
+    save_best: true
+    save_interval: 10
+
+# 优化器配置
+optimizer:
+  type: "adamw"  # adam, adamw, sgd
+  learning_rate: 1e-3
+  weight_decay: 1e-5
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  
+  # SGD特有参数
+  momentum: 0.9
+  nesterov: true
+
+# 损失函数配置
+loss:
+  type: "enhanced_svd"  # mse, svd, enhanced_svd
+  
+  # SVD损失权重
+  base_weight: 0.7
+  svd_weights: [0.08, 0.06, 0.05, 0.04, 0.03, 0.02, 0.01, 0.01, 0.005, 0.005]
+  topk: 10
+  
+  # 增强SVD损失特有参数
+  mixed_precision: false
+  adaptive_weights: true
+  frequency_weighting: true
+  spatial_weighting: true
+  
+  # 正则化项
+  regularization:
+    l1_weight: 0.0
+    l2_weight: 1e-6
+    spectral_weight: 0.01
+
+# 评估指标
+metrics:
+  - "mse"
+  - "mae"
+  - "rmse"
+  - "psnr"
+  - "ssim"
+  - "spectral_loss"
+  - "relative_error"
+
+# 硬件配置
+hardware:
+  device: "auto"  # auto, cpu, cuda, cuda:0
+  num_gpus: 1
+  distributed: false
+  
+  # 内存管理
+  memory_management:
+    gradient_checkpointing: false
+    empty_cache_interval: 10
+    max_memory_usage: 0.9
+
+# 实验配置
+experiment:
+  name: "sparse_to_dense_comparison"
+  description: "稀疏到稠密流场重建任务横向对比实验"
+  
+  # 随机种子
+  random_seed: 42
+  deterministic: true
+  
+  # 结果保存
+  output_dir: "./results"
+  save_predictions: true
+  save_models: true
+  
+  # 可视化
+  visualization:
+    enabled: true
+    save_plots: true
+    plot_interval: 20
+    
+  # 日志配置
+  logging:
+    level: "INFO"
+    save_logs: true
+    tensorboard: false
+    wandb: false
+
+# 数据增强
+data_augmentation:
+  enabled: false
+  
+  # 空间变换
+  spatial:
+    rotation: false
+    flip: false
+    scale: false
+    
+  # 噪声添加
+  noise:
+    gaussian: false
+    uniform: false
+    
+  # 频域变换
+  frequency:
+    fourier_dropout: false
+    spectral_shift: false
+
+# 模型选择和超参数优化
+hyperparameter_optimization:
+  enabled: false
+  method: "grid_search"  # grid_search, random_search, bayesian
+  
+  # 搜索空间
+  search_space:
+    learning_rate: [1e-4, 1e-3, 1e-2]
+    batch_size: [4, 8, 16]
+    hidden_dim: [32, 64, 128]
+    
+  # 搜索配置
+  n_trials: 50
+  timeout: 3600  # 1小时
+
+# 公平性保证
+fairness:
+  # 统一的数据预处理
+  unified_preprocessing: true
+  
+  # 统一的训练条件
+  unified_training:
+    same_epochs: true
+    same_batch_size: true
+    same_optimizer_settings: true
+    same_loss_function: true
+    
+  # 统一的评估条件
+  unified_evaluation:
+    same_test_set: true
+    same_metrics: true
+    same_precision: true
+    
+  # 模型复杂度控制
+  complexity_control:
+    parameter_matching: true
+    flops_matching: false
+    memory_matching: false
+    
+  # 统计显著性验证
+  statistical_validation:
+    enabled: true
+    n_runs: 5
+    confidence_level: 0.95
+    significance_test: "t_test"
+
+# 调试配置
+debug:
+  enabled: false
+  
+  # 快速运行模式
+  fast_run:
+    enabled: false
+    max_epochs: 5
+    max_samples: 100
+    
+  # 内存监控
+  memory_profiling: false
+  
+  # 梯度监控
+  gradient_monitoring: false
+  
+  # 模型检查
+  model_validation:
+    check_gradients: true
+    check_weights: true
+    check_outputs: true

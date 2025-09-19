@@ -1,0 +1,101 @@
+# 多模型对比配置文件
+# 基于真实数据集的多种模型架构对比测试
+
+# 数据配置
+data:
+  data_path: "./preprocessed_data/sample_data.h5"
+  input_dim: 16384  # 128*128
+  output_dim: 16384  # 128*128
+  batch_size: 2     # 小批次以节省内存
+  validation_split: 0.15
+  test_split: 0.15
+  max_samples: 1500
+
+# 训练配置
+training:
+  epochs: 3         # 快速对比测试
+  learning_rate: 0.001
+  weight_decay: 1e-5
+  patience: 10
+  min_delta: 1e-6
+
+# 损失配置
+loss_configs:
+  - name: "mse_only"
+    base_weight: 1.0
+    svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    topk: 10
+
+# 注意力机制配置
+attention_types: ["self"]  # 使用标准自注意力
+
+# 模型配置
+models:
+  # Transformer模型（已验证成功）
+  transformer:
+    model_type: transformer
+    input_dim: 16384
+    output_dim: 16384
+    seq_len: 256      # 优化后的序列长度
+    d_model: 64       # 优化后的模型维度
+    num_heads: 4
+    num_layers: 2
+    dropout: 0.1
+    pe_type: sinusoidal_1d
+    use_memory_film: false
+    max_time_steps: 100
+    output_head_type: global
+    time_encoding: embedding
+
+  # MLP模型
+  mlp:
+    model_type: mlp
+    input_dim: 16384
+    output_dim: 16384
+    hidden_dims: [1024, 512, 256, 512, 1024]  # 对称结构
+    activation: gelu
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: true
+
+  # FNO模型（如果可用）
+  fno:
+    model_type: fno
+    input_dim: 16384
+    output_dim: 16384
+    modes: 32         # Fourier模式数
+    width: 64         # 通道宽度
+    num_layers: 4
+    activation: gelu
+    input_resolution: [128, 128]
+    
+  # UNet模型（如果可用）
+  unet:
+    model_type: unet
+    input_dim: 16384
+    output_dim: 16384
+    in_channels: 1
+    out_channels: 1
+    features: [32, 64, 128, 64, 32]  # 编码器-解码器结构
+    activation: relu
+    use_attention: false
+    input_resolution: [128, 128]
+
+# 设备配置
+device:
+  use_cuda: true
+  device_id: 0
+  mixed_precision: false
+
+# 可视化配置
+visualization:
+  enabled: false
+  interval: 10
+  max_samples: 5
+
+# 输出配置
+output:
+  results_dir: "./multi_model_results"
+  save_models: true
+  save_predictions: false
+  generate_plots: true

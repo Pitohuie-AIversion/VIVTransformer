@@ -1,0 +1,86 @@
+# MSE损失专用配置文件
+# 用于基于真实数据集的纯MSE损失训练
+
+# 数据配置
+data:
+  # 原始数据文件路径
+  data_path: "X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\generate_data\\preprocessed_data\\sample_data.h5"
+  
+  # 输入分辨率 [height, width]
+  input_resolution: [64, 64]    # 64x64 = 4096维
+  
+  # 输出分辨率 [height, width] - 内存优化
+  output_resolution: [128, 128]   # 128x128 = 16384维
+  
+  # 样本数量
+  num_samples: 100
+  
+  # 裁剪模式: 'center'(中心), 'random'(随机), 'corner'(左上角)
+  crop_mode: "center"
+  
+  # 数据归一化配置
+  normalize_data: true            # 是否对数据进行归一化到[0,1]范围
+  
+  # 懒加载配置（内存优化）
+  lazy_loading: false             # 是否启用懒加载模式（节省内存，适合大数据集）
+  
+  # 批次大小
+  batch_size: 1                   # 保持最小批次大小以适应8GB GPU内存限制
+  
+  # 数据集分割比例
+  train_ratio: 0.7
+  valid_ratio: 0.15
+  test_ratio: 0.15
+  
+  dataset_type: "pdebench"  # 使用PDEBench格式
+  max_samples: null  # 使用所有样本
+
+training:
+  epochs: 100  # 适中的训练轮次
+  learning_rate: 0.001  # 标准学习率
+  early_stop_patience: 20  # 早停耐心
+
+# 仅使用MSE损失的配置
+loss_configs:
+    # MSE损失配置：base_weight=1.0，所有SVD权重为0
+    - base_weight: 1.0
+      svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      topk: 10
+
+# 注意力机制配置
+attention_types: ["self"]  # 使用标准自注意力
+
+# 模型配置
+model:
+  model_type: "transformer"
+  input_dim: 16384  # 128*128 = 16384 (对应128x128分辨率)
+  output_dim: 16384  # 输出维度与输入相同 (对应128x128分辨率)
+  seq_len: 256  # 大幅减少序列长度以节省内存
+  d_model: 64  # 大幅减少模型维度以节省内存
+  num_heads: 4  # 减少注意力头数
+  num_layers: 2  # 减少层数
+  max_time_steps: 100
+  pe_type: "sinusoidal_1d"  # 使用1D正弦位置编码
+  output_head_type: "global"
+  out_channels_per_token: null
+  time_encoding: "embedding"
+  dropout: 0.1
+  use_memory_film: false
+  use_memory_concat: false
+
+# 设备配置
+device: "cpu"  # 使用CPU避免GPU内存问题
+seed: 42
+deterministic: true
+
+# 可视化配置
+visualization:
+  enabled: false  # 关闭可视化以加快训练
+  interval: 10  # 可视化间隔
+  max_samples: 5  # 最多可视化样本数
+
+# 日志配置
+logging:
+  level: "INFO"
+  save_model: true
+  save_interval: 10

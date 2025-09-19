@@ -51,13 +51,20 @@ def plot_losses(train_loss, valid_loss, test_loss, save_path=None):
         print("Warning: 损失列表为空，无法绘制Loss曲线！")
         return
 
+    # 避免对数坐标出现非正值报错，做轻微修正
+    eps = 1e-12
+    train_vals = [max(float(x), eps) for x in train_loss]
+    valid_vals = [max(float(x), eps) for x in valid_loss]
+    test_vals = [max(float(x), eps) for x in test_loss]
+
     plt.figure(figsize=(10, 6))
-    plt.plot(train_loss, label='Train Loss')
-    plt.plot(valid_loss, label='Valid Loss')
-    plt.plot(test_loss, label='Test Loss')
+    plt.plot(train_vals, label='Train Loss')
+    plt.plot(valid_vals, label='Valid Loss')
+    plt.plot(test_vals, label='Test Loss')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.title('Loss Curve')
+    plt.yscale('log')  # 使用对数y轴
+    plt.title('Loss Curve (Log Scale)')
     plt.legend()
 
     if save_path:

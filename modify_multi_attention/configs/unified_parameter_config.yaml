@@ -1,0 +1,137 @@
+attention_types:
+- self
+data:
+  batch_size: 8
+  crop_mode: center
+  data_path: X:/2025/Graduation_project/report/data/pdebench/2D/DarcyFlow/2D_DarcyFlow_beta0.01_Train.hdf5
+  input_dataset: tensor
+  input_dim: 1024
+  input_resolution:
+  - 32
+  - 32
+  max_samples: 1000
+  normalize: true
+  output_dataset: tensor
+  output_dim: 16384
+  output_resolution:
+  - 128
+  - 128
+  remove_channel_dim: true
+  test_split: 0.1
+  validation_split: 0.2
+device:
+  device_id: 0
+  mixed_precision: false
+  use_cuda: true
+loss_configs:
+- base_weight: 1.0
+  name: mse_only
+  svd_weights:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  topk: 10
+models:
+  custom_transformer:
+    attention_type: self
+    d_model: 256
+    dropout: 0.1
+    input_dim: 1024
+    max_time_steps: 100
+    model_type: custom_transformer
+    num_heads: 8
+    num_layers: 6
+    output_dim: 16384
+    output_head_type: global
+    pe_type: learnable_1d
+    seq_len: null
+    target_params: 1000000
+    time_encoding: embedding
+    use_memory_concat: false
+    use_memory_film: true
+  fno:
+    activation: gelu
+    input_dim: 1024
+    input_resolution:
+    - 32
+    - 32
+    model_type: fno
+    modes: 16
+    num_layers: 4
+    output_dim: 16384
+    output_resolution:
+    - 128
+    - 128
+    target_params: 1000000
+    width: 128
+  mlp:
+    activation: gelu
+    dropout: 0.1
+    hidden_dims:
+    - 1536
+    - 2048
+    - 1536
+    input_dim: 1024
+    model_type: mlp
+    output_dim: 16384
+    target_params: 1000000
+    use_batch_norm: true
+    use_residual: true
+  transformer:
+    d_model: 256
+    dropout: 0.1
+    input_dim: 1024
+    max_time_steps: 100
+    model_type: transformer
+    num_heads: 8
+    num_layers: 6
+    output_dim: 16384
+    output_head_type: global
+    pe_type: sinusoidal_1d
+    seq_len: 11
+    target_params: 1000000
+    time_encoding: embedding
+    use_memory_film: false
+  unet:
+    activation: relu
+    features:
+    - 64
+    - 128
+    - 256
+    - 128
+    - 64
+    in_channels: 1
+    input_dim: 1024
+    input_resolution:
+    - 32
+    - 32
+    model_type: unet
+    out_channels: 1
+    output_dim: 16384
+    output_resolution:
+    - 128
+    - 128
+    target_params: 1000000
+    use_attention: false
+output:
+  generate_plots: true
+  results_dir: ./unified_parameter_comparison_results
+  save_models: true
+  save_predictions: true
+training:
+  epochs: 10
+  learning_rate: 0.001
+  min_delta: 1.0e-06
+  patience: 15
+  weight_decay: 1.0e-05
+visualization:
+  enabled: true
+  interval: 10
+  max_samples: 5

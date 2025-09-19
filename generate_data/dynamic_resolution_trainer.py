@@ -809,7 +809,7 @@ def get_dynamic_loaders(config):
         if downsampling_enabled and HAS_DOWNSAMPLER:
             logger.info("SVD样本将来自 DownsampledResolutionDataset（降采样）")
             temp_dataset = DownsampledResolutionDataset(
-                data_path=data_config['path'],
+                data_path=data_config['data_path'],
                 input_resolution=tuple(data_config['input_resolution']),
                 output_resolution=tuple(data_config['output_resolution']),
                 num_samples=min(data_config['num_samples'], 1000),
@@ -824,7 +824,7 @@ def get_dynamic_loaders(config):
             if downsampling_enabled and not HAS_DOWNSAMPLER:
                 logger.warning("降采样已配置但不可用：SVD样本回退到 DynamicResolutionDataset（裁剪/插值）")
             temp_dataset = DynamicResolutionDataset(
-                data_path=data_config['path'],
+                data_path=data_config['data_path'],
                 input_resolution=tuple(data_config['input_resolution']),
                 output_resolution=tuple(data_config['output_resolution']),
                 num_samples=min(data_config['num_samples'], 1000),  # 限制SVD训练样本数量
@@ -872,7 +872,7 @@ def get_dynamic_loaders(config):
     # 创建最终数据集（根据是否启用降采样选择实现）
     if downsampling_enabled and HAS_DOWNSAMPLER:
         dataset = DownsampledResolutionDataset(
-            data_path=data_config['path'],
+            data_path=data_config['data_path'],
             input_resolution=tuple(data_config['input_resolution']),
             output_resolution=tuple(data_config['output_resolution']),
             num_samples=data_config['num_samples'],
@@ -887,7 +887,7 @@ def get_dynamic_loaders(config):
         if downsampling_enabled and not HAS_DOWNSAMPLER:
             logger.warning("降采样已配置但不可用：训练/验证/测试数据集回退到 DynamicResolutionDataset（裁剪/插值）")
         dataset = DynamicResolutionDataset(
-            data_path=data_config['path'],
+            data_path=data_config['data_path'],
             input_resolution=tuple(data_config['input_resolution']),
             output_resolution=tuple(data_config['output_resolution']),
             num_samples=data_config['num_samples'],
@@ -1173,10 +1173,10 @@ def validate_config_detailed(config):
     
     # 验证数据配置
     data_config = config.get('data', {})
-    if not data_config.get('path'):
+    if not data_config.get('data_path'):
         errors.append("缺少数据路径配置")
-    elif not Path(data_config['path']).exists():
-        errors.append(f"数据文件不存在: {data_config['path']}")
+    elif not Path(data_config['data_path']).exists():
+        errors.append(f"数据文件不存在: {data_config['data_path']}")
     
     # 验证分辨率
     input_res = data_config.get('input_resolution')

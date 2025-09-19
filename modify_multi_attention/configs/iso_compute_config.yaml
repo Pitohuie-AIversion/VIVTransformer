@@ -1,0 +1,201 @@
+# Iso-Compute 等计算量对比配置
+# 目标: 在相近的FLOPs预算下公平对比不同模型架构
+# 适用于评估模型的计算效率和架构优势
+
+# 数据配置 (统一)
+data:
+  data_path: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/generate_data/preprocessed_data/darcy_flow_input32_output128_dataset.h5"
+  input_dim: 1024    # 32x32输入
+  output_dim: 16384  # 128x128输出
+  crop_mode: "center"
+  output_resolution: [128, 128]
+  output_channels: 1
+  batch_size: 32
+  val_split: 0.2
+  test_split: 0.1
+  max_samples: 1000
+  preprocessing:
+    normalize: true
+    remove_channel_dim: true
+
+# 训练配置 (统一)
+training:
+  epochs: 50
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  patience: 10
+  min_delta: 0.0001
+  optimizer: "adam"
+  scheduler: "cosine"
+
+# 损失配置 (统一)
+loss:
+  mse_only: true
+  mse_weight: 1.0
+  l1_weight: 0.0
+  ssim_weight: 0.0
+
+# === Iso-Compute 模型组 ===
+# 目标FLOPs: ~1.0G (±0.3G)
+# 通过调整模型架构参数使FLOPs接近
+
+models:
+  # === 低计算量组 (~0.5G FLOPs) ===
+  
+  # 轻量MLP - 约0.5G FLOPs
+  light_mlp:
+    model_type: mlp
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [256, 256]  # 减少隐藏层大小
+    activation: gelu
+    dropout: 0.1
+    use_batch_norm: true
+    target_flops_G: 0.5
+    
+  # 轻量Transformer - 约0.5G FLOPs  
+  light_transformer:
+    model_type: transformer
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 128        # 减少模型维度
+    num_heads: 2
+    num_layers: 2       # 减少层数
+    dropout: 0.1
+    seq_len: 11
+    pe_type: sinusoidal_1d
+    target_flops_G: 0.5
+
+  # === 中等计算量组 (~1.0G FLOPs) ===
+  
+  # 标准MLP - 约1.0G FLOPs
+  standard_mlp:
+    model_type: mlp
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [512, 512, 256]
+    activation: gelu
+    dropout: 0.1
+    use_batch_norm: true
+    target_flops_G: 1.0
+    
+  # 标准Transformer - 约1.0G FLOPs
+  standard_transformer:
+    model_type: transformer
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 192
+    num_heads: 4
+    num_layers: 4
+    dropout: 0.1
+    seq_len: 11
+    pe_type: sinusoidal_1d
+    target_flops_G: 1.0
+    
+  # 高效CustomTransformer - 约1.0G FLOPs
+  efficient_custom_transformer:
+    model_type: custom_transformer
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 64         # 平衡模型维度
+    num_heads: 4
+    num_layers: 2
+    dropout: 0.1
+    attention_type: "relative"
+    pe_type: "learnable_1d"
+    output_head_type: "global"
+    target_flops_G: 1.0
+
+  # === 高计算量组 (~2.0G FLOPs) ===
+  
+  # 大型MLP - 约2.0G FLOPs
+  large_mlp:
+    model_type: mlp
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [1024, 1024, 512, 256]  # 增加层数和宽度
+    activation: gelu
+    dropout: 0.1
+    use_batch_norm: true
+    target_flops_G: 2.0
+    
+  # 大型Transformer - 约2.0G FLOPs
+  large_transformer:
+    model_type: transformer
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 256
+    num_heads: 8
+    num_layers: 6
+    dropout: 0.1
+    seq_len: 11
+    pe_type: sinusoidal_1d
+    target_flops_G: 2.0
+
+# 评估配置
+evaluation:
+  metrics:
+    - mse_loss
+    - mae_loss
+    - r2_score
+    - ssim
+  
+  # 计算效率指标
+  efficiency_metrics:
+    - flops_per_sample
+    - params_per_flop
+    - accuracy_per_flop
+    - memory_efficiency
+  
+  # 多次运行统计
+  num_runs: 3
+  confidence_interval: 0.95
+  
+  # 硬件环境记录
+  hardware_info:
+    record_gpu_model: true
+    record_memory_usage: true
+    record_power_consumption: false
+
+# 可视化配置
+visualization:
+  enabled: true
+  plots:
+    - accuracy_vs_flops
+    - efficiency_comparison
+    - convergence_curves
+  save_format: ["png", "svg"]
+
+# 输出配置
+output:
+  results_dir: "./iso_compute_results"
+  save_models: false  # 节省存储空间
+  save_predictions: true
+  generate_report: true
+
+# === Iso-Compute 实验设计说明 ===
+#
+# 1. 核心原则:
+#    - 控制FLOPs在相近范围内 (±30%)
+#    - 统一训练预算和数据处理
+#    - 记录详细的计算效率指标
+#
+# 2. 分组策略:
+#    - 低计算量组 (~0.5G): 资源受限场景
+#    - 中等计算量组 (~1.0G): 平衡性能与效率
+#    - 高计算量组 (~2.0G): 追求最佳性能
+#
+# 3. 关键假设验证:
+#    - "更多FLOPs不一定带来更好性能"
+#    - "不同架构的FLOPs利用效率差异"
+#    - "计算量与实际推理速度的关系"
+#
+# 4. 预期发现:
+#    - Transformer可能在相同FLOPs下表现更好
+#    - MLP可能有更好的FLOPs利用率
+#    - 注意力机制的计算开销分析
+#
+# 5. 工程意义:
+#    - 为实际部署提供计算预算指导
+#    - 验证模型压缩和加速的潜力
+#    - 支持硬件选型决策

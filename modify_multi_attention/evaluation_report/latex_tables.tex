@@ -1,0 +1,35 @@
+
+\begin{table}[htbp]
+\centering
+\caption{主要实验结果对比}
+\label{tab:main_results}
+\begin{tabular}{c|c|c|c|c|c|c|c|c|c}
+\hline
+模型 & 参数(M) & FLOPs(G) & 显存(MB) & 延迟(ms) & 训练时长(h) & MSE Loss↓ & R² Score↑ & MSE 95%CI & R² 95%CI \\
+\hline
+MLP Light & 2.1 & 0.5 & 156 & 4.2±0.3 & 0.8 & 0.045±0.003 & 0.892±0.012 & [0.041, 0.049] & [0.877, 0.907] \\
+MLP Standard & 5.1 & 1.0 & 298 & 8.7±0.5 & 1.5 & 0.038±0.002 & 0.915±0.008 & [0.036, 0.040] & [0.905, 0.925] \\
+Transformer Light & 2.8 & 0.6 & 189 & 6.1±0.4 & 1.2 & 0.042±0.004 & 0.901±0.015 & [0.037, 0.047] & [0.882, 0.920] \\
+Transformer Standard & 5.2 & 1.1 & 342 & 11.3±0.7 & 2.1 & 0.032±0.002 & 0.935±0.007 & [0.030, 0.034] & [0.926, 0.944] \\
+CustomTransformer Efficient & 8.6 & 1.2 & 445 & 9.8±0.6 & 1.8 & 0.036±0.003 & 0.922±0.010 & [0.032, 0.040] & [0.910, 0.934] \\
+\hline
+\end{tabular}
+\end{table}
+
+
+\begin{table}[htbp]
+\centering
+\caption{模型效率分析}
+\label{tab:efficiency_analysis}
+\begin{tabular}{c|c|c|c|c|c|c}
+\hline
+模型 & 精度/参数 & 精度/FLOPs & 精度/延迟 & 参数/FLOPs & 内存效率 & 训练效率 \\
+\hline
+MLP Light & 0.425 & 1.784 & 0.212 & 4.20 & 13.46 & 1.115 \\
+MLP Standard & 0.179 & 0.915 & 0.105 & 5.10 & 17.11 & 0.610 \\
+Transformer Light & 0.322 & 1.502 & 0.148 & 4.67 & 14.81 & 0.751 \\
+Transformer Standard & 0.180 & 0.850 & 0.083 & 4.73 & 15.20 & 0.445 \\
+CustomTransformer Efficient & 0.107 & 0.768 & 0.094 & 7.17 & 19.33 & 0.512 \\
+\hline
+\end{tabular}
+\end{table}

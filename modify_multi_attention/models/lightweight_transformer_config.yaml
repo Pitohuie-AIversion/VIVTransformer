@@ -1,0 +1,100 @@
+# 轻量化Transformer配置文件
+# 目标：大幅减少参数量，提高训练效率
+
+# 数据配置
+data:
+  input_resolution: 64
+  output_resolution: 128
+  input_channels: 1
+  output_channels: 1
+  batch_size: 8
+  num_samples: 100
+
+# 轻量化模型配置
+models:
+  # 超轻量级配置 - 目标参数量 < 100K
+  transformer_micro:
+    model_type: "transformer"
+    d_model: 32          # 从512降至32 (减少94%)
+    num_heads: 2         # 从8降至2
+    num_layers: 1        # 从6降至1 (减少83%)
+    dim_feedforward: 64  # 从2048降至64 (减少97%)
+    attention_type: "simplified_self"
+    pe_type: "learnable_1d"
+    time_encoding: "embedding"
+    max_time_steps: 100
+    target_params: 100000
+    
+  # 轻量级配置 - 目标参数量 < 500K  
+  transformer_light:
+    model_type: "transformer"
+    d_model: 64          # 从512降至64 (减少87.5%)
+    num_heads: 4         # 从8降至4
+    num_layers: 2        # 从6降至2 (减少67%)
+    dim_feedforward: 128 # 从2048降至128 (减少94%)
+    attention_type: "simplified_self"
+    pe_type: "learnable_1d"
+    time_encoding: "embedding"
+    max_time_steps: 100
+    target_params: 500000
+    
+  # 中等配置 - 目标参数量 < 2M
+  transformer_medium:
+    model_type: "transformer"
+    d_model: 128         # 从512降至128 (减少75%)
+    num_heads: 4         # 从8降至4
+    num_layers: 3        # 从6降至3 (减少50%)
+    dim_feedforward: 256 # 从2048降至256 (减少87.5%)
+    attention_type: "simplified_self"
+    pe_type: "learnable_1d"
+    time_encoding: "embedding"
+    max_time_steps: 100
+    target_params: 2000000
+
+# 训练配置
+training:
+  epochs: 10
+  learning_rate: 0.001
+  weight_decay: 1e-4
+  gradient_clip: 1.0
+  warmup_steps: 100
+  scheduler:
+    type: "cosine_with_restarts"
+    T_0: 500
+    T_mult: 2
+
+# 优化器配置
+optimizer:
+  type: "AdamW"
+  lr: 0.001
+  weight_decay: 1e-4
+  betas: [0.9, 0.999]
+  eps: 1e-8
+
+# 损失函数配置
+loss:
+  type: "mse"
+  weights:
+    mse: 1.0
+    l1: 0.0
+    
+# 设备配置
+device:
+  use_cuda: true
+  device_id: 0
+  
+# 日志配置
+logging:
+  log_level: "INFO"
+  save_model: true
+  save_frequency: 5
+  
+# 测试配置
+testing:
+  test_batch_size: 4
+  num_test_samples: 50
+  metrics:
+    - "mse"
+    - "mae"
+    - "psnr"
+    - "correlation"

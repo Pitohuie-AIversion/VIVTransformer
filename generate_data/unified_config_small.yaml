@@ -1,0 +1,62 @@
+data:
+  batch_size: 8
+  crop_mode: center
+  data_path: ./sample_data.h5
+  input_resolution:
+  - 32
+  - 32
+  lazy_loading: false
+  normalize_data: true
+  num_samples: 1000
+  num_workers: 4
+  output_resolution:
+  - 128
+  - 128
+device: auto
+models:
+  enhanced_fno1d:
+    enabled: true
+    modes: 16
+    num_layers: 2
+    type: enhanced_fno1d
+    width: 32
+  enhanced_unet1d:
+    enabled: true
+    hidden_dim: 32
+    num_layers: 2
+    type: enhanced_unet1d
+  fno1d:
+    enabled: true
+    initial_step: 10
+    modes: 8
+    num_channels: 1
+    type: fno1d
+    width: 32
+  mlp_small:
+    enabled: true
+    fourier_features: 32
+    hidden_dim: 32
+    num_layers: 19
+    type: enhanced_mlp
+  transformer:
+    attention_type: sge
+    d_model: 128
+    enabled: true
+    num_heads: 4
+    num_layers: 2
+    type: transformer
+  unet1d:
+    enabled: true
+    in_channels: 1
+    init_features: 16
+    out_channels: 1
+    type: unet1d
+random_seed: 42
+training:
+  early_stopping:
+    min_delta: 1.0e-06
+    patience: 10
+  epochs: 50
+  learning_rate: 0.001
+  scheduler: cosine
+  weight_decay: 0.0001

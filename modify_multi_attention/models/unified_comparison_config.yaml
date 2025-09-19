@@ -1,0 +1,317 @@
+# 统一网络架构对比配置文件
+# 确保所有模型使用相同的训练参数和数据配置
+
+# 数据配置
+data:
+  input_resolution: 64      # 输入数据分辨率
+  output_resolution: 128    # 输出数据分辨率
+  input_channels: 1         # 输入通道数
+  output_channels: 1        # 输出通道数
+  batch_size: 4            # 批次大小（减少以节省内存）
+  num_time_steps: 10       # 时间步数
+  
+  # 数据集配置
+  datasets:
+    - name: "time_series_short"
+      type: "synthetic"
+      length: 100
+      noise_level: 0.01
+    - name: "time_series_long"
+      type: "synthetic"
+      length: 500
+      noise_level: 0.01
+    - name: "image_small"
+      type: "synthetic"
+      size: [32, 32]
+      noise_level: 0.01
+    - name: "physics_diffusion"
+      type: "pde"
+      equation: "diffusion"
+      domain: [0, 1]
+      time_range: [0, 1]
+
+# 训练配置
+training:
+  epochs: 10               # 训练轮数（减少以加快测试）
+  learning_rate: 0.001     # 学习率
+  weight_decay: 1e-5       # 权重衰减
+  patience: 10             # 早停耐心值
+  min_delta: 1e-6          # 最小改进阈值
+  validation_split: 0.2    # 验证集比例
+  
+  # 学习率调度
+  scheduler:
+    type: "ReduceLROnPlateau"
+    factor: 0.5
+    patience: 5
+    min_lr: 1e-6
+
+# 优化器配置
+optimizer:
+  type: "Adam"
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  amsgrad: false
+
+# 损失函数配置
+loss:
+  type: "MSELoss"
+  reduction: "mean"
+  
+  # 多任务损失权重
+  weights:
+    mse: 1.0
+    mae: 0.1
+    relative: 0.1
+
+# 模型配置
+models:
+  # FNO模型配置
+  fno_1d:
+    model_type: "fno"
+    num_channels: 1
+    modes: 16
+    width: 64
+    input_resolution: 64
+    output_resolution: 128
+    use_upsampling: true
+    target_params: 287425
+    
+  fno_2d:
+    model_type: "fno"
+    num_channels: 1
+    modes1: 12
+    modes2: 12
+    width: 20
+    input_resolution: [64, 64]
+    output_resolution: [128, 128]
+    use_upsampling: true
+    target_params: 287425
+
+  # UNet模型配置
+  unet_1d:
+    model_type: "unet"
+    in_channels: 1
+    out_channels: 1
+    init_features: 32
+    input_resolution: 64
+    output_resolution: 128
+    use_upsampling: true
+    target_params: 500000
+    
+  unet_2d:
+    model_type: "unet"
+    in_channels: 1
+    out_channels: 1
+    init_features: 32
+    input_resolution: [64, 64]
+    output_resolution: [128, 128]
+    use_upsampling: true
+    target_params: 500000
+
+  # MLP模型配置
+  mlp_1d:
+    model_type: "mlp"
+    input_channels: 1
+    output_channels: 1
+    hidden_dim: 256
+    num_layers: 8
+    input_resolution: 64
+    output_resolution: 128
+    target_params: 200000
+    
+  mlp_2d:
+    model_type: "mlp"
+    input_channels: 1
+    output_channels: 1
+    hidden_dim: 256
+    num_layers: 8
+    input_resolution: [64, 64]
+    output_resolution: [128, 128]
+    target_params: 500000
+
+  # PINN模型配置
+  pinn_1d:
+    model_type: "pinn"
+    output_dim: 1
+    hidden_dim: 256
+    num_layers: 8
+    input_resolution: 64
+    output_resolution: 128
+    physics_weight: 1.0
+    boundary_weight: 10.0
+    target_params: 300000
+    
+  pinn_2d:
+    model_type: "pinn"
+    output_dim: 1
+    hidden_dim: 256
+    num_layers: 8
+    input_resolution: [64, 64]
+    output_resolution: [128, 128]
+    physics_weight: 1.0
+    boundary_weight: 10.0
+    target_params: 500000
+
+  # Transformer模型配置（轻量化版本）
+  transformer_micro:
+    model_type: "transformer"
+    d_model: 32
+    num_heads: 2
+    num_layers: 1
+    dim_feedforward: 64
+    attention_type: "simplified_self"
+    pe_type: "learnable_1d"
+    time_encoding: "embedding"
+    max_time_steps: 100
+    target_params: 100000
+    
+  transformer_light:
+    model_type: "transformer"
+    d_model: 64
+    num_heads: 4
+    num_layers: 2
+    dim_feedforward: 128
+    attention_type: "simplified_self"
+    pe_type: "learnable_1d"
+    time_encoding: "embedding"
+    max_time_steps: 100
+    target_params: 500000
+    
+  transformer_medium:
+    model_type: "transformer"
+    d_model: 128
+    num_heads: 4
+    num_layers: 3
+    dim_feedforward: 256
+    attention_type: "simplified_self"
+    pe_type: "learnable_1d"
+    time_encoding: "embedding"
+    max_time_steps: 100
+    target_params: 500000
+
+  # Transformer模型配置
+  transformer_1d:
+    model_type: "transformer"
+    input_channels: 1
+    output_channels: 1
+    d_model: 256
+    nhead: 8
+    num_layers: 6
+    input_resolution: 64
+    output_resolution: 128
+    target_params: 400000
+    
+  transformer_2d:
+    model_type: "transformer"
+    input_channels: 1
+    output_channels: 1
+    d_model: 256
+    nhead: 8
+    num_layers: 6
+    input_resolution: [64, 64]
+    output_resolution: [128, 128]
+    target_params: 600000
+
+# 评估指标
+metrics:
+  - "mse"          # 均方误差
+  - "mae"          # 平均绝对误差
+  - "rmse"         # 均方根误差
+  - "relative_error" # 相对误差
+  - "r2_score"     # R²分数
+  - "inference_time" # 推理时间
+  - "memory_usage"  # 内存使用
+  - "param_count"   # 参数量
+
+# 设备配置
+device:
+  use_cuda: false  # 改为使用CPU避免CUDA内存问题
+  cuda_device: 0
+  mixed_precision: false  # 混合精度训练
+  
+# 日志配置
+logging:
+  level: "INFO"
+  save_logs: true
+  log_dir: "./logs"
+  tensorboard: true
+  wandb: false
+  
+  # 保存频率
+  save_frequency:
+    model_checkpoint: 10  # 每10个epoch保存模型
+    metrics_log: 1       # 每个epoch记录指标
+    
+# 测试配置
+testing:
+  test_split: 0.1         # 测试集比例
+  cross_validation: false  # 是否使用交叉验证
+  cv_folds: 5             # 交叉验证折数
+  
+  # 测试模式
+  modes:
+    - "single_dataset"     # 单数据集测试
+    - "multi_dataset"      # 多数据集测试
+    - "generalization"     # 泛化能力测试
+    
+  # 噪声鲁棒性测试
+  noise_robustness:
+    enabled: true
+    noise_levels: [0.01, 0.05, 0.1, 0.2]
+    
+  # 数据规模测试
+  scalability:
+    enabled: true
+    data_sizes: [100, 500, 1000, 5000]
+
+# 输出配置
+output:
+  results_dir: "./results"
+  save_models: true
+  save_predictions: true
+  generate_plots: true
+  
+  # 报告格式
+  report_formats:
+    - "txt"    # 文本报告
+    - "yaml"   # YAML格式
+    - "json"   # JSON格式
+    - "html"   # HTML报告
+    
+  # 可视化配置
+  visualization:
+    save_training_curves: true
+    save_prediction_plots: true
+    save_error_analysis: true
+    plot_format: "png"
+    dpi: 300
+
+# 实验配置
+experiment:
+  name: "unified_network_comparison"
+  description: "统一网络架构横向对比实验"
+  version: "1.0"
+  author: "AI Assistant"
+  
+  # 随机种子
+  random_seed: 42
+  deterministic: true
+  
+  # 重复实验
+  num_runs: 3           # 每个配置运行3次
+  aggregate_results: true # 聚合多次运行结果
+  
+# 性能优化
+performance:
+  num_workers: 4        # 数据加载线程数
+  pin_memory: true      # 固定内存
+  persistent_workers: true # 持久化工作进程
+  
+  # 模型编译（PyTorch 2.0+）
+  compile_model: false
+  compile_mode: "default"
+  
+  # 内存优化
+  gradient_checkpointing: false
+  memory_efficient_attention: true

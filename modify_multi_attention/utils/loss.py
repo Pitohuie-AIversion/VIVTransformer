@@ -78,6 +78,55 @@ class TotalLossWithSVD(nn.Module):
         for w, l in zip(self.svd_weights, loss_svds):
             total_loss += w * l
         return total_loss
+
+# 创建增强SVD损失的工厂函数
+def create_enhanced_svd_loss(base_weight=0.5, svd_weights=None, topk=3, **kwargs):
+    """
+    创建增强SVD损失函数
+    
+    Args:
+        base_weight: 基础损失权重
+        svd_weights: SVD损失权重列表
+        topk: SVD模式数量
+        **kwargs: 其他参数（为了兼容性）
+    
+    Returns:
+        TotalLossWithSVD实例
+    """
+    return TotalLossWithSVD(base_weight=base_weight, svd_weights=svd_weights, topk=topk)
+
+def get_loss_function(loss_type: str = 'mse', **kwargs):
+    """
+    获取损失函数的统一接口
+    
+    Args:
+        loss_type: 损失函数类型
+            - 'mse': MSE损失
+            - 'l1': L1损失
+            - 'svd': SVD损失
+            - 'mse_l1': MSE+L1组合损失
+        **kwargs: 损失函数参数
+    
+    Returns:
+        损失函数实例
+    """
+    if loss_type.lower() == 'mse':
+        return nn.MSELoss()
+    elif loss_type.lower() == 'l1':
+        return nn.L1Loss()
+    elif loss_type.lower() == 'svd':
+        return create_enhanced_svd_loss(**kwargs)
+    elif loss_type.lower() in ['mse_l1', 'combo']:
+        # 尝试导入简化损失函数
+        try:
+            from .simplified_loss import create_simplified_loss
+            return create_simplified_loss('mse_l1_combo', **kwargs)
+        except ImportError:
+            # 回退到MSE损失
+            return nn.MSELoss()
+    else:
+        # 默认使用MSE损失
+        return nn.MSELoss()
     
     def get_weight_info(self):
         """获取权重信息，用于调试和监控"""

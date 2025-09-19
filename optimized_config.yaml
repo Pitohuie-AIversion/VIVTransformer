@@ -1,0 +1,177 @@
+# 优化后的Transformer模型配置
+# 基于问题分析，针对性地减少模型复杂度和改进训练策略
+
+data:
+  data_path: "./data/"
+  input_resolution: [32, 32]  # 保持原有分辨率
+  output_resolution: [32, 32]
+  num_samples: 1000
+  batch_size: 16  # 增加批大小提高训练效率
+  train_split: 0.7
+  valid_split: 0.15
+  test_split: 0.15
+  normalize: true
+  augmentation: false
+
+# 轻量化模型配置
+models:
+  # 轻量化Transformer配置
+  transformer_light:
+    enabled: true
+    model_type: "transformer"
+    params:
+      num_heads: 4        # 从8减至4
+      num_layers: 1       # 从2减至1
+      d_model: 64         # 从128减至64
+      attention_type: "simplified_self"  # 使用更轻量的注意力
+      seq_len: 32
+      input_hw: [32, 32]
+      pe_type: "learnable_2d"  # 使用2D位置编码
+      output_head_type: "global"
+      time_encoding: "embedding"
+      use_memory_film: false  # 简化解码器
+      use_memory_concat: false
+    target_params: 500000  # 目标参数量50万
+
+  transformer_micro:
+    enabled: true
+    model_type: "transformer"
+    params:
+      num_heads: 2        # 进一步减少
+      num_layers: 1       # 最小层数
+      d_model: 16         # 从32减至16
+      attention_type: "simplified_self"
+      seq_len: 32
+      input_hw: [32, 32]
+      pe_type: "learnable_1d"  # 使用更简单的1D编码
+      output_head_type: "global"
+      time_encoding: "embedding"
+      use_memory_film: false
+      use_memory_concat: false
+    target_params: 100000  # 目标参数量10万
+
+  # 保留原有配置作为对比
+  transformer_original:
+    enabled: true
+    model_type: "transformer"
+    params:
+      num_heads: 4
+      num_layers: 2
+      d_model: 128
+      attention_type: "simplified_self"
+      seq_len: 32
+      input_hw: [32, 32]
+      pe_type: "learnable_1d"
+      output_head_type: "global"
+      time_encoding: "embedding"
+      use_memory_film: true
+      use_memory_concat: false
+    target_params: 2000000
+
+# 优化的训练配置
+training:
+  epochs: 20           # 增加训练轮次
+  learning_rate: 1e-3  # 优化学习率
+  weight_decay: 1e-4   # 增加权重衰减
+  warmup_steps: 500    # 添加warmup步数
+  
+  # 学习率调度
+  scheduler:
+    type: "cosine_with_restarts"
+    T_0: 1000
+    T_mult: 2
+    eta_min: 1e-5
+  
+  # 梯度裁剪和累积
+  gradient_clipping:
+    enabled: true
+    max_norm: 1.0      # 调整梯度裁剪阈值
+  
+  gradient_accumulation_steps: 2  # 添加梯度累积
+  
+  # 混合精度训练
+  mixed_precision:
+    enabled: true
+  
+  # 检查点保存
+  checkpoint:
+    enabled: true
+    save_best: true
+    save_interval: 5
+
+# 优化器配置
+optimizer:
+  type: "adamw"
+  lr: 2e-3             # 与training.learning_rate保持一致
+  weight_decay: 1e-4
+  betas: [0.9, 0.999]
+  eps: 1e-8
+
+# 简化的损失函数配置
+loss:
+  type: "mse_l1_combo"  # 使用更简单的组合损失
+  mse_weight: 0.8
+  l1_weight: 0.2
+  
+  # 备选：如果需要使用SVD损失
+  # type: "enhanced_svd"
+  # base_weight: 0.8
+  # svd_weights: [0.1, 0.05, 0.03, 0.02]
+  # topk: 5  # 减少SVD分量数
+  # enhanced_svd:
+  #   adaptive_weights: false  # 简化配置
+  #   stability_eps: 1e-6
+  #   gradient_penalty: 0.01
+
+# 评估指标
+metrics:
+  - "mse"
+  - "mae"
+  - "rmse"
+  - "psnr"
+  - "ssim"
+  - "correlation"
+
+# 硬件配置
+hardware:
+  device: "cuda"
+  num_gpus: 1
+  memory_management:
+    enabled: true
+    clear_cache: true
+
+# 实验配置
+experiment:
+  name: "transformer_optimization"
+  seed: 42
+  save_results: true
+  save_visualizations: true
+  log_level: "INFO"
+
+# 调试配置
+debug:
+  enabled: true
+  fast_run: false
+  memory_monitoring: true
+  gradient_monitoring: true
+  model_summary: true
+
+# 数据增强（暂时禁用）
+data_augmentation:
+  enabled: false
+  rotation: false
+  flip: false
+  noise: false
+  scale: false
+
+# 超参数优化（暂时禁用）
+hyperparameter_optimization:
+  enabled: false
+
+# 公平性保证
+fairness:
+  unified_preprocessing: true
+  unified_training_conditions: true
+  unified_evaluation_conditions: true
+  model_complexity_control: true
+  statistical_significance: true

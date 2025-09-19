@@ -1,0 +1,1051 @@
+- dataset_name: time_series_short
+  error: '不支持的模型类型:  或模型类: FixedEnhancedFNO1d'
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: fno_1d
+  model_type: FixedEnhancedFNO1d
+  mse: 0.0
+  output_shape: null
+  param_count: 0
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: time_series_short
+  error: tuple index out of range
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: fno_2d
+  model_type: FixedEnhancedFNO2d
+  mse: 0.0
+  output_shape: null
+  param_count: 471797
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: time_series_short
+  error: null
+  expected_output_shape:
+  - 1
+  - 100
+  inference_time: 0.0010042190551757812
+  input_shape:
+  - 1
+  - 100
+  mae: 0.48091980814933777
+  memory_usage_mb: 0.0
+  model_name: unet_1d
+  model_type: unet
+  mse: 0.356389582157135
+  output_shape:
+  - 1
+  - 100
+  param_count: 116385
+  r2_score: 0.434201180934906
+  relative_error: 1.4903606176376343
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - &id001 !!python/object/apply:numpy.dtype
+    args:
+    - f8
+    - false
+    - true
+    state: !!python/tuple
+    - 3
+    - <
+    - null
+    - null
+    - null
+    - -1
+    - -1
+    - 0
+  - !!binary |
+    SUJLo30a4z8=
+  shape_match: true
+  success: true
+  training_time: 0.3105788230895996
+- dataset_name: time_series_short
+  error: null
+  expected_output_shape:
+  - 1
+  - 100
+  inference_time: 0.0010061264038085938
+  input_shape:
+  - 1
+  - 100
+  mae: 0.5795177221298218
+  memory_usage_mb: 0.0
+  model_name: unet_2d
+  model_type: unet
+  mse: 0.47287821769714355
+  output_shape:
+  - 1
+  - 100
+  param_count: 119697
+  r2_score: 0.24926549196243286
+  relative_error: 1.2767900228500366
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    2K12gVIB5j8=
+  shape_match: true
+  success: true
+  training_time: 0.29475927352905273
+- dataset_name: time_series_short
+  error: null
+  expected_output_shape:
+  - 1
+  - 100
+  inference_time: 0.0
+  input_shape:
+  - 1
+  - 100
+  mae: 0.35888591408729553
+  memory_usage_mb: 0.0
+  model_name: mlp_small
+  model_type: mlp
+  mse: 0.2189246416091919
+  output_shape:
+  - 1
+  - 100
+  param_count: 91748
+  r2_score: 0.6524384617805481
+  relative_error: 0.6960498690605164
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    jGK5/Pjx3T8=
+  shape_match: true
+  success: true
+  training_time: 0.02220773696899414
+- dataset_name: time_series_short
+  error: null
+  expected_output_shape:
+  - 1
+  - 100
+  inference_time: 0.0012409687042236328
+  input_shape:
+  - 1
+  - 100
+  mae: 0.09738767892122269
+  memory_usage_mb: 0.0
+  model_name: mlp_medium
+  model_type: mlp
+  mse: 0.015783509239554405
+  output_shape:
+  - 1
+  - 100
+  param_count: 314468
+  r2_score: 0.9749423265457153
+  relative_error: 0.2946925461292267
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    7hk6RLkUwD8=
+  shape_match: true
+  success: true
+  training_time: 0.03524613380432129
+- dataset_name: time_series_short
+  error: null
+  expected_output_shape:
+  - 1
+  - 100
+  inference_time: 0.0
+  input_shape:
+  - 1
+  - 100
+  mae: 0.22749805450439453
+  memory_usage_mb: 0.0
+  model_name: pinn_1d
+  model_type: pinn
+  mse: 0.0795566737651825
+  output_shape:
+  - 1
+  - 100
+  param_count: 58852
+  r2_score: 0.8736969828605652
+  relative_error: 0.5915758013725281
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    9N42sDwN0j8=
+  shape_match: true
+  success: true
+  training_time: 0.013500213623046875
+- dataset_name: time_series_short
+  error: null
+  expected_output_shape:
+  - 1
+  - 100
+  inference_time: 0.0
+  input_shape:
+  - 1
+  - 100
+  mae: 0.1723877191543579
+  memory_usage_mb: 0.0
+  model_name: pinn_2d
+  model_type: pinn
+  mse: 0.04519600048661232
+  output_shape:
+  - 1
+  - 100
+  param_count: 183140
+  r2_score: 0.9282475113868713
+  relative_error: 0.37621811032295227
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    OaZbnkM2yz8=
+  shape_match: true
+  success: true
+  training_time: 0.025775671005249023
+- dataset_name: time_series_short
+  error: null
+  expected_output_shape:
+  - 1
+  - 100
+  inference_time: 0.001999378204345703
+  input_shape:
+  - 1
+  - 100
+  mae: 0.46823540329933167
+  memory_usage_mb: 0.0
+  model_name: transformer_micro
+  model_type: transformer
+  mse: 0.3416212797164917
+  output_shape:
+  - 1
+  - 100
+  param_count: 607756
+  r2_score: 0.45764708518981934
+  relative_error: 2.513343572616577
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    5Ey3Txe04j8=
+  shape_match: true
+  success: true
+  training_time: 0.23543858528137207
+- dataset_name: time_series_short
+  error: null
+  expected_output_shape:
+  - 1
+  - 100
+  inference_time: 0.0648961067199707
+  input_shape:
+  - 1
+  - 100
+  mae: 0.3358248174190521
+  memory_usage_mb: 0.0
+  model_name: transformer_light
+  model_type: transformer
+  mse: 0.18466563522815704
+  output_shape:
+  - 1
+  - 100
+  param_count: 1788676
+  r2_score: 0.7068275213241577
+  relative_error: 0.7721354961395264
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    aJVyVqeA2z8=
+  shape_match: true
+  success: true
+  training_time: 0.8470218181610107
+- dataset_name: time_series_short
+  error: null
+  expected_output_shape:
+  - 1
+  - 100
+  inference_time: 0.10492849349975586
+  input_shape:
+  - 1
+  - 100
+  mae: 0.29211151599884033
+  memory_usage_mb: 0.0
+  model_name: transformer_medium
+  model_type: transformer
+  mse: 0.13034869730472565
+  output_shape:
+  - 1
+  - 100
+  param_count: 4878404
+  r2_score: 0.793060302734375
+  relative_error: 1.569324016571045
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    7UMSo0Ab1z8=
+  shape_match: true
+  success: true
+  training_time: 3.626736640930176
+- dataset_name: time_series_long
+  error: '不支持的模型类型:  或模型类: FixedEnhancedFNO1d'
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: fno_1d
+  model_type: FixedEnhancedFNO1d
+  mse: 0.0
+  output_shape: null
+  param_count: 0
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: time_series_long
+  error: tuple index out of range
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: fno_2d
+  model_type: FixedEnhancedFNO2d
+  mse: 0.0
+  output_shape: null
+  param_count: 471797
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: time_series_long
+  error: null
+  expected_output_shape:
+  - 1
+  - 500
+  inference_time: 0.0041768550872802734
+  input_shape:
+  - 1
+  - 500
+  mae: 0.45730724930763245
+  memory_usage_mb: 0.0
+  model_name: unet_1d
+  model_type: unet
+  mse: 0.3535337448120117
+  output_shape:
+  - 1
+  - 500
+  param_count: 116385
+  r2_score: 0.43524545431137085
+  relative_error: 2.755242109298706
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    wHLtZNsG4z8=
+  shape_match: true
+  success: true
+  training_time: 1.472902774810791
+- dataset_name: time_series_long
+  error: null
+  expected_output_shape:
+  - 1
+  - 500
+  inference_time: 0.0040435791015625
+  input_shape:
+  - 1
+  - 500
+  mae: 0.6001685261726379
+  memory_usage_mb: 0.0
+  model_name: unet_2d
+  model_type: unet
+  mse: 0.5069421529769897
+  output_shape:
+  - 1
+  - 500
+  param_count: 119697
+  r2_score: 0.19018232822418213
+  relative_error: 2.0361974239349365
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    sWj8gLHI5j8=
+  shape_match: true
+  success: true
+  training_time: 1.06221342086792
+- dataset_name: time_series_long
+  error: null
+  expected_output_shape:
+  - 1
+  - 500
+  inference_time: 0.0
+  input_shape:
+  - 1
+  - 500
+  mae: 0.3200058043003082
+  memory_usage_mb: 0.0
+  model_name: mlp_small
+  model_type: mlp
+  mse: 0.18724197149276733
+  output_shape:
+  - 1
+  - 500
+  param_count: 194548
+  r2_score: 0.7008892297744751
+  relative_error: 1.0776379108428955
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    ykV+zZix2z8=
+  shape_match: true
+  success: true
+  training_time: 0.034262657165527344
+- dataset_name: time_series_long
+  error: null
+  expected_output_shape:
+  - 1
+  - 500
+  inference_time: 0.0010106563568115234
+  input_shape:
+  - 1
+  - 500
+  mae: 0.17255456745624542
+  memory_usage_mb: 0.0
+  model_name: mlp_medium
+  model_type: mlp
+  mse: 0.05435227230191231
+  output_shape:
+  - 1
+  - 500
+  param_count: 519668
+  r2_score: 0.9131746292114258
+  relative_error: 0.9233916401863098
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    YiX6UGTXzT8=
+  shape_match: true
+  success: true
+  training_time: 0.1501455307006836
+- dataset_name: time_series_long
+  error: null
+  expected_output_shape:
+  - 1
+  - 500
+  inference_time: 0.0
+  input_shape:
+  - 1
+  - 500
+  mae: 0.2591014504432678
+  memory_usage_mb: 0.0
+  model_name: pinn_1d
+  model_type: pinn
+  mse: 0.11811709403991699
+  output_shape:
+  - 1
+  - 500
+  param_count: 161652
+  r2_score: 0.8113131523132324
+  relative_error: 0.6016088128089905
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    TZ8SbeH+1T8=
+  shape_match: true
+  success: true
+  training_time: 0.06045794486999512
+- dataset_name: time_series_long
+  error: null
+  expected_output_shape:
+  - 1
+  - 500
+  inference_time: 0.0009992122650146484
+  input_shape:
+  - 1
+  - 500
+  mae: 0.14617958664894104
+  memory_usage_mb: 0.0
+  model_name: pinn_2d
+  model_type: pinn
+  mse: 0.03071662038564682
+  output_shape:
+  - 1
+  - 500
+  param_count: 388340
+  r2_score: 0.9509315490722656
+  relative_error: 0.5380410552024841
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    poHPqvhuxj8=
+  shape_match: true
+  success: true
+  training_time: 0.12188935279846191
+- dataset_name: time_series_long
+  error: null
+  expected_output_shape:
+  - 1
+  - 500
+  inference_time: 0.009119272232055664
+  input_shape:
+  - 1
+  - 500
+  mae: 0.6174123883247375
+  memory_usage_mb: 0.0
+  model_name: transformer_micro
+  model_type: transformer
+  mse: 0.5544258952140808
+  output_shape:
+  - 1
+  - 500
+  param_count: 8326556
+  r2_score: 0.11432915925979614
+  relative_error: 1.9770978689193726
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    XzYWyL7T5z8=
+  shape_match: true
+  success: true
+  training_time: 1.4189834594726562
+- dataset_name: time_series_long
+  error: null
+  expected_output_shape:
+  - 1
+  - 500
+  inference_time: 0.022077083587646484
+  input_shape:
+  - 1
+  - 500
+  mae: 0.5499987602233887
+  memory_usage_mb: 0.0
+  model_name: transformer_light
+  model_type: transformer
+  mse: 0.45822668075561523
+  output_shape:
+  - 1
+  - 500
+  param_count: 17225876
+  r2_score: 0.2680031657218933
+  relative_error: 1.1164847612380981
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    4X3Ual2p5T8=
+  shape_match: true
+  success: true
+  training_time: 3.4751479625701904
+- dataset_name: time_series_long
+  error: null
+  expected_output_shape:
+  - 1
+  - 500
+  inference_time: 0.08778667449951172
+  input_shape:
+  - 1
+  - 500
+  mae: 0.4891488254070282
+  memory_usage_mb: 0.0
+  model_name: transformer_medium
+  model_type: transformer
+  mse: 0.3763430118560791
+  output_shape:
+  - 1
+  - 500
+  param_count: 35752404
+  r2_score: 0.39880865812301636
+  relative_error: 5.348238468170166
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    kTOCr4eh4z8=
+  shape_match: true
+  success: true
+  training_time: 6.446709394454956
+- dataset_name: image_small
+  error: '不支持的模型类型:  或模型类: FixedEnhancedFNO1d'
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: fno_1d
+  model_type: FixedEnhancedFNO1d
+  mse: 0.0
+  output_shape: null
+  param_count: 0
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: image_small
+  error: The size of tensor a (128) must match the size of tensor b (32) at non-singleton
+    dimension 3
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: fno_2d
+  model_type: FixedEnhancedFNO2d
+  mse: 0.0
+  output_shape: null
+  param_count: 471797
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: image_small
+  error: 'Expected 2D (unbatched) or 3D (batched) input to conv1d, but got input of
+    size: [4, 1, 32, 32]'
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: unet_1d
+  model_type: unet
+  mse: 0.0
+  output_shape: null
+  param_count: 116385
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: image_small
+  error: 'Expected 2D (unbatched) or 3D (batched) input to conv1d, but got input of
+    size: [4, 1, 32, 32]'
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: unet_2d
+  model_type: unet
+  mse: 0.0
+  output_shape: null
+  param_count: 119697
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: image_small
+  error: mat1 and mat2 shapes cannot be multiplied (128x32 and 1x128)
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: mlp_small
+  model_type: mlp
+  mse: 0.0
+  output_shape: null
+  param_count: 66305
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: image_small
+  error: mat1 and mat2 shapes cannot be multiplied (128x32 and 1x256)
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: mlp_medium
+  model_type: mlp
+  mse: 0.0
+  output_shape: null
+  param_count: 263681
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: image_small
+  error: mat1 and mat2 shapes cannot be multiplied (128x32 and 1x128)
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: pinn_1d
+  model_type: pinn
+  mse: 0.0
+  output_shape: null
+  param_count: 33409
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: image_small
+  error: mat1 and mat2 shapes cannot be multiplied (128x32 and 1x256)
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: pinn_2d
+  model_type: pinn
+  mse: 0.0
+  output_shape: null
+  param_count: 132353
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: image_small
+  error: mat1 and mat2 shapes cannot be multiplied (128x32 and 1x32)
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: transformer_micro
+  model_type: transformer
+  mse: 0.0
+  output_shape: null
+  param_count: 278185
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: image_small
+  error: mat1 and mat2 shapes cannot be multiplied (128x32 and 1x64)
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: transformer_light
+  model_type: transformer
+  mse: 0.0
+  output_shape: null
+  param_count: 1129633
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: image_small
+  error: mat1 and mat2 shapes cannot be multiplied (128x32 and 1x128)
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: transformer_medium
+  model_type: transformer
+  mse: 0.0
+  output_shape: null
+  param_count: 3560417
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: physics_diffusion
+  error: '不支持的模型类型:  或模型类: FixedEnhancedFNO1d'
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: fno_1d
+  model_type: FixedEnhancedFNO1d
+  mse: 0.0
+  output_shape: null
+  param_count: 0
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: physics_diffusion
+  error: tuple index out of range
+  expected_output_shape: null
+  inference_time: 0.0
+  input_shape: null
+  mae: 0.0
+  memory_usage_mb: 0.0
+  model_name: fno_2d
+  model_type: FixedEnhancedFNO2d
+  mse: 0.0
+  output_shape: null
+  param_count: 471797
+  r2_score: 0.0
+  relative_error: 0.0
+  rmse: 0.0
+  shape_match: false
+  success: false
+  training_time: 0.0
+- dataset_name: physics_diffusion
+  error: null
+  expected_output_shape:
+  - 1
+  - 64
+  inference_time: 0.004553794860839844
+  input_shape:
+  - 1
+  - 64
+  mae: 0.19610099494457245
+  memory_usage_mb: 0.0
+  model_name: unet_1d
+  model_type: unet
+  mse: 0.05274643003940582
+  output_shape:
+  - 1
+  - 64
+  param_count: 116385
+  r2_score: 0.03705286979675293
+  relative_error: 0.25241991877555847
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    yt1mSbFlzT8=
+  shape_match: true
+  success: true
+  training_time: 0.6633753776550293
+- dataset_name: physics_diffusion
+  error: null
+  expected_output_shape:
+  - 1
+  - 64
+  inference_time: 0.0026607513427734375
+  input_shape:
+  - 1
+  - 64
+  mae: 0.6063074469566345
+  memory_usage_mb: 0.0
+  model_name: unet_2d
+  model_type: unet
+  mse: 0.417431503534317
+  output_shape:
+  - 1
+  - 64
+  param_count: 119697
+  r2_score: -6.620695114135742
+  relative_error: 0.8567967414855957
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    kqWQqcOs5D8=
+  shape_match: true
+  success: true
+  training_time: 1.11598539352417
+- dataset_name: physics_diffusion
+  error: null
+  expected_output_shape:
+  - 1
+  - 64
+  inference_time: 0.0010006427764892578
+  input_shape:
+  - 1
+  - 64
+  mae: 0.3883134424686432
+  memory_usage_mb: 0.0
+  model_name: mlp_small
+  model_type: mlp
+  mse: 0.2035982608795166
+  output_shape:
+  - 1
+  - 64
+  param_count: 82496
+  r2_score: -2.7169220447540283
+  relative_error: 0.5343973636627197
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    hjNLJcTg3D8=
+  shape_match: true
+  success: true
+  training_time: 0.034604787826538086
+- dataset_name: physics_diffusion
+  error: null
+  expected_output_shape:
+  - 1
+  - 64
+  inference_time: 0.0009996891021728516
+  input_shape:
+  - 1
+  - 64
+  mae: 0.1806473582983017
+  memory_usage_mb: 0.0
+  model_name: mlp_medium
+  model_type: mlp
+  mse: 0.04249490424990654
+  output_shape:
+  - 1
+  - 64
+  param_count: 296000
+  r2_score: 0.2242063283920288
+  relative_error: 0.29369693994522095
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    uvfuKeRiyj8=
+  shape_match: true
+  success: true
+  training_time: 0.0723733901977539
+- dataset_name: physics_diffusion
+  error: null
+  expected_output_shape:
+  - 1
+  - 64
+  inference_time: 0.0
+  input_shape:
+  - 1
+  - 64
+  mae: 0.17097866535186768
+  memory_usage_mb: 0.0
+  model_name: pinn_1d
+  model_type: pinn
+  mse: 0.04041258990764618
+  output_shape:
+  - 1
+  - 64
+  param_count: 49600
+  r2_score: 0.26222139596939087
+  relative_error: 0.2847079038619995
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    JLgVClC7yT8=
+  shape_match: true
+  success: true
+  training_time: 0.026706457138061523
+- dataset_name: physics_diffusion
+  error: null
+  expected_output_shape:
+  - 1
+  - 64
+  inference_time: 0.0010001659393310547
+  input_shape:
+  - 1
+  - 64
+  mae: 0.14586074650287628
+  memory_usage_mb: 0.0
+  model_name: pinn_2d
+  model_type: pinn
+  mse: 0.031449686735868454
+  output_shape:
+  - 1
+  - 64
+  param_count: 164672
+  r2_score: 0.4258495569229126
+  relative_error: 0.2478136420249939
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    SAaAvBizxj8=
+  shape_match: true
+  success: true
+  training_time: 0.048424482345581055
+- dataset_name: physics_diffusion
+  error: null
+  expected_output_shape:
+  - 1
+  - 64
+  inference_time: 0.01703667640686035
+  input_shape:
+  - 1
+  - 64
+  mae: 0.3691639006137848
+  memory_usage_mb: 0.0
+  model_name: transformer_micro
+  model_type: transformer
+  mse: 0.1948510706424713
+  output_shape:
+  - 1
+  - 64
+  param_count: 415336
+  r2_score: -2.557231903076172
+  relative_error: 0.6113741397857666
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    7/wtFDdA3D8=
+  shape_match: true
+  success: true
+  training_time: 0.7709791660308838
+- dataset_name: physics_diffusion
+  error: null
+  expected_output_shape:
+  - 1
+  - 64
+  inference_time: 0.09278082847595215
+  input_shape:
+  - 1
+  - 64
+  mae: 0.21783311665058136
+  memory_usage_mb: 0.0
+  model_name: transformer_light
+  model_type: transformer
+  mse: 0.08668071031570435
+  output_shape:
+  - 1
+  - 64
+  param_count: 1403872
+  r2_score: -0.5824567079544067
+  relative_error: 0.3920275866985321
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    Munbs7XX0j8=
+  shape_match: true
+  success: true
+  training_time: 2.2584853172302246
+- dataset_name: physics_diffusion
+  error: null
+  expected_output_shape:
+  - 1
+  - 64
+  inference_time: 0.16380953788757324
+  input_shape:
+  - 1
+  - 64
+  mae: 0.31368488073349
+  memory_usage_mb: 0.0
+  model_name: transformer_medium
+  model_type: transformer
+  mse: 0.1750844568014145
+  output_shape:
+  - 1
+  - 64
+  param_count: 4108832
+  r2_score: -2.1963694095611572
+  relative_error: 0.5170259475708008
+  rmse: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    g/B4l5LH2j8=
+  shape_match: true
+  success: true
+  training_time: 3.0180091857910156

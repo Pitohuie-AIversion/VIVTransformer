@@ -1,0 +1,154 @@
+# 完整模型对比配置文件 - 包含所有模型类型
+# 目标: 展示所有模型的性能，接受参数量差异
+# 用于全面的模型能力评估
+
+# 数据配置
+data:
+  data_path: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/generate_data/preprocessed_data/darcy_flow_input32_output128_dataset.h5"
+  input_dim: 1024    # 32x32输入
+  output_dim: 16384  # 128x128输出
+  crop_mode: "center"
+  output_resolution: [128, 128]
+  output_channels: 1
+  batch_size: 32
+  val_split: 0.2
+  test_split: 0.1
+  max_samples: 1000
+  preprocessing:
+    normalize: true
+    remove_channel_dim: true
+
+# 训练配置
+training:
+  epochs: 50
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  patience: 10
+  min_delta: 0.0001
+
+# 损失配置
+loss:
+  mse_only: true
+  mse_weight: 1.0
+  l1_weight: 0.0
+  ssim_weight: 0.0
+  perceptual_weight: 0.0
+  gradient_weight: 0.0
+  frequency_weight: 0.0
+
+# 注意力机制配置
+attention:
+  type: "self"
+
+# 模型配置 - 完整对比 (参数量从500万到5000万)
+models:
+  # === 轻量级模型组 (500万-1000万参数) ===
+  
+  # MLP模型 - 约513万参数
+  mlp:
+    model_type: mlp
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [512, 512, 256]
+    activation: gelu
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: false
+
+  # Transformer模型 - 约514万参数
+  transformer:
+    model_type: transformer
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 192
+    num_heads: 2
+    num_layers: 4
+    dropout: 0.1
+    seq_len: 11
+    pe_type: sinusoidal_1d
+    use_memory_film: false
+    max_time_steps: 100
+    output_head_type: global
+    time_encoding: embedding
+
+  # 自定义Transformer模型 - 约863万参数
+  custom_transformer:
+    model_type: custom_transformer
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 8
+    num_heads: 1
+    num_layers: 1
+    dropout: 0.1
+    attention_type: "relative"
+    seq_len: null
+    pe_type: "learnable_1d"
+    output_head_type: "global"
+    time_encoding: "embedding"
+    use_memory_film: false
+    use_memory_concat: false
+    max_time_steps: 100
+
+  # === 中等规模模型组 (5000万-30000万参数) ===
+  
+  # FNO模型 - 约2.7亿参数 (最小配置)
+  fno:
+    model_type: fno
+    input_dim: 1024
+    output_dim: 16384
+    width: 4          # 最小值
+    modes: 2          # 最小值
+    num_layers: 1     # 最小层数
+    activation: gelu
+    resolution: [32, 32]
+
+  # UNet模型 - 约2.8亿参数 (最小配置)
+  unet:
+    model_type: unet
+    input_dim: 1024
+    output_dim: 16384
+    base_channels: 2   # 最小值
+    num_levels: 1      # 最小层数
+    activation: gelu
+    resolution: [32, 32]
+
+# 设备配置
+device:
+  use_cuda: true
+  device_id: 0
+  mixed_precision: false
+
+# 可视化配置
+visualization:
+  enabled: true
+  interval: 10
+  max_samples: 5
+
+# 输出配置
+output:
+  results_dir: "./complete_comparison_results"
+  save_models: true
+  save_predictions: true
+  generate_plots: true
+
+# 实验设计说明:
+# 
+# 1. 轻量级模型组 (500万-1000万参数):
+#    - 适合快速实验和资源受限环境
+#    - 参数量差异 < 2x，公平对比
+#    - 重点评估模型架构效率
+#
+# 2. 中等规模模型组 (2-3亿参数):
+#    - FNO和UNet的最小可行配置
+#    - 参数量主要来自输入输出映射层
+#    - 重点评估模型表达能力上限
+#
+# 3. 对比策略:
+#    - 组内公平对比: 轻量级模型组内对比
+#    - 跨组能力对比: 评估参数量vs性能的权衡
+#    - 效率分析: 参数量、训练时间、推理速度综合评估
+#
+# 4. 科学价值:
+#    - 验证"参数量不是唯一决定因素"的假设
+#    - 为实际应用提供模型选择指导
+#    - 探索稀疏到稠密重建的最优架构

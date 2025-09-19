@@ -1,0 +1,188 @@
+# 网络横向对比测试配置文件
+# 专门用于模型性能对比实验
+
+# 数据配置
+data:
+  data_path: "./preprocessed_data/sample_data.h5"
+  input_resolution: [32, 32]  # 稀疏输入分辨率
+  output_resolution: [128, 128]  # 稠密输出分辨率
+  num_samples: 500  # 减少样本数量以加快测试
+  batch_size: 4  # 减小batch size
+  num_workers: 2
+  crop_mode: "center"
+  normalize_data: true
+  lazy_loading: false
+
+# 模型配置 - 横向对比实验
+models:
+  # === Transformer模型 (不同规模) ===
+  transformer_small:
+    type: "transformer"
+    enabled: true
+    num_heads: 4
+    num_layers: 2
+    d_model: 128
+    attention_type: "sge"
+    max_time_steps: 1
+    seq_len: 32
+    pe_type: "learnable_1d"
+    output_head_type: "global"
+    target_params: 50000
+    
+  transformer_medium:
+    type: "transformer"
+    enabled: true
+    num_heads: 8
+    num_layers: 4
+    d_model: 256
+    attention_type: "sge"
+    max_time_steps: 1
+    seq_len: 32
+    pe_type: "learnable_1d"
+    output_head_type: "global"
+    target_params: 200000
+    
+  # === 增强MLP模型 ===
+  enhanced_mlp_small:
+    type: "enhanced_mlp"
+    enabled: true
+    hidden_dim: 64
+    num_layers: 3
+    fourier_features: 32
+    target_params: 30000
+    
+  enhanced_mlp_medium:
+    type: "enhanced_mlp"
+    enabled: true
+    hidden_dim: 128
+    num_layers: 4
+    fourier_features: 64
+    target_params: 100000
+    
+  # === 增强FNO模型 ===
+  enhanced_fno1d_small:
+    type: "enhanced_fno1d"
+    enabled: true
+    modes: 8
+    width: 32
+    num_layers: 2
+    target_params: 40000
+    
+  enhanced_fno1d_medium:
+    type: "enhanced_fno1d"
+    enabled: true
+    modes: 16
+    width: 64
+    num_layers: 3
+    target_params: 150000
+    
+  # === 增强UNet模型 ===
+  enhanced_unet1d_small:
+    type: "enhanced_unet1d"
+    enabled: true
+    init_features: 16
+    target_params: 35000
+    
+  enhanced_unet1d_medium:
+    type: "enhanced_unet1d"
+    enabled: true
+    init_features: 32
+    target_params: 120000
+
+# 训练配置
+training:
+  epochs: 3  # 快速测试，只训练3个epoch
+  learning_rate: 1e-4
+  weight_decay: 1e-5
+  early_stopping_patience: 10
+  
+# 测试配置
+testing:
+  max_test_batches: 20  # 限制测试批次数量
+  save_predictions: true
+  compute_detailed_metrics: true
+  
+# 可视化配置
+visualization:
+  save_plots: true
+  plot_format: "png"
+  dpi: 300
+  show_error_analysis: true
+  
+# 硬件配置
+hardware:
+  device: "auto"  # auto, cuda, cpu
+  mixed_precision: false
+  dataparallel: false
+  
+# 日志配置
+logging:
+  level: "INFO"
+  save_logs: true
+  log_file: "comparison_test.log"
+  
+# 结果保存配置
+results:
+  save_models: false  # 不保存模型权重以节省空间
+  save_predictions: true
+  save_detailed_metrics: true
+  export_formats: ["json", "csv", "txt"]
+  
+# 性能评估指标配置
+metrics:
+  primary_metrics:
+    - "mse"
+    - "mae"
+    - "rmse"
+    - "psnr"
+    - "ssim"
+    - "correlation"
+  
+  secondary_metrics:
+    - "train_time"
+    - "test_time"
+    - "memory_usage"
+    - "param_count"
+    - "flops"  # 如果可计算
+  
+  ranking_metric: "mse"  # 主要排名指标
+  
+# 对比分析配置
+analysis:
+  efficiency_analysis: true  # 参数效率分析
+  speed_analysis: true       # 速度分析
+  memory_analysis: true      # 内存分析
+  convergence_analysis: true # 收敛性分析
+  
+  # 分组对比
+  model_groups:
+    by_type:
+      - ["transformer_small", "transformer_medium"]
+      - ["enhanced_mlp_small", "enhanced_mlp_medium"]
+      - ["enhanced_fno1d_small", "enhanced_fno1d_medium"]
+      - ["enhanced_unet1d_small", "enhanced_unet1d_medium"]
+    
+    by_size:
+      - ["transformer_small", "enhanced_mlp_small", "enhanced_fno1d_small", "enhanced_unet1d_small"]
+      - ["transformer_medium", "enhanced_mlp_medium", "enhanced_fno1d_medium", "enhanced_unet1d_medium"]
+
+# 实验设置
+experiment:
+  name: "PDEBench_Network_Comparison"
+  description: "横向对比不同神经网络架构在PDEBench稀疏到稠密重建任务上的性能"
+  version: "1.0"
+  author: "AI Assistant"
+  date: "2025-01-17"
+  
+  # 实验重复次数（用于统计显著性）
+  num_runs: 1  # 快速测试设为1
+  
+  # 随机种子
+  random_seed: 42
+  
+  # 实验标签
+  tags:
+    - "pdebench"
+    - "sparse_to_dense"
+    - "network_comparison"
+    - "performance_evaluation"

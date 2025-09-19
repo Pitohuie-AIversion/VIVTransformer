@@ -4,13 +4,13 @@
 # 数据配置
 data:
   # 原始数据文件路径
-  path: "X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\PDEBench\\pdebench\\data_download\\2D_DarcyFlow_beta0.1_Train.hdf5"
+  path: "X:\\2025\\Graduation_project\\Pdebench_input_Transformer\\VIVTransformer-1\\generate_data\\preprocessed_data\\sample_data.h5"
   
   # 输入分辨率 [height, width]
-  input_resolution: [32, 32]    # 32x32 = 1024维
+  input_resolution: [64, 64]    # 64x64 = 4096维
   
   # 输出分辨率 [height, width] - 内存优化
-  output_resolution: [128, 128]   # 64x64 = 4096维 (大幅减少内存使用)
+  output_resolution: [128, 128]   # 128x128 = 16384维 (大幅减少内存使用)
   
   # 样本数量
   num_samples: 100

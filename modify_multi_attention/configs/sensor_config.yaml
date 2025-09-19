@@ -1,0 +1,165 @@
+# 传感器数据配置文件
+# 支持多种传感器数据类型和处理模式
+
+# 数据配置
+data:
+  # 传感器数据路径
+  data_path: "path/to/sensor_data.h5"
+  
+  # 传感器配置
+  sensor_config:
+    # 传感器类型: time_series, spatial_sparse, multi_modal
+    type: "time_series"
+    
+    # 时间序列长度
+    temporal_length: 50
+    
+    # 空间域范围 (x_max, y_max)
+    spatial_domain: [1.0, 1.0]
+    
+    # 传感器位置 (仅spatial_sparse类型需要)
+    positions: null
+    
+    # 传感器数量
+    num_sensors: 10
+  
+  # 目标分辨率 [H, W]
+  target_resolution: [32, 32]
+  
+  # 数据预处理
+  normalize_data: true
+  max_samples: 1000
+  
+  # 数据集分割
+  train_ratio: 0.7
+  valid_ratio: 0.2
+  test_ratio: 0.1
+  
+  # 数据加载器
+  batch_size: 8
+  num_workers: 2
+  shuffle: true
+
+# 模型配置
+model:
+  # 模型类型
+  type: "custom_transformer"
+  
+  # 输入维度 (自动从传感器配置推断)
+  input_dim: null  # 将根据传感器数据自动设置
+  
+  # 输出维度 (自动从目标分辨率推断)
+  output_dim: null  # 将根据target_resolution自动设置
+  
+  # Transformer参数
+  d_model: 128
+  num_heads: 4
+  num_encoder_layers: 3
+  num_decoder_layers: 3
+  dim_feedforward: 256
+  dropout: 0.1
+  
+  # 注意力机制类型
+  attention_type: "relative"
+  
+  # 位置编码类型
+  position_encoding: "learnable_1d"
+  
+  # 输出头类型
+  output_head_type: "per_token"
+
+# 训练配置
+training:
+  # 优化器
+  optimizer: "adamw"
+  learning_rate: 1e-4
+  weight_decay: 1e-5
+  
+  # 学习率调度
+  scheduler: "cosine"
+  warmup_epochs: 10
+  
+  # 训练参数
+  epochs: 10
+  early_stopping_patience: 5
+  
+  # 损失函数
+  loss_function: "mse"
+  
+  # 设备配置
+  device: "cpu"
+  mixed_precision: false
+  
+  # 检查点
+  save_checkpoint: true
+  checkpoint_interval: 10
+
+# 评估配置
+evaluation:
+  # 评估指标
+  metrics: ["mse", "mae", "r2", "correlation"]
+  
+  # 可视化
+  plot_predictions: true
+  save_plots: true
+  plot_interval: 5
+
+# 多模态配置 (可选)
+multimodal:
+  # 是否启用多模态
+  enabled: false
+  
+  # 模态类型
+  modalities: ["temperature", "pressure", "velocity"]
+  
+  # 融合策略
+  fusion_strategy: "attention"
+  
+  # 权重
+  modality_weights: [0.4, 0.3, 0.3]
+
+# 实验配置
+experiment:
+  # 实验名称
+  name: "sensor_transformer_test"
+  
+  # 日志配置
+  log_level: "INFO"
+  log_file: "sensor_experiment.log"
+  
+  # 结果保存路径
+  output_dir: "results/sensor_test"
+  
+  # 随机种子
+  seed: 42
+  
+  # 是否保存中间结果
+  save_intermediate: true
+
+# 示例配置
+examples:
+  # 温度传感器网络
+  temperature_network:
+    sensor_config:
+      type: "spatial_sparse"
+      num_sensors: 20
+      positions: [[0.1, 0.1], [0.5, 0.5], [0.9, 0.9]]  # 示例位置
+    target_resolution: [64, 64]
+    
+  # 时间序列传感器
+  time_series_sensor:
+    sensor_config:
+      type: "time_series"
+      temporal_length: 100
+      num_sensors: 5
+    target_resolution: [32, 32]
+    
+  # 多模态传感器
+  multimodal_sensor:
+    sensor_config:
+      type: "multi_modal"
+      temporal_length: 50
+      num_sensors: 15
+    multimodal:
+      enabled: true
+      modalities: ["temperature", "humidity", "pressure"]

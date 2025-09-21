@@ -91,7 +91,7 @@ from modify_multi_attention.utils.config import load_config
 from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
 from models.enhanced_fno import create_enhanced_fno2d
 from models.enhanced_unet import create_enhanced_unet2d
-from utils.visualization import create_model_comparison_plots, generate_model_comparison_summary, plot_training_losses
+from utils.visualization import create_model_comparison_plots, generate_model_comparison_summary, plot_training_losses, plot_comparison_figure
 
 # ===== 自适应资源管理工具函数 =====
 
@@ -1074,6 +1074,7 @@ def evaluate_model(model, test_loader, device, normalizer=None):
     total_samples = 0
     all_predictions = []
     all_targets = []
+    all_inputs = []  # 添加输入数据收集
     
     with torch.no_grad():
         for inputs, targets in test_loader:
@@ -1089,12 +1090,14 @@ def evaluate_model(model, test_loader, device, normalizer=None):
             
             all_predictions.append(outputs.cpu().numpy())
             all_targets.append(targets.cpu().numpy())
+            all_inputs.append(inputs.cpu().numpy())  # 收集输入数据
     
     avg_loss = total_loss / total_samples
     
     # 计算R²分数
     predictions = np.concatenate(all_predictions, axis=0)
     targets = np.concatenate(all_targets, axis=0)
+    inputs = np.concatenate(all_inputs, axis=0)  # 合并输入数据
     
     ss_res = np.sum((targets - predictions) ** 2)
     ss_tot = np.sum((targets - np.mean(targets)) ** 2)
@@ -1104,7 +1107,8 @@ def evaluate_model(model, test_loader, device, normalizer=None):
         'mse': avg_loss,
         'r2_score': r2_score,
         'predictions': predictions,
-        'targets': targets
+        'targets': targets,
+        'inputs': inputs  # 返回输入数据
     }
 
 def run_unified_training(config_path: str, models: List[str] = None):
@@ -1176,9 +1180,11 @@ def run_single_model_training(config: Dict, output_dir: str) -> Dict:
     
     # 训练模型
     training_config = config.get('training', {})
+    start_time = time.time()
     train_losses, val_losses = train_unified_model(
         model, train_loader, val_loader, device, training_config, config.get('loss', {})
     )
+    train_time = time.time() - start_time
     
     # 评估模型
     test_results = evaluate_model(model, test_loader, device)
@@ -1192,11 +1198,19 @@ def run_single_model_training(config: Dict, output_dir: str) -> Dict:
     results = {
         active_model: {
             'param_count': param_count,
+            'num_parameters': param_count,  # 添加可视化函数期望的字段名
+            'train_time': train_time,       # 添加训练时间字段
             'train_losses': train_losses,
             'val_losses': val_losses,
             'test_loss': test_loss,
             'test_metrics': test_metrics,
-            'config': model_config
+            'test_r2': test_results['r2_score'],  # 添加可视化函数期望的字段名
+            'test_mse': test_results['mse'],      # 添加可视化函数期望的字段名
+            'config': model_config,
+            # 添加测试数据以支持三联图生成
+            'test_inputs': test_results['inputs'],
+            'test_predictions': test_results['predictions'],
+            'test_targets': test_results['targets']
         }
     }
     
@@ -1228,6 +1242,28 @@ def save_training_results(results: Dict, config: Dict, output_dir: str):
             json.dump(serializable_results, f, indent=2, ensure_ascii=False)
         
         logger.info(f"训练结果已保存到: {results_file}")
+        
+        # 生成可视化图表
+        try:
+            logger.info("🎨 开始生成可视化图表...")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            plot_files = create_visualization_plots(results, timestamp)
+            
+            if plot_files:
+                logger.info(f"✅ 成功生成 {len(plot_files)} 个可视化图表:")
+                for plot_file in plot_files:
+                    logger.info(f"  📈 {plot_file}")
+                
+                # 生成可视化汇总报告
+                logger.info("📝 生成可视化汇总报告...")
+                summary_path = generate_visualization_summary(results, plot_files, timestamp)
+                logger.info(f"📋 可视化汇总报告已保存: {summary_path}")
+            else:
+                logger.warning("⚠️  没有生成可视化图表（可能没有成功的模型结果）")
+                
+        except Exception as e:
+            logger.error(f"❌ 生成可视化图表时出错: {e}")
+            logger.info("📊 JSON结果文件仍然可用")
         
     except Exception as e:
         logger.warning(f"保存训练结果失败: {e}")
@@ -1610,6 +1646,10 @@ def create_visualization_plots(results: Dict[str, Any], timestamp: str) -> List[
                     plot_files.append(loss_plot_path)
                     logger.info(f"✅ {model_name} 训练损失曲线已保存: {loss_plot_path}")
         
+        # 生成三联图（输入-真实-预测对比图）
+        triplet_plots = generate_triplet_plots(successful_results, viz_folder, timestamp)
+        plot_files.extend(triplet_plots)
+        
         logger.info(f"✅ 成功生成 {len(plot_files)} 个可视化图表到文件夹: {viz_folder}")
         return plot_files
         
@@ -1617,6 +1657,135 @@ def create_visualization_plots(results: Dict[str, Any], timestamp: str) -> List[
         logger.error(f"❌ 调用utils.visualization模块时出错: {e}")
         # 回退到原始实现
         return create_fallback_visualization_plots(successful_results, timestamp, viz_folder)
+
+def generate_triplet_plots(results: Dict[str, Any], viz_folder: Path, timestamp: str) -> List[str]:
+    """
+    生成三联图（输入-真实-预测对比图）
+    
+    Args:
+        results: 模型测试结果字典
+        viz_folder: 可视化结果文件夹
+        timestamp: 时间戳字符串
+    
+    Returns:
+        生成的三联图文件路径列表
+    """
+    triplet_plot_files = []
+    
+    # 为每个模型生成三联图
+    for model_name, result in results.items():
+        if 'test_inputs' in result and 'test_targets' in result and 'test_predictions' in result:
+            try:
+                inputs = result['test_inputs']
+                targets = result['test_targets'] 
+                predictions = result['test_predictions']
+                
+                # 创建模型专用的三联图文件夹
+                triplet_dir = viz_folder / f"{model_name}_triplet_plots"
+                triplet_dir.mkdir(exist_ok=True)
+                
+                # 选择几个代表性样本进行可视化（避免生成过多图片）
+                num_samples = min(5, len(inputs))  # 最多生成5个样本的三联图
+                sample_indices = np.linspace(0, len(inputs)-1, num_samples, dtype=int)
+                
+                logger.info(f"🎨 为模型 {model_name} 生成 {num_samples} 个三联图样本...")
+                
+                for i, sample_idx in enumerate(sample_indices):
+                    # 获取单个样本数据
+                    input_sample = inputs[sample_idx]
+                    target_sample = targets[sample_idx] 
+                    pred_sample = predictions[sample_idx]
+                    
+                    # 调试信息：打印原始数据形状
+                    logger.info(f"🔍 样本 {sample_idx} 原始数据形状: input={input_sample.shape}, target={target_sample.shape}, pred={pred_sample.shape}")
+                    
+                    # 处理数据维度：确保是2D图像格式
+                    if len(input_sample.shape) == 3:
+                        # 如果是3D (C, H, W)，取第一个通道或平均
+                        if input_sample.shape[0] == 1:
+                            input_2d = input_sample[0]
+                            target_2d = target_sample[0] 
+                            pred_2d = pred_sample[0]
+                        else:
+                            # 多通道情况，取平均
+                            input_2d = np.mean(input_sample, axis=0)
+                            target_2d = np.mean(target_sample, axis=0)
+                            pred_2d = np.mean(pred_sample, axis=0)
+                    elif len(input_sample.shape) == 2:
+                        # 已经是2D
+                        input_2d = input_sample
+                        target_2d = target_sample
+                        pred_2d = pred_sample
+                    else:
+                        # 1D数据，分别处理每个数组的维度
+                        def reshape_1d_to_2d(data, name):
+                            data_size = data.shape[0]
+                            side_len = int(np.sqrt(data_size))
+                            if side_len * side_len == data_size:
+                                return data.reshape(side_len, side_len)
+                            else:
+                                # 无法重塑为正方形，尝试其他合理的矩形形状
+                                if data_size == 16384:
+                                    return data.reshape(128, 128)
+                                elif data_size == 1024:
+                                    return data.reshape(32, 32)
+                                else:
+                                    # 尝试找到合适的因子分解
+                                    factors = []
+                                    for i in range(1, int(np.sqrt(data_size)) + 1):
+                                        if data_size % i == 0:
+                                            factors.append((i, data_size // i))
+                                    
+                                    if factors:
+                                        # 选择最接近正方形的形状
+                                        h, w = min(factors, key=lambda x: abs(x[0] - x[1]))
+                                        return data.reshape(h, w)
+                                    else:
+                                        logger.warning(f"⚠️ {name} 数据大小 {data_size} 无法重塑为2D图像")
+                                        return None
+                        
+                        input_2d = reshape_1d_to_2d(input_sample, "input")
+                        target_2d = reshape_1d_to_2d(target_sample, "target")
+                        pred_2d = reshape_1d_to_2d(pred_sample, "pred")
+                        
+                        # 检查是否有任何数组重塑失败
+                        if input_2d is None or target_2d is None or pred_2d is None:
+                            logger.warning(f"⚠️ 样本 {sample_idx} 数据重塑失败，跳过")
+                            continue
+                    
+                    # 生成三联图
+                    time_step = float(i)  # 使用索引作为时间步
+                    epoch = 0  # 测试阶段，epoch设为0
+                    
+                    # 调用visualization.py中的plot_comparison_figure函数
+                    plot_comparison_figure(
+                        input_pressure=input_2d,
+                        true_pressure=target_2d,
+                        predicted_pressure=pred_2d,
+                        time_step=time_step,
+                        epoch=epoch,
+                        attention_type=model_name,  # 使用模型名作为注意力类型
+                        idx=sample_idx,
+                        parent_dir=str(triplet_dir),
+                        mode="test"
+                    )
+                    
+                    # 记录生成的文件路径
+                    svg_filename = f"test_epoch_{epoch}_sample_{sample_idx}.svg"
+                    svg_path = triplet_dir / model_name / "visualization_results" / svg_filename
+                    
+                    if svg_path.exists():
+                        triplet_plot_files.append(str(svg_path))
+                        logger.info(f"  📈 样本 {sample_idx} 三联图已保存: {svg_path}")
+                    
+                logger.info(f"✅ 模型 {model_name} 三联图生成完成，共 {len([f for f in triplet_plot_files if model_name in f])} 个文件")
+                
+            except Exception as e:
+                logger.error(f"❌ 为模型 {model_name} 生成三联图时出错: {e}")
+                continue
+    
+    logger.info(f"🎨 三联图生成完成，共生成 {len(triplet_plot_files)} 个文件")
+    return triplet_plot_files
 
 def create_fallback_visualization_plots(successful_results: Dict[str, Any], timestamp: str, viz_folder: Path) -> List[str]:
     """

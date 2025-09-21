@@ -20,20 +20,61 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
     result_dir = os.path.join(parent_dir, attention_type, "visualization_results")
     os.makedirs(result_dir, exist_ok=True)
 
+    # 确保所有输入都是2D数组
+    def ensure_2d(data, name):
+        if len(data.shape) == 1:
+            # 1D数据，尝试重塑为2D
+            size = data.shape[0]
+            side_len = int(np.sqrt(size))
+            if side_len * side_len == size:
+                return data.reshape(side_len, side_len)
+            else:
+                # 无法重塑为正方形，尝试找到合适的矩形形状
+                if size == 16384:
+                    return data.reshape(128, 128)
+                elif size == 1024:
+                    return data.reshape(32, 32)
+                else:
+                    # 尝试找到合适的因子分解
+                    factors = []
+                    for i in range(1, int(np.sqrt(size)) + 1):
+                        if size % i == 0:
+                            factors.append((i, size // i))
+                    
+                    if factors:
+                        # 选择最接近正方形的形状
+                        h, w = min(factors, key=lambda x: abs(x[0] - x[1]))
+                        return data.reshape(h, w)
+                    else:
+                        # 最后的备选方案：重塑为行向量
+                        return data.reshape(1, -1)
+        elif len(data.shape) == 2:
+            return data
+        else:
+            raise ValueError(f"{name} 数据维度不支持: {data.shape}")
+    
+    try:
+        input_2d = ensure_2d(input_pressure, "input_pressure")
+        true_2d = ensure_2d(true_pressure, "true_pressure")
+        pred_2d = ensure_2d(predicted_pressure, "predicted_pressure")
+    except Exception as e:
+        print(f"数据维度处理失败: {e}")
+        return
+
     plt.figure(figsize=(18, 5))
 
     plt.subplot(1, 3, 1)
-    plt.imshow(input_pressure, cmap='coolwarm', interpolation='nearest')
+    plt.imshow(input_2d, cmap='coolwarm', interpolation='nearest')
     plt.colorbar()
     plt.title(f"Input Pressure Matrix at t={time_step:.2f}")
 
     plt.subplot(1, 3, 2)
-    plt.imshow(true_pressure, cmap='coolwarm', interpolation='nearest')
+    plt.imshow(true_2d, cmap='coolwarm', interpolation='nearest')
     plt.colorbar()
     plt.title(f"True Pressure Matrix at t={time_step:.2f}")
 
     plt.subplot(1, 3, 3)
-    plt.imshow(predicted_pressure, cmap='coolwarm', interpolation='nearest')
+    plt.imshow(pred_2d, cmap='coolwarm', interpolation='nearest')
     plt.colorbar()
     plt.title(f"Predicted Pressure Matrix at t={time_step:.2f}")
 

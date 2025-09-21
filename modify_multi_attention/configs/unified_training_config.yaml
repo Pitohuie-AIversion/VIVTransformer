@@ -42,7 +42,7 @@ data:
 
 # 训练配置
 training:
-  epochs: 50
+  epochs: 100  # 修改为您想要的epoch数量
   learning_rate: 0.001
   weight_decay: 0.0001
   optimizer: "adamw"

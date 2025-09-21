@@ -1,0 +1,207 @@
+# 统一自适应配置文件 - 结合参数量统一和硬件自适应功能
+# 支持根据硬件性能自动选择合适的参数量级别和资源配置
+
+# 硬件感知配置
+hardware_detection:
+  enabled: true
+  auto_select_tier: true  # 自动选择参数量级别
+  memory_threshold:
+    low: 4096   # MB - 选择small tier
+    medium: 8192  # MB - 选择medium tier  
+    high: 16384   # MB - 选择large tier
+  cpu_threshold:
+    low: 4      # cores - 选择small tier
+    medium: 8   # cores - 选择medium tier
+    high: 16    # cores - 选择large tier
+  gpu_threshold:
+    low: 4096   # MB VRAM - 选择small tier
+    medium: 8192  # MB VRAM - 选择medium tier
+    high: 16384   # MB VRAM - 选择large tier
+
+# 参数量级别定义 (统一参数量控制)
+parameter_tiers:
+  small:
+    target_params: "1M-2M"  # 100万-200万参数
+    description: "轻量级配置，适用于资源受限环境"
+  medium:
+    target_params: "4M-7M"  # 400万-700万参数  
+    description: "中等配置，平衡性能与资源消耗"
+  large:
+    target_params: "10M-15M"  # 1000万-1500万参数
+    description: "高性能配置，适用于高端硬件"
+
+# 自适应资源管理
+adaptive_resources:
+  enabled: true
+  
+  # 批次大小自适应
+  batch_size:
+    enabled: true
+    strategy: "memory_aware"  # memory_aware, conservative, aggressive
+    base_size: 8
+    min_size: 2
+    max_size: 64
+    memory_factor: 0.8  # 使用80%可用内存
+    
+  # 数据加载器自适应
+  dataloader:
+    enabled: true
+    strategy: "cpu_aware"  # cpu_aware, conservative, aggressive
+    base_workers: 4
+    min_workers: 1
+    max_workers: 16
+    cpu_factor: 0.75  # 使用75%CPU核心
+    
+  # 内存监控
+  memory_monitoring:
+    enabled: true
+    check_interval: 10  # 每10个epoch检查一次
+    cleanup_threshold: 0.9  # 内存使用超过90%时清理
+    force_gc: true  # 强制垃圾回收
+
+# 数据配置 (基础配置，会根据tier调整)
+data:
+  data_path: "./sample_data.h5"
+  input_resolution: [32, 32]
+  output_resolution: [128, 128]
+  crop_mode: "center"
+  normalize_data: true
+  lazy_loading: false
+  num_samples: 1000
+  # batch_size和num_workers将由自适应系统动态设置
+
+# 训练配置 (基础配置，会根据tier调整)
+training:
+  epochs: 50
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  early_stopping:
+    patience: 10
+    min_delta: 1e-6
+
+# 损失配置
+loss:
+  type: "mse"
+  weights:
+    mse: 1.0
+
+# 注意力机制配置
+attention:
+  type: "sge"  # 默认注意力类型
+  
+# 模型配置 - 按参数量级别分层
+models:
+  # Small Tier (1M-2M 参数)
+  small_tier:
+    transformer:
+      enabled: true
+      type: "transformer"
+      d_model: 128
+      num_heads: 4
+      num_layers: 2
+      attention_type: "sge"
+      estimated_params: "1.5M"
+      
+    mlp_small:
+      enabled: true
+      type: "enhanced_mlp"
+      hidden_dim: 32
+      num_layers: 12
+      fourier_features: 24
+      estimated_params: "1.2M"
+      
+    enhanced_fno1d:
+      enabled: true
+      type: "enhanced_fno1d"
+      width: 32
+      modes: 12
+      num_layers: 2
+      estimated_params: "1.8M"
+      
+  # Medium Tier (4M-7M 参数)  
+  medium_tier:
+    transformer:
+      enabled: true
+      type: "transformer"
+      d_model: 192
+      num_heads: 6
+      num_layers: 3
+      attention_type: "sge"
+      estimated_params: "5.2M"
+      
+    mlp_medium:
+      enabled: true
+      type: "enhanced_mlp"
+      hidden_dim: 48
+      num_layers: 19
+      fourier_features: 32
+      estimated_params: "4.8M"
+      
+    enhanced_fno1d:
+      enabled: true
+      type: "enhanced_fno1d"
+      width: 48
+      modes: 16
+      num_layers: 3
+      estimated_params: "6.1M"
+      
+    enhanced_unet1d:
+      enabled: true
+      type: "enhanced_unet1d"
+      hidden_dim: 48
+      num_layers: 3
+      estimated_params: "5.5M"
+      
+  # Large Tier (10M-15M 参数)
+  large_tier:
+    transformer:
+      enabled: true
+      type: "transformer"
+      d_model: 256
+      num_heads: 8
+      num_layers: 4
+      attention_type: "sge"
+      estimated_params: "12.8M"
+      
+    mlp_large:
+      enabled: true
+      type: "enhanced_mlp"
+      hidden_dim: 64
+      num_layers: 25
+      fourier_features: 48
+      estimated_params: "11.2M"
+      
+    enhanced_fno1d:
+      enabled: true
+      type: "enhanced_fno1d"
+      width: 64
+      modes: 20
+      num_layers: 4
+      estimated_params: "14.5M"
+      
+    enhanced_unet1d:
+      enabled: true
+      type: "enhanced_unet1d"
+      hidden_dim: 64
+      num_layers: 4
+      estimated_params: "13.1M"
+
+# 设备配置
+device: "auto"  # 自动检测最佳设备
+
+# 随机种子
+random_seed: 42
+
+# 输出配置
+output:
+  save_models: true
+  save_plots: true
+  save_metrics: true
+  results_dir: "./results/unified_adaptive"
+  
+# 实验配置
+experiment:
+  name: "unified_adaptive_deployment"
+  description: "统一参数量控制下的硬件自适应部署实验"
+  tags: ["unified", "adaptive", "hardware_aware", "parameter_control"]

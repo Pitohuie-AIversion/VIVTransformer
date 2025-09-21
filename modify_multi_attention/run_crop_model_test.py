@@ -8,6 +8,7 @@
 2. 输入: 32x32裁剪数据
 3. 输出: 128x128原始数据
 4. 测试多种模型架构的性能
+5. 生成可视化对比图表
 
 参考: generate_data/pde_process/create_input32_output128_dataset.py
 
@@ -29,6 +30,14 @@ import json
 import psutil
 import gc
 import time
+import matplotlib.pyplot as plt
+import matplotlib
+from typing import Dict, List, Any
+
+# 设置matplotlib中文字体
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
+matplotlib.use('Agg')  # 使用非交互式后端
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent
@@ -40,6 +49,7 @@ from modify_multi_attention.utils.config import load_config
 from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
 from models.enhanced_fno import create_enhanced_fno2d
 from models.enhanced_unet import create_enhanced_unet2d
+from utils.visualization import create_model_comparison_plots, generate_model_comparison_summary, plot_training_losses
 
 # 设置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -754,7 +764,9 @@ def run_model_test(config_path, models=None):
                 'best_val_loss': train_results['best_val_loss'],
                 'final_epoch': train_results['final_epoch'],
                 'test_mse': eval_results['mse'],
-                'test_r2': eval_results['r2_score']
+                'test_r2': eval_results['r2_score'],
+                'train_losses': train_results['train_losses'],
+                'val_losses': train_results['val_losses']
             }
             
             logger.info(f"✅ {model_name} 测试完成")
@@ -802,7 +814,223 @@ def run_model_test(config_path, models=None):
     
     logger.info(f"\n📊 测试报告已保存: {report_path}")
     
+    # 生成可视化图表
+    try:
+        logger.info("🎨 开始生成可视化图表...")
+        plot_files = create_visualization_plots(results, timestamp)
+        
+        if plot_files:
+            logger.info(f"✅ 成功生成 {len(plot_files)} 个可视化图表:")
+            for plot_file in plot_files:
+                logger.info(f"  📈 {plot_file}")
+            
+            # 生成可视化汇总报告
+            logger.info("📝 生成可视化汇总报告...")
+            summary_path = generate_visualization_summary(results, plot_files, timestamp)
+            logger.info(f"📋 可视化汇总报告已保存: {summary_path}")
+        else:
+            logger.warning("⚠️  没有生成可视化图表（可能没有成功的模型结果）")
+            
+    except Exception as e:
+        logger.error(f"❌ 生成可视化图表时出错: {e}")
+        logger.info("📊 文本报告仍然可用")
+    
     return results
+
+def create_visualization_plots(results: Dict[str, Any], timestamp: str) -> List[str]:
+    """
+    创建可视化图表，调用utils.visualization模块并包装结果到指定文件夹
+    
+    Args:
+        results: 模型测试结果字典
+        timestamp: 时间戳字符串
+    
+    Returns:
+        生成的图表文件路径列表
+    """
+    # 创建可视化结果文件夹
+    viz_folder = Path("utils") / "visualization_results" / f"crop_model_test_{timestamp}"
+    viz_folder.mkdir(parents=True, exist_ok=True)
+    
+    logger.info(f"📁 创建可视化结果文件夹: {viz_folder}")
+    
+    # 过滤成功的结果
+    successful_results = {k: v for k, v in results.items() if 'error' not in v}
+    
+    if not successful_results:
+        logger.warning("没有成功的模型结果，跳过可视化")
+        return []
+    
+    try:
+        # 调用utils.visualization模块的函数生成图表
+        plot_files = create_model_comparison_plots(
+            results=successful_results,
+            output_dir=str(viz_folder),
+            timestamp=timestamp
+        )
+        
+        # 如果有训练损失数据，生成损失曲线图
+        for model_name, result in successful_results.items():
+            if 'train_losses' in result and 'val_losses' in result:
+                # 使用验证损失作为测试损失的替代（因为我们没有单独的测试损失）
+                loss_plot_path = plot_training_losses(
+                    train_losses=result['train_losses'],
+                    valid_losses=result['val_losses'],
+                    test_losses=result['val_losses'],  # 使用验证损失作为替代
+                    model_name=model_name,
+                    output_dir=str(viz_folder),
+                    timestamp=timestamp
+                )
+                if loss_plot_path:
+                    plot_files.append(loss_plot_path)
+                    logger.info(f"✅ {model_name} 训练损失曲线已保存: {loss_plot_path}")
+        
+        logger.info(f"✅ 成功生成 {len(plot_files)} 个可视化图表到文件夹: {viz_folder}")
+        return plot_files
+        
+    except Exception as e:
+        logger.error(f"❌ 调用utils.visualization模块时出错: {e}")
+        # 回退到原始实现
+        return create_fallback_visualization_plots(successful_results, timestamp, viz_folder)
+
+def create_fallback_visualization_plots(successful_results: Dict[str, Any], timestamp: str, viz_folder: Path) -> List[str]:
+    """
+    回退的可视化实现（当utils.visualization模块调用失败时使用）
+    """
+    plot_files = []
+    model_names = list(successful_results.keys())
+    
+    # 设置图表样式
+    plt.style.use('default')
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
+    
+    # 1. 性能对比图 (MSE 和 R²)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    # MSE对比
+    mse_values = [successful_results[name]['test_mse'] for name in model_names]
+    bars1 = ax1.bar(model_names, mse_values, color=colors[:len(model_names)])
+    ax1.set_title('模型测试MSE对比', fontsize=14, fontweight='bold')
+    ax1.set_ylabel('MSE损失', fontsize=12)
+    ax1.set_xlabel('模型类型', fontsize=12)
+    ax1.tick_params(axis='x', rotation=45)
+    
+    # 添加数值标签
+    for bar, value in zip(bars1, mse_values):
+        height = bar.get_height()
+        ax1.text(bar.get_x() + bar.get_width()/2., height,
+                f'{value:.4f}', ha='center', va='bottom', fontsize=10)
+    
+    # R²对比
+    r2_values = [successful_results[name]['test_r2'] for name in model_names]
+    bars2 = ax2.bar(model_names, r2_values, color=colors[:len(model_names)])
+    ax2.set_title('模型测试R²对比', fontsize=14, fontweight='bold')
+    ax2.set_ylabel('R²分数', fontsize=12)
+    ax2.set_xlabel('模型类型', fontsize=12)
+    ax2.tick_params(axis='x', rotation=45)
+    
+    # 添加数值标签
+    for bar, value in zip(bars2, r2_values):
+        height = bar.get_height()
+        ax2.text(bar.get_x() + bar.get_width()/2., height,
+                f'{value:.3f}', ha='center', va='bottom', fontsize=10)
+    
+    plt.tight_layout()
+    performance_plot = viz_folder / f"model_performance_comparison_{timestamp}.png"
+    plt.savefig(performance_plot, dpi=300, bbox_inches='tight')
+    plt.close()
+    plot_files.append(str(performance_plot))
+    logger.info(f"✅ 性能对比图已保存: {performance_plot}")
+    
+    return plot_files
+
+def generate_visualization_summary(results: Dict[str, Any], plot_files: List[str], timestamp: str) -> str:
+    """
+    生成可视化结果汇总报告，调用utils.visualization模块的函数
+    
+    Args:
+        results: 模型测试结果字典
+        plot_files: 生成的图表文件路径列表
+        timestamp: 时间戳字符串
+    
+    Returns:
+        汇总报告文件路径
+    """
+    # 创建可视化结果文件夹
+    viz_folder = Path("utils") / "visualization_results" / f"crop_model_test_{timestamp}"
+    viz_folder.mkdir(parents=True, exist_ok=True)
+    
+    summary_path = viz_folder / f"visualization_summary_{timestamp}.md"
+    
+    try:
+        # 调用utils.visualization模块的函数生成汇总报告
+        actual_summary_path = generate_model_comparison_summary(
+            results=results,
+            plot_files=plot_files,
+            output_dir=str(viz_folder),
+            timestamp=timestamp
+        )
+        logger.info(f"✅ 可视化汇总报告已保存到: {actual_summary_path}")
+        return actual_summary_path
+        
+    except Exception as e:
+        logger.error(f"❌ 调用utils.visualization模块生成汇总报告时出错: {e}")
+        # 回退到原始实现
+        return create_fallback_summary(results, plot_files, timestamp, summary_path)
+
+def create_fallback_summary(results: Dict[str, Any], plot_files: List[str], timestamp: str, summary_path: Path) -> str:
+    """
+    回退的汇总报告实现（当utils.visualization模块调用失败时使用）
+    """
+    # 过滤成功的结果
+    successful_results = {k: v for k, v in results.items() if 'error' not in v}
+    
+    with open(summary_path, 'w', encoding='utf-8') as f:
+        f.write(f"# 裁剪模型测试可视化汇总报告\n\n")
+        f.write(f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        f.write(f"**测试模型数量**: {len(results)}\n")
+        f.write(f"**成功模型数量**: {len(successful_results)}\n")
+        f.write(f"**生成图表数量**: {len(plot_files)}\n\n")
+        
+        # 生成的图表列表
+        f.write("## 📊 生成的可视化图表\n\n")
+        for i, plot_file in enumerate(plot_files, 1):
+            f.write(f"{i}. `{plot_file}`\n")
+        f.write("\n")
+        
+        # 模型性能汇总
+        if successful_results:
+            f.write("## 🏆 模型性能汇总\n\n")
+            f.write("| 模型 | 测试MSE | 测试R² | 参数量 | 训练时间(s) |\n")
+            f.write("|------|---------|--------|--------|-------------|\n")
+            
+            for name, result in successful_results.items():
+                f.write(f"| {name} | {result['test_mse']:.6f} | {result['test_r2']:.4f} | "
+                       f"{result['num_parameters']:,} | {result['train_time']:.2f} |\n")
+            f.write("\n")
+            
+            # 性能排名
+            f.write("### 🥇 按性能排名 (MSE越小越好)\n\n")
+            sorted_by_mse = sorted(successful_results.items(), key=lambda x: x[1]['test_mse'])
+            for i, (name, result) in enumerate(sorted_by_mse, 1):
+                f.write(f"{i}. **{name}**: MSE={result['test_mse']:.6f}\n")
+            f.write("\n")
+            
+            f.write("### 🥇 按性能排名 (R²越大越好)\n\n")
+            sorted_by_r2 = sorted(successful_results.items(), key=lambda x: x[1]['test_r2'], reverse=True)
+            for i, (name, result) in enumerate(sorted_by_r2, 1):
+                f.write(f"{i}. **{name}**: R²={result['test_r2']:.4f}\n")
+            f.write("\n")
+        
+        # 失败的模型
+        failed_results = {k: v for k, v in results.items() if 'error' in v}
+        if failed_results:
+            f.write("## ❌ 失败的模型\n\n")
+            for name, result in failed_results.items():
+                f.write(f"- **{name}**: {result['error']}\n")
+            f.write("\n")
+    
+    return summary_path
 
 def main():
     parser = argparse.ArgumentParser(description='运行裁剪模型测试')

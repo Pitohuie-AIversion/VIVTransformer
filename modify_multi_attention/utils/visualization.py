@@ -176,8 +176,8 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     
     models = list(successful_results.keys())
-    r2_scores = [successful_results[model]['test_r2'] for model in models]
-    mse_scores = [successful_results[model]['test_mse'] for model in models]
+    r2_scores = [successful_results[model].get('final_test_r2', successful_results[model].get('test_r2', 0)) for model in models]
+    mse_scores = [successful_results[model].get('final_test_mse', successful_results[model].get('test_mse', 0)) for model in models]
     
     # R² 分数
     bars1 = ax1.bar(models, r2_scores, color='skyblue', alpha=0.7)
@@ -212,7 +212,7 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
     params_plot = os.path.join(output_dir, f"model_parameters_comparison_{timestamp}.png")
     plot_files.append(params_plot)
     
-    param_counts = [successful_results[model]['num_parameters'] for model in models]
+    param_counts = [successful_results[model].get('num_parameters', successful_results[model].get('parameters', 0)) for model in models]
     
     plt.figure(figsize=(10, 6))
     bars = plt.bar(models, param_counts, color='lightgreen', alpha=0.7)
@@ -235,7 +235,7 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
     time_plot = os.path.join(output_dir, f"model_training_time_comparison_{timestamp}.png")
     plot_files.append(time_plot)
     
-    train_times = [successful_results[model]['train_time'] for model in models]
+    train_times = [successful_results[model].get('train_time', successful_results[model].get('training_time', 0)) for model in models]
     
     plt.figure(figsize=(10, 6))
     bars = plt.bar(models, train_times, color='orange', alpha=0.7)
@@ -298,20 +298,20 @@ def generate_model_comparison_summary(results, plot_files, output_dir="visualiza
         f.write("|------|---------|--------|--------|-------------|\n")
         
         for model_name, result in successful_results.items():
-            f.write(f"| {model_name} | {result['test_mse']:.6f} | "
-                   f"{result['test_r2']:.4f} | {result['num_parameters']:,} | "
-                   f"{result['train_time']:.2f} |\n")
+            f.write(f"| {model_name} | {result.get('final_test_mse', result.get('test_mse', 0)):.6f} | "
+                f"{result.get('final_test_r2', result.get('test_r2', 0)):.4f} | {result.get('num_parameters', result.get('parameters', 0)):,} | "
+                f"{result.get('training_time', 0):.2f}s |\n")
         
         # 按性能排名
         f.write("\n### 🥇 按性能排名 (MSE越小越好)\n\n")
-        sorted_by_mse = sorted(successful_results.items(), key=lambda x: x[1]['test_mse'])
+        sorted_by_mse = sorted(successful_results.items(), key=lambda x: x[1].get('final_test_mse', x[1].get('test_mse', 0)))
         for i, (model_name, result) in enumerate(sorted_by_mse, 1):
-            f.write(f"{i}. **{model_name}**: MSE={result['test_mse']:.6f}\n")
+            f.write(f"{i}. **{model_name}**: MSE={result.get('final_test_mse', result.get('test_mse', 0)):.6f}\n")
         
         f.write("\n### 🥇 按性能排名 (R²越大越好)\n\n")
-        sorted_by_r2 = sorted(successful_results.items(), key=lambda x: x[1]['test_r2'], reverse=True)
+        sorted_by_r2 = sorted(successful_results.items(), key=lambda x: x[1].get('final_test_r2', x[1].get('test_r2', 0)), reverse=True)
         for i, (model_name, result) in enumerate(sorted_by_r2, 1):
-            f.write(f"{i}. **{model_name}**: R²={result['test_r2']:.4f}\n")
+            f.write(f"{i}. **{model_name}**: R²={result.get('final_test_r2', result.get('test_r2', 0)):.4f}\n")
     
     return summary_path
 

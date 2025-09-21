@@ -1,0 +1,274 @@
+# 统一训练配置文件
+# 整合所有训练脚本功能，通过配置控制不同的训练模式
+# 支持: 单模型训练、多模型对比、参数量公平对比、损失函数对比等
+
+# 实验配置
+experiment:
+  name: "unified_training_experiment"
+  mode: "single_model"  # 可选: single_model, multi_model_comparison, parameter_fair_comparison, loss_comparison
+  output_dir: "unified_training_results"
+  seed: 42
+  deterministic: true
+  log_level: "INFO"
+  save_intermediate: true
+
+# 数据配置
+data:
+  # 数据路径和基本设置
+  data_path: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/generate_data/preprocessed_data/sample_data.h5"
+  input_dim: 1024      # 32x32输入
+  output_dim: 16384    # 128x128输出
+  
+  # 分辨率设置
+  input_resolution: [32, 32]
+  output_resolution: [128, 128]
+  output_channels: 1
+  
+  # 数据处理
+  crop_mode: "center"
+  normalize: true
+  remove_channel_dim: true
+  
+  # 数据集分割
+  batch_size: 32
+  val_split: 0.2
+  test_split: 0.1
+  max_samples: 1000
+  
+  # 数据加载器
+  num_workers: 0  # Windows兼容性
+  pin_memory: false
+  shuffle: true
+
+# 训练配置
+training:
+  epochs: 50
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  
+  # 学习率调度
+  scheduler: "cosine"
+  warmup_epochs: 5
+  
+  # 早停配置
+  early_stopping:
+    patience: 10
+    min_delta: 0.0001
+  
+  # 检查点配置
+  checkpoint:
+    save_best: true
+    save_interval: 10
+    save_last: true
+  
+  # 设备配置
+  device: "cuda"  # 可选: cuda, cpu, auto
+  mixed_precision: false
+  use_dataparallel: false
+
+# 损失函数配置
+loss:
+  # 基础损失
+  mse_weight: 1.0
+  l1_weight: 0.0
+  
+  # 高级损失
+  ssim_weight: 0.0
+  perceptual_weight: 0.0
+  gradient_weight: 0.0
+  frequency_weight: 0.0
+  
+  # SVD损失配置
+  svd_loss:
+    enabled: false
+    base_weight: 0.7
+    svd_weights: [0.1, 0.1, 0.05, 0.03, 0.02]
+    topk: 5
+
+# 模型配置
+models:
+  # 当前激活的模型 (single_model模式使用)
+  active_model: "transformer"
+  
+  # 所有可用模型配置
+  transformer:
+    model_type: "transformer"
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 256
+    num_heads: 8
+    num_layers: 3
+    dropout: 0.1
+    seq_len: 11
+    pe_type: "sinusoidal_1d"
+    use_memory_film: false
+    max_time_steps: 100
+    output_head_type: "global"
+    time_encoding: "embedding"
+  
+  mlp:
+    model_type: "mlp"
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [1024, 512, 256]
+    activation: "gelu"
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: true
+  
+  unet:
+    model_type: "unet"
+    input_dim: 1024
+    output_dim: 16384
+    base_ch: 32
+    ch_mult: [1, 2, 4]
+    num_res_blocks: 2
+    dropout: 0.1
+    use_attention: true
+  
+  fno:
+    model_type: "fno"
+    input_dim: 1024
+    output_dim: 16384
+    modes: 12
+    width: 64
+    num_layers: 4
+    dropout: 0.1
+
+# 注意力机制配置
+attention:
+  type: "self"  # 可选: self, external, simplified_self, se, cbam, etc.
+  
+  # 多注意力对比模式
+  comparison_types: ["self", "se", "cbam", "eca"]
+
+# 评估配置
+evaluation:
+  # 评估指标
+  metrics: ["mse", "mae", "r2", "psnr", "ssim"]
+  
+  # 可视化配置
+  visualization:
+    enabled: true
+    interval: 10
+    max_samples: 5
+    save_plots: true
+    plot_types: ["prediction", "error", "loss_curve"]
+
+# 对比实验配置
+comparison:
+  # 参数量公平对比
+  parameter_fair:
+    enabled: false
+    target_params: 5000000  # 目标参数量 (500万)
+    tolerance: 2.0  # 允许的参数量倍数差异
+  
+  # 多模型对比
+  multi_model:
+    enabled: false
+    models: ["transformer", "mlp", "unet", "fno"]
+    generate_report: true
+    generate_plots: true
+  
+  # 损失函数对比
+  loss_comparison:
+    enabled: false
+    loss_configs:
+      - name: "mse_only"
+        mse_weight: 1.0
+        svd_weight: 0.0
+      - name: "mse_svd"
+        mse_weight: 0.7
+        svd_weight: 0.3
+      - name: "multi_loss"
+        mse_weight: 0.5
+        l1_weight: 0.2
+        ssim_weight: 0.3
+
+# 系统资源配置
+system:
+  # 自适应资源管理
+  adaptive_resources: true
+  
+  # 内存管理
+  memory_management:
+    auto_cleanup: true
+    cleanup_interval: 100  # epochs
+    max_memory_usage: 0.8
+  
+  # 批次大小自适应
+  adaptive_batch_size:
+    enabled: true
+    min_batch_size: 4
+    max_batch_size: 64
+    memory_threshold: 0.9
+
+# 输出配置
+output:
+  # 保存配置
+  save_model: true
+  save_predictions: true
+  save_metrics: true
+  
+  # 报告生成
+  generate_report: true
+  report_format: "markdown"  # 可选: markdown, html, pdf
+  
+  # 图表生成
+  generate_plots: true
+  plot_format: "png"  # 可选: png, pdf, svg
+  
+  # 结果导出
+  export_results: true
+  export_format: "json"  # 可选: json, csv, xlsx
+
+# 调试配置
+debug:
+  enabled: false
+  verbose: false
+  profile_memory: false
+  profile_time: false
+  save_debug_info: false
+
+# 预设配置模板
+presets:
+  # 快速测试
+  quick_test:
+    training:
+      epochs: 5
+      batch_size: 8
+    data:
+      max_samples: 100
+    evaluation:
+      visualization:
+        interval: 1
+  
+  # 完整训练
+  full_training:
+    training:
+      epochs: 100
+      batch_size: 32
+    data:
+      max_samples: null
+    evaluation:
+      visualization:
+        interval: 10
+  
+  # 参数量对比
+  parameter_comparison:
+    experiment:
+      mode: "parameter_fair_comparison"
+    comparison:
+      parameter_fair:
+        enabled: true
+      multi_model:
+        enabled: true
+  
+  # 损失函数对比
+  loss_study:
+    experiment:
+      mode: "loss_comparison"
+    comparison:
+      loss_comparison:
+        enabled: true

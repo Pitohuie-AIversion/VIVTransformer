@@ -1,0 +1,51 @@
+# Z-Score归一化配置文件
+# 适用于数据呈正态分布的情况
+
+# 数据配置
+data:
+  data_path: "data/crop_data.h5"
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  
+  crop_size: [20, 20]
+  target_size: [200, 200]
+  
+  # Z-Score归一化配置
+  normalize: true
+  normalization_method: "zscore"    # 标准化：均值=0，标准差=1
+  
+  batch_size: 16
+  num_workers: 4
+  shuffle: true
+
+# 模型配置
+model:
+  type: "transformer"
+  d_model: 256
+  num_heads: 8
+  num_layers: 3
+  dropout: 0.1
+  seq_len: 400
+  pe_type: "sinusoidal_1d"
+
+# 训练配置
+training:
+  epochs: 50
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  patience: 10
+  min_delta: 0.001
+
+# 设备配置
+device:
+  use_gpu: true
+  gpu_id: 0
+
+# 输出配置
+output:
+  save_model: true
+  model_save_path: "checkpoints/crop_model_zscore"
+  log_interval: 10
+  save_plots: true
+  plot_save_path: "results/plots_zscore"

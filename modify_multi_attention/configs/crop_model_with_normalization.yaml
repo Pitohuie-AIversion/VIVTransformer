@@ -1,0 +1,196 @@
+# 带归一化功能的多模型对比配置文件（整合版）
+# 基于真实数据集，支持完整的模型对比和归一化功能
+# 数据集: X:\2025\Graduation_project\report\data\pdebench\2D\DarcyFlow\2D_DarcyFlow_beta0.01_Train.hdf5
+
+# 自适应资源管理配置
+adaptive_resources:
+  # 是否启用自适应优化
+  enable_adaptive: true
+  
+  # 批次大小自适应配置
+  batch_size_adaptation:
+    enable: true
+    strategy: "medium"  # conservative, medium, aggressive
+    min_batch_size: 1
+    max_batch_size: 64
+    memory_threshold: 0.8  # GPU内存使用阈值
+  
+  # 数据加载器自适应配置
+  dataloader_adaptation:
+    enable: true
+    strategy: "medium"  # conservative, medium, aggressive
+    min_workers: 0
+    max_workers: 16
+    cpu_threshold: 0.8  # CPU使用阈值
+  
+  # 内存监控配置
+  memory_monitoring:
+    enable: true
+    cleanup_frequency: "per_model"  # per_epoch, per_model, manual
+    log_frequency: "detailed"  # minimal, normal, detailed
+
+# 数据配置
+data:
+  # 数据路径配置
+  data_path: "X:/2025/Graduation_project/report/data/pdebench/2D/DarcyFlow/2D_DarcyFlow_beta0.01_Train.hdf5"
+  input_dataset: "tensor"  # 使用tensor数据
+  output_dataset: "tensor"  # 输入输出都是tensor
+  
+  # 输入配置（32x32裁剪）
+  input_resolution: [32, 32]
+  input_dim: 1024  # 32*32 = 1024
+  crop_mode: "center"  # 中心裁剪
+  crop_size: [32, 32]  # 兼容旧配置
+  
+  # 输出配置（128x128原始）
+  output_resolution: [128, 128]
+  output_dim: 16384  # 128*128 = 16384
+  target_size: [128, 128]  # 兼容旧配置
+  
+  # 数据集分割配置
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  validation_split: 0.2  # 兼容新配置
+  test_split: 0.1        # 兼容新配置
+  max_samples: 1000      # 从数据集中选择的样本数
+  
+  # 归一化配置 - 关键设置
+  normalize: true                    # 启用归一化功能
+  normalization_method: "minmax"     # 归一化方法: minmax, zscore, robust
+  normalization_range: [0, 1]       # Min-Max归一化的目标范围
+  remove_channel_dim: true           # 移除通道维度
+  
+  # 数据加载配置
+  batch_size: 8      # 减小批次大小以适应内存（将被自适应调整）
+  num_workers: 4     # 数据加载器工作进程数（将被自适应调整）
+  shuffle: true
+
+# 模型配置
+models:
+  # Transformer模型（适配不同输入输出维度）
+  transformer:
+    model_type: transformer
+    input_dim: 1024    # 32x32输入
+    output_dim: 16384  # 128x128输出
+    seq_len: 11
+    d_model: 256
+    num_heads: 8
+    num_layers: 3
+    dropout: 0.1
+    pe_type: sinusoidal_1d
+    use_memory_film: false
+    max_time_steps: 100
+    output_head_type: global
+    time_encoding: embedding
+
+  # 自定义Transformer模型（多注意力机制）
+  custom_transformer:
+    model_type: custom_transformer
+    input_dim: 1024    # 32x32输入
+    output_dim: 16384  # 128x128输出
+    d_model: 256
+    num_heads: 8
+    num_layers: 3
+    dropout: 0.1
+    attention_type: "relative"  # 相对位置注意力
+    seq_len: null  # 自动推断
+    pe_type: "learnable_1d"
+    output_head_type: "global"
+    time_encoding: "embedding"
+    use_memory_film: true
+    use_memory_concat: false
+    max_time_steps: 100
+
+  # MLP模型（适配不同输入输出维度）
+  mlp:
+    model_type: mlp
+    input_dim: 1024    # 32x32输入
+    output_dim: 16384  # 128x128输出
+    hidden_dims: [2048, 4096, 8192, 4096, 2048]  # 逐步扩展维度
+    activation: gelu
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: true
+
+  # FNO模型（适配不同输入输出分辨率）
+  fno:
+    model_type: fno
+    input_dim: 1024    # 32x32输入
+    output_dim: 16384  # 128x128输出
+    width: 128
+    num_layers: 4
+    activation: gelu
+    input_resolution: [32, 32]    # 输入分辨率
+    output_resolution: [128, 128] # 输出分辨率
+    
+  # UNet模型（适配不同输入输出分辨率）
+  unet:
+    model_type: unet
+    input_dim: 1024    # 32x32输入
+    output_dim: 16384  # 128x128输出
+    in_channels: 1
+    out_channels: 1
+    features: [64, 128, 256, 128, 64]
+    activation: relu
+    use_attention: false
+    input_resolution: [32, 32]    # 输入分辨率
+    output_resolution: [128, 128] # 输出分辨率
+
+# 训练配置
+training:
+  epochs: 50
+  learning_rate: 0.001
+  weight_decay: 1e-5
+  patience: 15
+  min_delta: 1e-6
+  
+  # 优化器配置
+  optimizer: "adam"
+  scheduler: "reduce_on_plateau"
+  scheduler_patience: 5
+  scheduler_factor: 0.5
+
+# 损失配置
+loss_configs:
+  - name: "mse_only"
+    base_weight: 1.0
+    svd_weights: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    topk: 10
+
+# 注意力机制配置
+attention_types: ["self"]
+
+# 设备配置
+device:
+  use_cuda: true
+  use_gpu: true  # 兼容旧测试脚本
+  device_id: 0
+  gpu_id: 0  # 兼容旧测试脚本
+  mixed_precision: false
+
+# 可视化配置
+visualization:
+  enabled: true
+  interval: 10
+  max_samples: 5
+
+# 输出配置
+output:
+  results_dir: "./real_data_crop_results"
+  save_models: true
+  save_predictions: true
+  generate_plots: true
+  save_model: true  # 兼容旧配置
+  model_save_path: "checkpoints/crop_model_normalized"  # 兼容旧配置
+  log_interval: 10
+  save_plots: true  # 兼容旧配置
+  plot_save_path: "results/plots"  # 兼容旧配置
+
+# 归一化方法说明
+# minmax: 将数据缩放到指定范围 [min, max]，适用于数据分布相对均匀的情况
+# zscore: 标准化数据使其均值为0，标准差为1，适用于数据呈正态分布的情况  
+# robust: 使用中位数和四分位距进行缩放，对异常值更鲁棒
+
+# 使用示例:
+# python run_crop_model_test.py --config configs/crop_model_with_normalization.yaml

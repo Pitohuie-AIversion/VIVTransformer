@@ -1,0 +1,80 @@
+analysis:
+  actual_range: 0.37M - 9.98M
+  max_ratio: 27.015252902705587
+  target_params_M: 1.0
+models:
+  custom_transformer:
+    attention_type: relative
+    d_model: 128
+    dropout: 0.1
+    input_dim: 1024
+    max_time_steps: 100
+    model_type: custom_transformer
+    num_heads: 8
+    num_layers: 2
+    output_dim: 16384
+    output_head_type: global
+    pe_type: learnable_1d
+    seq_len: 11
+    time_encoding: embedding
+    use_memory_concat: false
+    use_memory_film: true
+  fno:
+    activation: gelu
+    input_dim: 1024
+    input_resolution:
+    - 32
+    - 32
+    model_type: fno
+    num_layers: 3
+    output_dim: 16384
+    output_resolution:
+    - 128
+    - 128
+    width: 64
+  mlp:
+    activation: gelu
+    dropout: 0.1
+    hidden_dims:
+    - 512
+    - 1024
+    - 512
+    input_dim: 1024
+    model_type: mlp
+    output_dim: 16384
+    use_batch_norm: true
+    use_residual: true
+  transformer:
+    d_model: 128
+    dropout: 0.1
+    input_dim: 1024
+    max_time_steps: 100
+    model_type: transformer
+    num_heads: 8
+    num_layers: 2
+    output_dim: 16384
+    output_head_type: global
+    pe_type: sinusoidal_1d
+    seq_len: 11
+    time_encoding: embedding
+    use_memory_film: false
+  unet:
+    activation: relu
+    features:
+    - 32
+    - 64
+    - 128
+    - 64
+    - 32
+    in_channels: 1
+    input_dim: 1024
+    input_resolution:
+    - 32
+    - 32
+    model_type: unet
+    out_channels: 1
+    output_dim: 16384
+    output_resolution:
+    - 128
+    - 128
+    use_attention: false

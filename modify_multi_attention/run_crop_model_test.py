@@ -18,42 +18,80 @@
 
 import os
 import sys
-import argparse
-import yaml
 import torch
 import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
 import numpy as np
-import logging
-from pathlib import Path
-from datetime import datetime
-import json
+import matplotlib.pyplot as plt
+import h5py
+import argparse
+import yaml
+import time
 import psutil
 import gc
-import time
-import matplotlib.pyplot as plt
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional, Any, Union
+import logging
+import warnings
+import json
+from datetime import datetime
 import matplotlib
-from typing import Dict, List, Any
+warnings.filterwarnings('ignore')
+
+# 添加models目录到路径
+models_dir = Path(__file__).parent / 'models'
+sys.path.insert(0, str(models_dir))
+
+# 导入增强模型
+try:
+    # 尝试多种导入方式
+    try:
+        from enhanced_transformer import EnhancedTransformer1d, EnhancedTransformer2d
+        from enhanced_fno import EnhancedFNO1d, EnhancedFNO2d
+        from enhanced_mlp import EnhancedMLP1d, EnhancedMLP2d
+        from enhanced_unet import EnhancedUNet1d, EnhancedUNet2d
+    except ImportError:
+        # 尝试从models目录导入
+        from models.enhanced_transformer import EnhancedTransformer1d, EnhancedTransformer2d
+        from models.enhanced_fno import EnhancedFNO1d, EnhancedFNO2d
+        from models.enhanced_mlp import EnhancedMLP1d, EnhancedMLP2d
+        from models.enhanced_unet import EnhancedUNet1d, EnhancedUNet2d
+    ENHANCED_MODELS_AVAILABLE = True
+    print("✅ 增强模型导入成功")
+except ImportError as e:
+    print(f"⚠️ 增强模型导入失败: {e}")
+    print("📝 将使用内置的简单模型实现")
+    ENHANCED_MODELS_AVAILABLE = False
 
 # 设置matplotlib中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 matplotlib.use('Agg')  # 使用非交互式后端
 
-# 添加项目路径
+# 设置项目根目录
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
-# 导入自定义模块
-from modify_multi_attention.data.crop_dataloader import create_crop_dataloader
+# 设置日志
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# 尝试导入增强版数据加载器
+try:
+    from data.enhanced_crop_dataloader import create_enhanced_crop_dataloader
+    ENHANCED_DATALOADER_AVAILABLE = True
+    logger.info("✅ 使用增强版数据加载器（支持归一化）")
+except ImportError:
+    from modify_multi_attention.data.crop_dataloader import create_crop_dataloader
+    ENHANCED_DATALOADER_AVAILABLE = False
+    logger.warning("⚠️ 增强版数据加载器不可用，使用标准版本（不支持归一化）")
+
 from modify_multi_attention.utils.config import load_config
 from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
 from models.enhanced_fno import create_enhanced_fno2d
 from models.enhanced_unet import create_enhanced_unet2d
 from utils.visualization import create_model_comparison_plots, generate_model_comparison_summary, plot_training_losses
-
-# 设置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 # ===== 自适应资源管理工具函数 =====
 
@@ -455,8 +493,458 @@ class EnhancedUNetWrapper(nn.Module):
         
         return output_final
 
+def get_default_config() -> Dict[str, Any]:
+    """获取默认配置"""
+    return {
+        'experiment': {
+            'name': 'default_experiment',
+            'mode': 'single_model',
+            'output_dir': 'default_results',
+            'seed': 42,
+            'deterministic': True,
+            'log_level': 'INFO',
+            'save_intermediate': True
+        },
+        'data': {
+            'data_path': 'data/default_dataset.h5',
+            'input_dim': 1024,
+            'output_dim': 16384,
+            'input_resolution': [32, 32],
+            'output_resolution': [128, 128],
+            'output_channels': 1,
+            'crop_mode': 'center',
+            'normalize': True,
+            'remove_channel_dim': True,
+            'batch_size': 32,
+            'val_split': 0.2,
+            'test_split': 0.1,
+            'max_samples': 1000,
+            'num_workers': 0,
+            'pin_memory': False,
+            'shuffle': True
+        },
+        'training': {
+            'epochs': 50,
+            'learning_rate': 0.001,
+            'weight_decay': 0.0001,
+            'optimizer': 'adamw',
+            'scheduler': 'cosine',
+            'warmup_epochs': 5,
+            'early_stopping': {
+                'patience': 10,
+                'min_delta': 0.0001
+            },
+            'checkpoint': {
+                'save_best': True,
+                'save_interval': 10,
+                'save_last': True
+            },
+            'device': 'cuda',
+            'mixed_precision': False,
+            'use_dataparallel': False
+        },
+        'loss': {
+            'mse_weight': 1.0,
+            'l1_weight': 0.0,
+            'ssim_weight': 0.0,
+            'perceptual_weight': 0.0,
+            'gradient_weight': 0.0,
+            'frequency_weight': 0.0,
+            'svd_loss': {
+                'enabled': False,
+                'base_weight': 0.7,
+                'svd_weights': [0.1, 0.1, 0.05, 0.03, 0.02],
+                'topk': 5
+            }
+        },
+        'models': {
+            'active_model': 'transformer',
+            'transformer': {
+                'model_type': 'transformer',
+                'input_dim': 1024,
+                'output_dim': 16384,
+                'd_model': 256,
+                'num_heads': 8,
+                'num_layers': 3,
+                'dropout': 0.1,
+                'seq_len': 11,
+                'pe_type': 'sinusoidal_1d',
+                'use_memory_film': False,
+                'max_time_steps': 100,
+                'output_head_type': 'global',
+                'time_encoding': 'embedding'
+            }
+        },
+        'attention': {
+            'type': 'self',
+            'comparison_types': ['self', 'se', 'cbam', 'eca']
+        },
+        'evaluation': {
+            'metrics': ['mse', 'mae', 'r2', 'psnr', 'ssim'],
+            'visualization': {
+                'enabled': True,
+                'interval': 10,
+                'max_samples': 5,
+                'save_plots': True,
+                'plot_types': ['prediction', 'error', 'loss_curve']
+            }
+        },
+        'comparison': {
+            'parameter_fair': {
+                'enabled': False,
+                'target_params': 5000000,
+                'tolerance': 2.0
+            },
+            'multi_model': {
+                'enabled': False,
+                'models': ['transformer', 'mlp', 'unet', 'fno'],
+                'generate_report': True,
+                'generate_plots': True
+            },
+            'loss_comparison': {
+                'enabled': False,
+                'loss_configs': [
+                    {
+                        'name': 'mse_only',
+                        'mse_weight': 1.0,
+                        'svd_weight': 0.0
+                    }
+                ]
+            }
+        },
+        'system': {
+            'adaptive_resources': True,
+            'memory_management': {
+                'auto_cleanup': True,
+                'cleanup_interval': 100,
+                'max_memory_usage': 0.8
+            },
+            'adaptive_batch_size': {
+                'enabled': True,
+                'min_batch_size': 4,
+                'max_batch_size': 64,
+                'memory_threshold': 0.9
+            }
+        },
+        'output': {
+            'save_model': True,
+            'save_predictions': True,
+            'save_metrics': True,
+            'generate_report': True,
+            'report_format': 'markdown',
+            'generate_plots': True,
+            'plot_format': 'png',
+            'export_results': True,
+            'export_format': 'json'
+        },
+        'debug': {
+            'enabled': False,
+            'verbose': False,
+            'profile_memory': False,
+            'profile_time': False,
+            'save_debug_info': False
+        }
+    }
+
+def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """验证并修正配置"""
+    try:
+        # 获取默认配置作为基准
+        default_config = get_default_config()
+        
+        # 确保必要的顶级键存在
+        required_keys = ['experiment', 'data', 'training', 'loss', 'models']
+        for key in required_keys:
+            if key not in config:
+                logger.warning(f"配置中缺少必要的键 '{key}'，使用默认值")
+                config[key] = default_config[key]
+        
+        # 验证实验配置
+        if 'mode' not in config['experiment']:
+            config['experiment']['mode'] = 'single_model'
+        
+        # 验证数据配置
+        data_config = config['data']
+        if 'input_dim' not in data_config or 'output_dim' not in data_config:
+            logger.warning("数据配置中缺少维度信息，使用默认值")
+            data_config.update({
+                'input_dim': 1024,
+                'output_dim': 16384
+            })
+        
+        # 验证训练配置
+        training_config = config['training']
+        if 'epochs' not in training_config:
+            training_config['epochs'] = 50
+        if 'learning_rate' not in training_config:
+            training_config['learning_rate'] = 0.001
+        if 'batch_size' not in config['data']:
+            config['data']['batch_size'] = 32
+        
+        # 验证模型配置
+        if 'active_model' not in config['models']:
+            config['models']['active_model'] = 'transformer'
+        
+        # 确保活跃模型的配置存在
+        active_model = config['models']['active_model']
+        if active_model not in config['models']:
+            logger.warning(f"活跃模型 '{active_model}' 的配置不存在，使用默认配置")
+            config['models'][active_model] = default_config['models']['transformer']
+        
+        # 验证损失配置
+        if 'mse_weight' not in config['loss']:
+            config['loss']['mse_weight'] = 1.0
+        
+        logger.info("✅ 配置验证完成")
+        return config
+        
+    except Exception as e:
+        logger.error(f"配置验证失败: {e}")
+        logger.info("使用默认配置")
+        return default_config
+
+def setup_device(config=None):
+    """设置设备"""
+    if config is None:
+        config = {}
+    
+    # 获取设备配置，可能是字符串或字典
+    device_config = config.get('training', {}).get('device', 'auto')
+    
+    # 如果device_config是字符串，直接处理
+    if isinstance(device_config, str):
+        if device_config.lower() == 'cpu':
+            device = torch.device('cpu')
+            logger.info("✅ 使用CPU设备")
+        elif device_config.lower() in ['cuda', 'gpu']:
+            if torch.cuda.is_available():
+                device = torch.device('cuda:0')
+                logger.info(f"✅ 使用GPU设备: {device}")
+            else:
+                device = torch.device('cpu')
+                logger.info("⚠️ CUDA不可用，回退到CPU设备")
+        elif device_config.lower() == 'auto':
+            if torch.cuda.is_available():
+                device = torch.device('cuda:0')
+                logger.info(f"✅ 自动选择GPU设备: {device}")
+            else:
+                device = torch.device('cpu')
+                logger.info("✅ 自动选择CPU设备")
+        else:
+            # 尝试直接解析设备字符串（如 "cuda:1"）
+            try:
+                device = torch.device(device_config)
+                logger.info(f"✅ 使用指定设备: {device}")
+            except:
+                device = torch.device('cpu')
+                logger.warning(f"⚠️ 无法解析设备配置 '{device_config}'，回退到CPU")
+    else:
+        # 如果是字典格式，按原来的逻辑处理
+        use_cuda = device_config.get('use_cuda', True)
+        device_id = device_config.get('device_id', 0)
+        
+        if use_cuda and torch.cuda.is_available():
+            device = torch.device(f'cuda:{device_id}')
+            logger.info(f"✅ 使用GPU设备: {device}")
+        else:
+            device = torch.device('cpu')
+            logger.info("✅ 使用CPU设备")
+    
+    return device
+
+def load_unified_data(config: Dict[str, Any]):
+    """加载统一数据"""
+    # 使用增强版数据加载器
+    if ENHANCED_DATALOADER_AVAILABLE:
+        # 增强版数据加载器接受完整的config，并返回4个值（包括normalizer）
+        result = create_enhanced_crop_dataloader(config)
+        if len(result) == 4:
+            train_loader, val_loader, test_loader, normalizer = result
+        else:
+            train_loader, val_loader, test_loader = result
+            normalizer = None
+    else:
+        # 标准版数据加载器接受config，返回3个值
+        train_loader, val_loader, test_loader = create_crop_dataloader(config)
+        normalizer = None
+    
+    return train_loader, val_loader, test_loader
+
+def train_unified_model(model, train_loader, val_loader, device, training_config, loss_config):
+    """统一模型训练"""
+    epochs = training_config.get('epochs', 50)
+    learning_rate = training_config.get('learning_rate', 0.001)
+    
+    # 设置优化器
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    
+    # 设置损失函数
+    criterion = nn.MSELoss()
+    
+    train_losses = []
+    val_losses = []
+    
+    logger.info(f"开始训练，共 {epochs} 个epoch")
+    
+    for epoch in range(epochs):
+        # 训练阶段
+        model.train()
+        epoch_train_loss = 0.0
+        
+        for batch_idx, (inputs, targets) in enumerate(train_loader):
+            inputs, targets = inputs.to(device), targets.to(device)
+            
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+            loss.backward()
+            optimizer.step()
+            
+            epoch_train_loss += loss.item()
+        
+        avg_train_loss = epoch_train_loss / len(train_loader)
+        train_losses.append(avg_train_loss)
+        
+        # 验证阶段
+        model.eval()
+        epoch_val_loss = 0.0
+        
+        with torch.no_grad():
+            for inputs, targets in val_loader:
+                inputs, targets = inputs.to(device), targets.to(device)
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                epoch_val_loss += loss.item()
+        
+        avg_val_loss = epoch_val_loss / len(val_loader)
+        val_losses.append(avg_val_loss)
+        
+        if epoch % 10 == 0:
+            logger.info(f"Epoch {epoch}/{epochs}, Train Loss: {avg_train_loss:.6f}, Val Loss: {avg_val_loss:.6f}")
+    
+    logger.info("训练完成")
+    return train_losses, val_losses
+
+def load_unified_config(config_path: str) -> Dict[str, Any]:
+    """加载统一配置文件"""
+    try:
+        # 检查文件是否存在
+        if not os.path.exists(config_path):
+            logger.error(f"配置文件不存在: {config_path}")
+            return get_default_config()
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        if not config:
+            logger.warning("配置文件为空，使用默认配置")
+            return get_default_config()
+        
+        # 应用预设配置
+        if 'presets' in config and 'experiment' in config:
+            preset_name = config['experiment'].get('preset')
+            if preset_name and preset_name in config['presets']:
+                preset_config = config['presets'][preset_name]
+                # 深度合并预设配置
+                config = merge_configs(config, preset_config)
+                logger.info(f"应用预设配置: {preset_name}")
+        
+        # 验证配置
+        config = validate_config(config)
+        
+        return config
+    except yaml.YAMLError as e:
+        logger.error(f"YAML解析错误: {e}")
+        return get_default_config()
+    except Exception as e:
+        logger.error(f"加载配置文件失败: {e}")
+        return get_default_config()
+
+def merge_configs(base_config: Dict, preset_config: Dict) -> Dict:
+    """深度合并配置"""
+    result = base_config.copy()
+    for key, value in preset_config.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = merge_configs(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+def create_enhanced_model(model_config: Dict[str, Any], input_dim: int, output_dim: int) -> nn.Module:
+    """创建增强模型"""
+    model_type = model_config.get('model_type', 'mlp').lower()
+    
+    try:
+        if ENHANCED_MODELS_AVAILABLE:
+            if model_type == 'transformer':
+                return EnhancedTransformer1d(
+                    input_channels=1,
+                    output_channels=1,
+                    d_model=model_config.get('d_model', 128),
+                    num_heads=model_config.get('num_heads', 4),
+                    num_layers=model_config.get('num_layers', 3),
+                    input_resolution=int(np.sqrt(input_dim)),
+                    output_resolution=int(np.sqrt(output_dim)),
+                    attention_type=model_config.get('attention_type', 'simplified_self_attention'),
+                    pe_type=model_config.get('pe_type', 'learnable_1d'),
+                    dropout=model_config.get('dropout', 0.1)
+                )
+            elif model_type == 'mlp':
+                return EnhancedMLP1d(
+                    input_channels=1,
+                    output_channels=1,
+                    hidden_dim=model_config.get('hidden_dims', [256])[0] if model_config.get('hidden_dims') else 256,
+                    num_layers=len(model_config.get('hidden_dims', [256])),
+                    input_resolution=int(np.sqrt(input_dim)),
+                    output_resolution=int(np.sqrt(output_dim)),
+                    dropout=model_config.get('dropout', 0.1)
+                )
+            elif model_type == 'unet':
+                return EnhancedUNet1d(
+                    in_channels=1,
+                    out_channels=1,
+                    init_features=model_config.get('base_ch', 32),
+                    input_resolution=int(np.sqrt(input_dim)),
+                    output_resolution=int(np.sqrt(output_dim))
+                )
+            elif model_type == 'fno':
+                return EnhancedFNO1d(
+                    num_channels=1,
+                    modes=model_config.get('modes', 12),
+                    width=model_config.get('width', 64),
+                    input_resolution=int(np.sqrt(input_dim)),
+                    output_resolution=int(np.sqrt(output_dim))
+                )
+    except Exception as e:
+        logging.warning(f"创建增强模型失败: {e}")
+    
+    # 后备简单模型
+    return create_simple_model(model_type, input_dim, output_dim, model_config)
+
+def create_simple_model(model_type: str, input_dim: int, output_dim: int, config: Dict) -> nn.Module:
+    """创建简单模型作为后备"""
+    if model_type == 'mlp':
+        return SimpleMLP(
+            input_dim, 
+            output_dim, 
+            hidden_dims=config.get('hidden_dims', [256, 128]),
+            dropout=config.get('dropout', 0.1)
+        )
+    elif model_type == 'transformer':
+        return SimpleTransformer(
+            input_dim, 
+            output_dim,
+            d_model=config.get('d_model', 128),
+            num_heads=config.get('num_heads', 4),
+            num_layers=config.get('num_layers', 2),
+            dropout=config.get('dropout', 0.1)
+        )
+    else:
+        # 默认线性模型
+        return nn.Linear(input_dim, output_dim)
+
 def create_model(model_type, input_dim, output_dim, **kwargs):
-    """创建模型"""
+    """创建模型（保持向后兼容）"""
     if model_type == 'mlp':
         return SimpleMLP(input_dim, output_dim, **kwargs)
     elif model_type == 'transformer':
@@ -470,7 +958,7 @@ def create_model(model_type, input_dim, output_dim, **kwargs):
     else:
         raise ValueError(f"不支持的模型类型: {model_type}")
 
-def train_model(model, train_loader, val_loader, config, device):
+def train_model(model, train_loader, val_loader, config, device, normalizer=None):
     """训练模型"""
     model = model.to(device)
     criterion = nn.MSELoss()
@@ -509,6 +997,10 @@ def train_model(model, train_loader, val_loader, config, device):
     val_losses = []
     
     logger.info(f"开始训练，共 {epochs} 轮")
+    if normalizer:
+        logger.info("✅ 使用归一化训练（数据已在DataLoader中归一化）")
+    else:
+        logger.info("❌ 未使用归一化训练")
     
     for epoch in range(epochs):
         # 训练阶段
@@ -518,6 +1010,8 @@ def train_model(model, train_loader, val_loader, config, device):
         
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             inputs, targets = inputs.to(device), targets.to(device)
+            
+            # 数据已在DataLoader中归一化，无需重复处理
             
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -539,10 +1033,13 @@ def train_model(model, train_loader, val_loader, config, device):
         with torch.no_grad():
             for inputs, targets in val_loader:
                 inputs, targets = inputs.to(device), targets.to(device)
+                
+                # 数据已在DataLoader中归一化，无需重复处理
+                
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
-                val_loss += loss.item()
-                num_val_batches += 1
+                val_loss += loss.item() * inputs.size(0)
+                num_val_batches += inputs.size(0)
         
         avg_val_loss = val_loss / num_val_batches
         val_losses.append(avg_val_loss)
@@ -568,7 +1065,7 @@ def train_model(model, train_loader, val_loader, config, device):
         'final_epoch': epoch + 1
     }
 
-def evaluate_model(model, test_loader, device):
+def evaluate_model(model, test_loader, device, normalizer=None):
     """评估模型"""
     model.eval()
     criterion = nn.MSELoss()
@@ -581,6 +1078,9 @@ def evaluate_model(model, test_loader, device):
     with torch.no_grad():
         for inputs, targets in test_loader:
             inputs, targets = inputs.to(device), targets.to(device)
+            
+            # 数据已在DataLoader中归一化，无需重复处理
+            
             outputs = model(inputs)
             
             loss = criterion(outputs, targets)
@@ -607,8 +1107,211 @@ def evaluate_model(model, test_loader, device):
         'targets': targets
     }
 
+def run_unified_training(config_path: str, models: List[str] = None):
+    """运行统一训练流程"""
+    try:
+        # 加载统一配置
+        config = load_unified_config(config_path)
+        if not config:
+            logger.warning("配置加载失败，使用默认配置")
+            config = get_default_config()
+        
+        # 获取实验配置
+        experiment_config = config.get('experiment', {})
+        mode = experiment_config.get('mode', 'single_model')
+        output_dir = experiment_config.get('output_dir', 'unified_training_results')
+        
+        # 创建输出目录
+        os.makedirs(output_dir, exist_ok=True)
+        
+        logger.info(f"开始统一训练 - 模式: {mode}")
+        logger.info(f"输出目录: {output_dir}")
+        
+        # 根据模式执行不同的训练流程
+        if mode == 'single_model':
+            return run_single_model_training(config, output_dir)
+        elif mode == 'multi_model_comparison':
+            return run_multi_model_comparison(config, output_dir, models)
+        elif mode == 'parameter_fair_comparison':
+            return run_parameter_fair_comparison(config, output_dir)
+        elif mode == 'loss_comparison':
+            return run_loss_comparison(config, output_dir)
+        else:
+            logger.error(f"未知的训练模式: {mode}")
+            return {}
+            
+    except Exception as e:
+        import traceback
+        logger.error(f"统一训练失败: {e}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
+        return {}
+
+def run_single_model_training(config: Dict, output_dir: str) -> Dict:
+    """单模型训练"""
+    logger.info("执行单模型训练...")
+    
+    # 设置设备
+    device = setup_device(config)
+    
+    # 加载数据
+    train_loader, val_loader, test_loader = load_unified_data(config)
+    
+    # 获取数据维度
+    sample_batch = next(iter(train_loader))
+    input_dim = sample_batch[0].shape[-1]
+    output_dim = sample_batch[1].shape[-1]
+    
+    # 获取激活模型配置
+    models_config = config.get('models', {})
+    active_model = models_config.get('active_model', 'transformer')
+    model_config = models_config.get(active_model, {})
+    
+    # 创建模型
+    model = create_enhanced_model(model_config, input_dim, output_dim)
+    model = model.to(device)
+    
+    # 计算参数量
+    param_count = sum(p.numel() for p in model.parameters())
+    logger.info(f"模型: {active_model}, 参数量: {param_count:,}")
+    
+    # 训练模型
+    training_config = config.get('training', {})
+    train_losses, val_losses = train_unified_model(
+        model, train_loader, val_loader, device, training_config, config.get('loss', {})
+    )
+    
+    # 评估模型
+    test_results = evaluate_model(model, test_loader, device)
+    test_loss = test_results['mse']
+    test_metrics = {
+        'r2_score': test_results['r2_score'],
+        'mse': test_results['mse']
+    }
+    
+    # 保存结果
+    results = {
+        active_model: {
+            'param_count': param_count,
+            'train_losses': train_losses,
+            'val_losses': val_losses,
+            'test_loss': test_loss,
+            'test_metrics': test_metrics,
+            'config': model_config
+        }
+    }
+    
+    # 生成报告和可视化
+    save_training_results(results, config, output_dir)
+    
+    return results
+
+def save_training_results(results: Dict, config: Dict, output_dir: str):
+    """保存训练结果"""
+    try:
+        # 创建输出目录
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        # 保存结果为JSON
+        results_file = output_path / "training_results.json"
+        with open(results_file, 'w', encoding='utf-8') as f:
+            # 转换numpy数组为列表以便JSON序列化
+            serializable_results = {}
+            for model_name, model_results in results.items():
+                serializable_results[model_name] = {}
+                for key, value in model_results.items():
+                    if isinstance(value, np.ndarray):
+                        serializable_results[model_name][key] = value.tolist()
+                    else:
+                        serializable_results[model_name][key] = value
+            
+            json.dump(serializable_results, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"训练结果已保存到: {results_file}")
+        
+    except Exception as e:
+        logger.warning(f"保存训练结果失败: {e}")
+
+def run_multi_model_comparison(config: Dict, output_dir: str, models: List[str] = None) -> Dict:
+    """多模型对比训练"""
+    logger.info("执行多模型对比训练...")
+    
+    # 设置设备
+    device = setup_device(config.get('training', {}).get('device', 'auto'))
+    
+    # 加载数据
+    train_loader, val_loader, test_loader = load_unified_data(config)
+    
+    # 获取数据维度
+    sample_batch = next(iter(train_loader))
+    input_dim = sample_batch[0].shape[-1]
+    output_dim = sample_batch[1].shape[-1]
+    
+    # 确定要对比的模型
+    models_config = config.get('models', {})
+    comparison_config = config.get('comparison', {}).get('multi_model', {})
+    
+    if models is None:
+        models = comparison_config.get('models', list(models_config.keys()))
+        if 'active_model' in models:
+            models.remove('active_model')
+    
+    results = {}
+    
+    # 训练每个模型
+    for model_name in models:
+        if model_name not in models_config:
+            logger.warning(f"跳过未配置的模型: {model_name}")
+            continue
+            
+        logger.info(f"\n{'='*50}")
+        logger.info(f"训练模型: {model_name}")
+        logger.info(f"{'='*50}")
+        
+        try:
+            model_config = models_config[model_name]
+            model = create_enhanced_model(model_config, input_dim, output_dim)
+            model = model.to(device)
+            
+            # 计算参数量
+            param_count = sum(p.numel() for p in model.parameters())
+            logger.info(f"参数量: {param_count:,}")
+            
+            # 训练模型
+            training_config = config.get('training', {})
+            train_losses, val_losses = train_unified_model(
+                model, train_loader, val_loader, device, training_config, config.get('loss', {})
+            )
+            
+            # 评估模型
+            test_loss, test_metrics = evaluate_model(model, test_loader, device)
+            
+            # 保存结果
+            results[model_name] = {
+                'param_count': param_count,
+                'train_losses': train_losses,
+                'val_losses': val_losses,
+                'test_loss': test_loss,
+                'test_metrics': test_metrics,
+                'config': model_config
+            }
+            
+            logger.info(f"测试损失: {test_loss:.6f}")
+            
+            # 内存清理
+            cleanup_memory()
+            
+        except Exception as e:
+            logger.error(f"模型 {model_name} 训练失败: {e}")
+            results[model_name] = {'error': str(e)}
+    
+    # 生成对比报告
+    save_training_results(results, config, output_dir)
+    
+    return results
+
 def run_model_test(config_path, models=None):
-    """运行模型测试"""
+    """运行模型测试（保持向后兼容）"""
     # 加载配置
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
@@ -616,7 +1319,7 @@ def run_model_test(config_path, models=None):
     logger.info(f"加载配置文件: {config_path}")
     
     # 设置设备
-    device = torch.device('cuda' if torch.cuda.is_available() and config['device']['use_cuda'] else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() and config['device']['use_gpu'] else 'cpu')
     logger.info(f"使用设备: {device}")
     
     # 读取自适应资源配置
@@ -669,15 +1372,37 @@ def run_model_test(config_path, models=None):
     else:
         logger.info("自适应资源优化已禁用")
     
-    # 创建数据加载器
+    # 创建数据加载器（包含归一化器）
     logger.info("创建数据加载器...")
-    train_loader, val_loader, test_loader = create_crop_dataloader(config)
+    
+    # 检查归一化配置
+    normalize_config = config.get('data', {}).get('normalize', False)
+    if normalize_config and ENHANCED_DATALOADER_AVAILABLE:
+        logger.info("🎯 启用数据归一化功能")
+        train_loader, val_loader, test_loader, normalizer = create_enhanced_crop_dataloader(config)
+        
+        # 记录归一化信息
+        if hasattr(normalizer, 'method'):
+            logger.info(f"归一化方法: {normalizer.method}")
+            if hasattr(normalizer, 'target_range'):
+                logger.info(f"目标范围: {normalizer.target_range}")
+    else:
+        if normalize_config and not ENHANCED_DATALOADER_AVAILABLE:
+            logger.warning("⚠️ 配置要求归一化但增强版数据加载器不可用，使用标准版本")
+        train_loader, val_loader, test_loader = create_crop_dataloader(config)
+        normalizer = None
+    
+    # 归一化信息已在数据加载器创建过程中处理
     
     # 获取输入输出维度
     input_dim = config['data']['input_dim']
     output_dim = config['data']['output_dim']
     
     logger.info(f"数据维度 - 输入: {input_dim}, 输出: {output_dim}")
+    if normalizer:
+        logger.info(f"归一化器状态: 已启用 ({normalizer.__class__.__name__})")
+    else:
+        logger.info("归一化器状态: 未启用")
     
     # 确定要测试的模型
     if models is None:
@@ -738,7 +1463,7 @@ def run_model_test(config_path, models=None):
             logger.info("开始训练...")
             logger.info("调用train_model函数...")
             train_start_time = datetime.now()
-            train_results = train_model(model, train_loader, val_loader, config, device)
+            train_results = train_model(model, train_loader, val_loader, config, device, normalizer)
             train_time = (datetime.now() - train_start_time).total_seconds()
             
             # 训练后内存清理
@@ -748,7 +1473,7 @@ def run_model_test(config_path, models=None):
             # 评估模型
             logger.info("开始评估...")
             eval_start_time = datetime.now()
-            eval_results = evaluate_model(model, test_loader, device)
+            eval_results = evaluate_model(model, test_loader, device, normalizer)
             eval_time = (datetime.now() - eval_start_time).total_seconds()
             
             # 评估后内存清理
@@ -1033,37 +1758,138 @@ def create_fallback_summary(results: Dict[str, Any], plot_files: List[str], time
     return summary_path
 
 def main():
-    parser = argparse.ArgumentParser(description='运行裁剪模型测试')
-    parser.add_argument('--config', default='modify_multi_attention/configs/real_data_crop_config.yaml',
-                        help='配置文件路径')
+    parser = argparse.ArgumentParser(description='运行统一训练脚本')
+    parser.add_argument('--config', default='configs/unified_training_config.yaml',
+                        help='统一配置文件路径')
     parser.add_argument('--models', default='all',
-                        help='要测试的模型，用逗号分隔，或使用"all"运行所有模型')
+                        help='要训练的模型，用逗号分隔，或使用"all"训练所有模型')
+    parser.add_argument('--mode', type=str, default=None, 
+                       choices=['unified', 'legacy', 'single_model', 'multi_model_comparison', 
+                               'parameter_fair_comparison', 'loss_comparison'], 
+                       help='训练模式：如果不指定，将使用配置文件中的experiment.mode')
+    parser.add_argument('--preset', type=str, default=None,
+                       help='使用预设配置：quick_test, full_training, parameter_comparison, loss_study')
     
     args = parser.parse_args()
     
-    # 如果指定为"all"，则从配置文件中读取所有可用模型
-    if args.models.lower() == 'all':
-        try:
-            # 加载配置文件获取所有可用模型
-            with open(args.config, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-            available_models = list(config.get('models', {}).keys())
-            models = available_models
-            logger.info(f"自动检测到可用模型: {available_models}")
-        except Exception as e:
-            logger.warning(f"无法读取配置文件中的模型列表: {e}")
-            logger.info("使用默认模型列表")
-            models = ['mlp', 'transformer', 'custom_transformer', 'fno', 'unet']
+    # 加载配置文件
+    try:
+        config = load_unified_config(args.config)
+        if args.preset:
+            # 应用预设配置
+            if args.preset in config.get('presets', {}):
+                preset_config = config['presets'][args.preset]
+                config = merge_configs(config, preset_config)
+                logger.info(f"✅ 应用预设配置: {args.preset}")
+            else:
+                logger.warning(f"⚠️ 预设配置 '{args.preset}' 不存在，使用默认配置")
+    except Exception as e:
+        logger.error(f"❌ 配置文件加载失败: {e}")
+        return
+    
+    # 确定训练模式
+    if args.mode:
+        # 命令行指定的模式优先
+        experiment_mode = args.mode
+        if experiment_mode in ['unified', 'legacy']:
+            # 兼容旧的模式名称
+            experiment_mode = 'single_model' if experiment_mode == 'unified' else 'legacy'
     else:
-        models = [m.strip() for m in args.models.split(',')]
+        # 使用配置文件中的模式
+        experiment_mode = config.get('experiment', {}).get('mode', 'single_model')
     
-    logger.info("开始裁剪模型测试...")
+    # 确定要训练的模型
+    if args.models.lower() == 'all':
+        models = None  # 让函数自动从配置文件读取
+    else:
+        models = [model.strip() for model in args.models.split(',')]
+    
+    logger.info("🚀 开始统一训练...")
     logger.info(f"配置文件: {args.config}")
-    logger.info(f"测试模型: {models}")
+    logger.info(f"实验模式: {experiment_mode}")
+    logger.info(f"训练模型: {models if models else '从配置文件自动读取'}")
     
-    results = run_model_test(args.config, models)
+    # 根据实验模式执行相应的训练
+    if experiment_mode in ['single_model', 'unified']:
+        run_unified_training(args.config, models)
+    elif experiment_mode == 'multi_model_comparison':
+        # 启用多模型对比
+        config['comparison']['multi_model']['enabled'] = True
+        run_unified_training(args.config, models)
+    elif experiment_mode == 'parameter_fair_comparison':
+        # 启用参数公平对比
+        config['comparison']['parameter_fair']['enabled'] = True
+        config['comparison']['multi_model']['enabled'] = True
+        run_unified_training(args.config, models)
+    elif experiment_mode == 'loss_comparison':
+        # 启用损失函数对比
+        config['comparison']['loss_comparison']['enabled'] = True
+        run_unified_training(args.config, models)
+    else:
+        # 使用传统模式（向后兼容）
+        if args.models.lower() == 'all':
+            try:
+                # 加载配置文件获取所有可用模型
+                with open(args.config, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                available_models = list(config.get('models', {}).keys())
+                models = available_models
+                logger.info(f"自动检测到可用模型: {available_models}")
+            except Exception as e:
+                logger.warning(f"无法读取配置文件中的模型列表: {e}")
+                logger.info("使用默认模型列表")
+                models = ['mlp', 'transformer', 'custom_transformer', 'fno', 'unet']
+        else:
+            models = [m.strip() for m in args.models.split(',')]
+        
+        logger.info("开始传统模式测试...")
+        logger.info(f"配置文件: {args.config}")
+        logger.info(f"测试模型: {models}")
+        
+        results = run_model_test(args.config, models)
     
-    logger.info("🎉 测试完成！")
+    logger.info("🎉 训练完成！")
 
 if __name__ == "__main__":
     main()
+
+
+def set_optimizer_and_learning_rate_scheduler(config: Dict[str, Any]) -> Tuple[torch.optim.Optimizer, Optional[torch.optim.lr_scheduler._LRScheduler]]:
+    """设置优化器和学习率调度器"""
+    training_config = config.get('training', {})
+    
+    # 创建优化器
+    optimizer_name = training_config.get('optimizer', 'adam').lower()
+    lr = training_config.get('learning_rate', 0.001)
+    weight_decay = training_config.get('weight_decay', 1e-5)
+    
+    if optimizer_name == 'adam':
+        optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    elif optimizer_name == 'adamw':
+        optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    elif optimizer_name == 'sgd':
+        momentum = training_config.get('momentum', 0.9)
+        optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+    else:
+        logger.warning(f"未知优化器: {optimizer_name}，使用Adam")
+        optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    
+    # 创建学习率调度器
+    scheduler = None
+    scheduler_config = training_config.get('scheduler')
+    if scheduler_config:
+        scheduler_type = scheduler_config.get('type', 'step').lower()
+        
+        if scheduler_type == 'step':
+            step_size = scheduler_config.get('step_size', 30)
+            gamma = scheduler_config.get('gamma', 0.1)
+            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+        elif scheduler_type == 'cosine':
+            T_max = scheduler_config.get('T_max', training_config.get('epochs', 50))
+            scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max)
+        elif scheduler_type == 'plateau':
+            patience = scheduler_config.get('patience', 10)
+            factor = scheduler_config.get('factor', 0.5)
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=patience, factor=factor)
+    
+    return optimizer, scheduler

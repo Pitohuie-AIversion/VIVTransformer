@@ -506,6 +506,7 @@ def get_default_config() -> Dict[str, Any]:
             'save_intermediate': True
         },
         'data': {
+            'data_type': 'synthetic',
             'data_path': 'data/default_dataset.h5',
             'input_dim': 1024,
             'output_dim': 16384,
@@ -754,6 +755,14 @@ def setup_device(config=None):
 
 def load_unified_data(config: Dict[str, Any]):
     """加载统一数据"""
+    data_config = config.get('data', {})
+    data_type = data_config.get('data_type', 'real')
+    
+    # 如果是合成数据，使用合成数据生成器
+    if data_type == 'synthetic':
+        from synthetic_data_generator import create_synthetic_dataloader
+        return create_synthetic_dataloader(config)
+    
     # 使用增强版数据加载器
     if ENHANCED_DATALOADER_AVAILABLE:
         # 增强版数据加载器接受完整的config，并返回4个值（包括normalizer）
@@ -768,7 +777,7 @@ def load_unified_data(config: Dict[str, Any]):
         train_loader, val_loader, test_loader = create_crop_dataloader(config)
         normalizer = None
     
-    return train_loader, val_loader, test_loader
+    return train_loader, val_loader, test_loader, normalizer
 
 def train_unified_model(model, train_loader, val_loader, device, training_config, loss_config):
     """统一模型训练"""
@@ -890,22 +899,23 @@ def create_enhanced_model(model_config: Dict[str, Any], input_dim: int, output_d
                     dropout=model_config.get('dropout', 0.1)
                 )
             elif model_type == 'mlp':
-                return EnhancedMLP1d(
-                    input_channels=1,
-                    output_channels=1,
+                # 使用兼容的MLP模型
+                from fix_mlp_unet_compatibility import CompatibleEnhancedMLP
+                return CompatibleEnhancedMLP(
+                    input_dim=input_dim,
+                    output_dim=output_dim,
                     hidden_dim=model_config.get('hidden_dims', [256])[0] if model_config.get('hidden_dims') else 256,
-                    num_layers=len(model_config.get('hidden_dims', [256])),
-                    input_resolution=int(np.sqrt(input_dim)),
-                    output_resolution=int(np.sqrt(output_dim)),
-                    dropout=model_config.get('dropout', 0.1)
+                    num_layers=len(model_config.get('hidden_dims', [256]))
                 )
             elif model_type == 'unet':
-                return EnhancedUNet1d(
-                    in_channels=1,
-                    out_channels=1,
-                    init_features=model_config.get('base_ch', 32),
-                    input_resolution=int(np.sqrt(input_dim)),
-                    output_resolution=int(np.sqrt(output_dim))
+                # 使用兼容的UNet模型
+                from fix_mlp_unet_compatibility import CompatibleEnhancedUNet
+                return CompatibleEnhancedUNet(
+                    input_dim=input_dim,
+                    output_dim=output_dim,
+                    input_spatial_dim=int(np.sqrt(input_dim)),
+                    output_spatial_dim=int(np.sqrt(output_dim)),
+                    base_channels=model_config.get('base_ch', 32)
                 )
             elif model_type == 'fno':
                 return EnhancedFNO1d(
@@ -1158,7 +1168,7 @@ def run_single_model_training(config: Dict, output_dir: str) -> Dict:
     device = setup_device(config)
     
     # 加载数据
-    train_loader, val_loader, test_loader = load_unified_data(config)
+    train_loader, val_loader, test_loader, normalizer = load_unified_data(config)
     
     # 获取数据维度
     sample_batch = next(iter(train_loader))
@@ -1230,14 +1240,19 @@ def save_training_results(results: Dict, config: Dict, output_dir: str):
         results_file = output_path / "training_results.json"
         with open(results_file, 'w', encoding='utf-8') as f:
             # 转换numpy数组为列表以便JSON序列化
-            serializable_results = {}
-            for model_name, model_results in results.items():
-                serializable_results[model_name] = {}
-                for key, value in model_results.items():
-                    if isinstance(value, np.ndarray):
-                        serializable_results[model_name][key] = value.tolist()
-                    else:
-                        serializable_results[model_name][key] = value
+            def convert_to_serializable(obj):
+                if isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                elif isinstance(obj, dict):
+                    return {k: convert_to_serializable(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [convert_to_serializable(item) for item in obj]
+                elif isinstance(obj, (np.int64, np.int32, np.float64, np.float32)):
+                    return obj.item()
+                else:
+                    return obj
+            
+            serializable_results = convert_to_serializable(results)
             
             json.dump(serializable_results, f, indent=2, ensure_ascii=False)
         
@@ -1273,10 +1288,10 @@ def run_multi_model_comparison(config: Dict, output_dir: str, models: List[str] 
     logger.info("执行多模型对比训练...")
     
     # 设置设备
-    device = setup_device(config.get('training', {}).get('device', 'auto'))
+    device = setup_device(config)
     
     # 加载数据
-    train_loader, val_loader, test_loader = load_unified_data(config)
+    train_loader, val_loader, test_loader, normalizer = load_unified_data(config)
     
     # 获取数据维度
     sample_batch = next(iter(train_loader))
@@ -1296,7 +1311,9 @@ def run_multi_model_comparison(config: Dict, output_dir: str, models: List[str] 
     
     # 训练每个模型
     for model_name in models:
-        if model_name not in models_config:
+        # 尝试大小写匹配
+        model_key = model_name.lower()
+        if model_key not in models_config:
             logger.warning(f"跳过未配置的模型: {model_name}")
             continue
             
@@ -1305,7 +1322,7 @@ def run_multi_model_comparison(config: Dict, output_dir: str, models: List[str] 
         logger.info(f"{'='*50}")
         
         try:
-            model_config = models_config[model_name]
+            model_config = models_config[model_key]
             model = create_enhanced_model(model_config, input_dim, output_dim)
             model = model.to(device)
             
@@ -1320,7 +1337,9 @@ def run_multi_model_comparison(config: Dict, output_dir: str, models: List[str] 
             )
             
             # 评估模型
-            test_loss, test_metrics = evaluate_model(model, test_loader, device)
+            eval_results = evaluate_model(model, test_loader, device)
+            test_loss = eval_results['mse']
+            test_metrics = eval_results
             
             # 保存结果
             results[model_name] = {

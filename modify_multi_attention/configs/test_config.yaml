@@ -1,0 +1,75 @@
+# 测试配置文件
+experiment:
+  mode: "multi_model_comparison"
+  name: "model_compatibility_test"
+  output_dir: "results/compatibility_test"
+
+data:
+  data_type: "synthetic"  # 使用合成数据进行测试
+  input_dim: 400     # 20x20 = 400
+  output_dim: 40000  # 200x200 = 40000
+  batch_size: 4
+  num_samples: 100   # 少量样本用于快速测试
+
+models:
+  active_model: "transformer"
+  transformer:
+    model_type: transformer
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 256
+    num_heads: 8
+    num_layers: 3
+    dropout: 0.1
+    seq_len: 11
+    pe_type: sinusoidal_1d
+    use_memory_film: false
+    max_time_steps: 100
+    output_head_type: global
+    time_encoding: embedding
+  mlp:
+    model_type: mlp
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [512, 256, 128]
+    activation: relu
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: false
+  unet:
+    model_type: unet
+    input_dim: 1024
+    output_dim: 16384
+    base_channels: 64
+    num_levels: 4
+    dropout: 0.1
+  fno:
+    model_type: fno
+    input_dim: 1024
+    output_dim: 16384
+    modes: 12
+    width: 64
+    num_layers: 4
+    dropout: 0.1
+
+training:
+  epochs: 2  # 很少的epoch用于快速测试
+  learning_rate: 0.001
+  optimizer: "adam"
+  device: "auto"
+
+loss:
+  mse_weight: 1.0
+
+comparison:
+  parameter_fair:
+    enabled: false
+    target_params: 5000000
+    tolerance: 2.0
+  multi_model:
+    enabled: true
+    models: ['transformer', 'mlp', 'unet', 'fno']
+    generate_report: true
+    generate_plots: true
+  loss_comparison:
+    enabled: false

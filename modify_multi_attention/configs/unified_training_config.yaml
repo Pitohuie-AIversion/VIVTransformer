@@ -111,21 +111,19 @@ models:
     model_type: "mlp"
     input_dim: 1024
     output_dim: 16384
-    hidden_dims: [1024, 512, 256]
-    activation: "gelu"
+    hidden_dims: [512, 256, 128]
+    activation: "relu"
     dropout: 0.1
     use_batch_norm: true
-    use_residual: true
+    use_residual: false
   
   unet:
     model_type: "unet"
     input_dim: 1024
     output_dim: 16384
-    base_ch: 32
-    ch_mult: [1, 2, 4]
-    num_res_blocks: 2
+    base_channels: 64
+    num_levels: 4
     dropout: 0.1
-    use_attention: true
   
   fno:
     model_type: "fno"

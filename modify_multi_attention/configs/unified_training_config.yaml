@@ -5,7 +5,7 @@
 # 实验配置
 experiment:
   name: "unified_training_experiment"
-  mode: "single_model"  # 可选: single_model, multi_model_comparison, parameter_fair_comparison, loss_comparison
+  mode: "multi_model_comparison"  # 可选: single_model, multi_model_comparison, parameter_fair_comparison, loss_comparison
   output_dir: "unified_training_results"
   seed: 42
   deterministic: true
@@ -166,7 +166,7 @@ comparison:
   
   # 多模型对比
   multi_model:
-    enabled: false
+    enabled: true
     models: ["transformer", "mlp", "unet", "fno"]
     generate_report: true
     generate_plots: true

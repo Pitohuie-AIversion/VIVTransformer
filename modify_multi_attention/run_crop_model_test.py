@@ -1189,12 +1189,13 @@ def run_single_model_training(config: Dict, output_dir: str) -> Dict:
     logger.info(f"模型: {active_model}, 参数量: {param_count:,}")
     
     # 训练模型
-    training_config = config.get('training', {})
     start_time = time.time()
-    train_losses, val_losses = train_unified_model(
-        model, train_loader, val_loader, device, training_config, config.get('loss', {})
-    )
+    train_result = train_model(model, train_loader, val_loader, config, device, normalizer)
     train_time = time.time() - start_time
+    
+    # 提取训练结果
+    train_losses = train_result['train_losses']
+    val_losses = train_result['val_losses']
     
     # 评估模型
     test_results = evaluate_model(model, test_loader, device)
@@ -1341,14 +1342,18 @@ def run_multi_model_comparison(config: Dict, output_dir: str, models: List[str] 
             test_loss = eval_results['mse']
             test_metrics = eval_results
             
-            # 保存结果
+            # 保存结果（包含测试数据以支持三联图生成）
             results[model_name] = {
                 'param_count': param_count,
                 'train_losses': train_losses,
                 'val_losses': val_losses,
                 'test_loss': test_loss,
                 'test_metrics': test_metrics,
-                'config': model_config
+                'config': model_config,
+                # 添加测试数据以支持三联图生成
+                'test_inputs': eval_results['inputs'],
+                'test_predictions': eval_results['predictions'],
+                'test_targets': eval_results['targets']
             }
             
             logger.info(f"测试损失: {test_loss:.6f}")
@@ -1693,11 +1698,14 @@ def generate_triplet_plots(results: Dict[str, Any], viz_folder: Path, timestamp:
     
     # 为每个模型生成三联图
     for model_name, result in results.items():
-        if 'test_inputs' in result and 'test_targets' in result and 'test_predictions' in result:
+        # 检查测试结果数据是否存在（支持两种键名格式）
+        if ('inputs' in result and 'targets' in result and 'predictions' in result) or \
+           ('test_inputs' in result and 'test_targets' in result and 'test_predictions' in result):
             try:
-                inputs = result['test_inputs']
-                targets = result['test_targets'] 
-                predictions = result['test_predictions']
+                # 优先使用标准键名，如果不存在则使用带test_前缀的键名
+                inputs = result.get('inputs', result.get('test_inputs'))
+                targets = result.get('targets', result.get('test_targets'))
+                predictions = result.get('predictions', result.get('test_predictions'))
                 
                 # 创建模型专用的三联图文件夹
                 triplet_dir = viz_folder / f"{model_name}_triplet_plots"

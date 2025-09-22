@@ -20,20 +20,21 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
     result_dir = os.path.join(parent_dir, attention_type, "visualization_results")
     os.makedirs(result_dir, exist_ok=True)
 
-    # 确保所有输入都是2D数组
-    def ensure_2d(data, name):
+    # 确保所有输入都是2D数组，并限制图像尺寸
+    def ensure_2d_and_limit_size(data, name, max_size=512):
+        """确保数据是2D格式，并限制最大尺寸以避免matplotlib错误"""
         if len(data.shape) == 1:
             # 1D数据，尝试重塑为2D
             size = data.shape[0]
             side_len = int(np.sqrt(size))
             if side_len * side_len == size:
-                return data.reshape(side_len, side_len)
+                reshaped = data.reshape(side_len, side_len)
             else:
                 # 无法重塑为正方形，尝试找到合适的矩形形状
                 if size == 16384:
-                    return data.reshape(128, 128)
+                    reshaped = data.reshape(128, 128)
                 elif size == 1024:
-                    return data.reshape(32, 32)
+                    reshaped = data.reshape(32, 32)
                 else:
                     # 尝试找到合适的因子分解
                     factors = []
@@ -44,45 +45,101 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
                     if factors:
                         # 选择最接近正方形的形状
                         h, w = min(factors, key=lambda x: abs(x[0] - x[1]))
-                        return data.reshape(h, w)
+                        reshaped = data.reshape(h, w)
                     else:
                         # 最后的备选方案：重塑为行向量
-                        return data.reshape(1, -1)
+                        reshaped = data.reshape(1, -1)
         elif len(data.shape) == 2:
-            return data
+            reshaped = data
         else:
             raise ValueError(f"{name} 数据维度不支持: {data.shape}")
+        
+        # 检查并限制图像尺寸
+        h, w = reshaped.shape
+        if h > max_size or w > max_size:
+            print(f"Warning: {name} 图像尺寸 {h}x{w} 过大，将进行下采样到 {max_size}x{max_size}")
+            
+            # 计算下采样比例
+            scale_h = max_size / h if h > max_size else 1
+            scale_w = max_size / w if w > max_size else 1
+            scale = min(scale_h, scale_w)
+            
+            new_h = int(h * scale)
+            new_w = int(w * scale)
+            
+            # 使用简单的下采样方法
+            step_h = max(1, h // new_h)
+            step_w = max(1, w // new_w)
+            
+            reshaped = reshaped[::step_h, ::step_w]
+            print(f"  下采样后尺寸: {reshaped.shape}")
+        
+        # 最终安全检查：确保尺寸不超过限制
+        h, w = reshaped.shape
+        if h > 65535 or w > 65535:
+            print(f"Error: {name} 图像尺寸 {h}x{w} 仍然过大，强制裁剪到 512x512")
+            reshaped = reshaped[:512, :512]
+        
+        return reshaped
     
     try:
-        input_2d = ensure_2d(input_pressure, "input_pressure")
-        true_2d = ensure_2d(true_pressure, "true_pressure")
-        pred_2d = ensure_2d(predicted_pressure, "predicted_pressure")
+        input_2d = ensure_2d_and_limit_size(input_pressure, "input_pressure")
+        true_2d = ensure_2d_and_limit_size(true_pressure, "true_pressure")
+        pred_2d = ensure_2d_and_limit_size(predicted_pressure, "predicted_pressure")
     except Exception as e:
         print(f"数据维度处理失败: {e}")
         return
 
+    # 创建图形，使用合理的尺寸
     plt.figure(figsize=(18, 5))
 
+    # 输入压力图
     plt.subplot(1, 3, 1)
-    plt.imshow(input_2d, cmap='coolwarm', interpolation='nearest')
-    plt.colorbar()
-    plt.title(f"Input Pressure Matrix at t={time_step:.2f}")
+    try:
+        plt.imshow(input_2d, cmap='coolwarm', interpolation='nearest')
+        plt.colorbar()
+        plt.title(f"Input Pressure Matrix at t={time_step:.2f}")
+    except Exception as e:
+        print(f"绘制输入图像失败: {e}")
+        plt.text(0.5, 0.5, f"输入图像绘制失败\n{str(e)}", ha='center', va='center', transform=plt.gca().transAxes)
 
+    # 真实压力图
     plt.subplot(1, 3, 2)
-    plt.imshow(true_2d, cmap='coolwarm', interpolation='nearest')
-    plt.colorbar()
-    plt.title(f"True Pressure Matrix at t={time_step:.2f}")
+    try:
+        plt.imshow(true_2d, cmap='coolwarm', interpolation='nearest')
+        plt.colorbar()
+        plt.title(f"True Pressure Matrix at t={time_step:.2f}")
+    except Exception as e:
+        print(f"绘制真实图像失败: {e}")
+        plt.text(0.5, 0.5, f"真实图像绘制失败\n{str(e)}", ha='center', va='center', transform=plt.gca().transAxes)
 
+    # 预测压力图
     plt.subplot(1, 3, 3)
-    plt.imshow(pred_2d, cmap='coolwarm', interpolation='nearest')
-    plt.colorbar()
-    plt.title(f"Predicted Pressure Matrix at t={time_step:.2f}")
+    try:
+        plt.imshow(pred_2d, cmap='coolwarm', interpolation='nearest')
+        plt.colorbar()
+        plt.title(f"Predicted Pressure Matrix at t={time_step:.2f}")
+    except Exception as e:
+        print(f"绘制预测图像失败: {e}")
+        plt.text(0.5, 0.5, f"预测图像绘制失败\n{str(e)}", ha='center', va='center', transform=plt.gca().transAxes)
 
     plt.tight_layout()
 
     # 仅保存SVG矢量格式，减少磁盘占用
     svg_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.svg")
-    plt.savefig(svg_path, bbox_inches='tight', facecolor='white')
+    try:
+        plt.savefig(svg_path, bbox_inches='tight', facecolor='white')
+        print(f"三联图已保存: {svg_path}")
+    except Exception as e:
+        print(f"保存三联图失败: {e}")
+        # 尝试保存为PNG格式作为备选
+        png_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.png")
+        try:
+            plt.savefig(png_path, bbox_inches='tight', facecolor='white', dpi=150)
+            print(f"三联图已保存为PNG: {png_path}")
+        except Exception as e2:
+            print(f"保存PNG格式也失败: {e2}")
+    
     plt.close()
 
 

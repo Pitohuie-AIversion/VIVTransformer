@@ -519,7 +519,7 @@ def get_default_config() -> Dict[str, Any]:
             'batch_size': 32,
             'val_split': 0.2,
             'test_split': 0.1,
-            'max_samples': 1000,
+            'max_samples': None,
             'num_workers': 0,
             'pin_memory': False,
             'shuffle': True
@@ -895,8 +895,8 @@ def create_enhanced_model(model_config: Dict[str, Any], input_dim: int, output_d
                     input_resolution=int(np.sqrt(input_dim)),
                     output_resolution=int(np.sqrt(output_dim)),
                     attention_type=model_config.get('attention_type', 'simplified_self_attention'),
-                    pe_type=model_config.get('pe_type', 'learnable_1d'),
-                    dropout=model_config.get('dropout', 0.1)
+                    pe_type=model_config.get('pe_type', 'learnable_1d')
+                    # 注意：EnhancedTransformer1d不接受dropout参数
                 )
             elif model_type == 'mlp':
                 # 使用兼容的MLP模型

@@ -72,7 +72,14 @@ class EnhancedCropDataset(Dataset):
         with h5py.File(self.data_path, 'r') as f:
             if 'tensor' in f:
                 tensor_data = f['tensor']
-                actual_samples = min(self.num_samples, tensor_data.shape[0])
+                if self.num_samples is None:
+                    # 使用全量数据
+                    actual_samples = tensor_data.shape[0]
+                    logger.info(f"使用全量数据，样本数: {actual_samples}")
+                else:
+                    # 使用指定数量的样本
+                    actual_samples = min(self.num_samples, tensor_data.shape[0])
+                    logger.info(f"使用指定样本数: {actual_samples}")
                 data = np.array(tensor_data[:actual_samples], dtype=np.float32)
                 
                 # 处理数据维度
@@ -475,7 +482,25 @@ def create_enhanced_crop_dataloader(config):
     data_config = config.get('data', {})
     data_path = data_config.get('data_path', '')
     batch_size = data_config.get('batch_size', 32)
-    num_samples = data_config.get('num_samples', 100)
+    num_samples = data_config.get('num_samples', None)
+    
+    # 处理num_samples为None的情况
+    if num_samples is None:
+        # 尝试从数据文件获取全量样本数
+        try:
+            import h5py
+            with h5py.File(data_path, 'r') as f:
+                if 'input' in f:
+                    num_samples = f['input'].shape[0]
+                    logger.info(f"从数据文件获取全量样本数: {num_samples}")
+                else:
+                    num_samples = 1000  # 默认值
+                    logger.warning(f"无法从数据文件获取样本数，使用默认值: {num_samples}")
+        except Exception as e:
+            num_samples = 1000  # 默认值
+            logger.warning(f"读取数据文件失败: {e}，使用默认值: {num_samples}")
+    else:
+        logger.info(f"使用配置指定的样本数: {num_samples}")
     
     # 输入输出分辨率
     input_resolution = data_config.get('input_resolution', [32, 32])

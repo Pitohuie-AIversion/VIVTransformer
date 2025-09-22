@@ -15,7 +15,7 @@ experiment:
 # 数据配置
 data:
   # 数据路径和基本设置
-  data_path: "x:/2025/Graduation_project/Pdebench_input_Transformer/VIVTransformer-1/generate_data/preprocessed_data/sample_data.h5"
+  data_path: "X:/2025/Graduation_project/report/data/pdebench/2D/DarcyFlow/2D_DarcyFlow_beta0.01_Train.hdf5"
   input_dim: 1024      # 32x32输入
   output_dim: 16384    # 128x128输出
   
@@ -33,7 +33,7 @@ data:
   batch_size: 32
   val_split: 0.2
   test_split: 0.1
-  max_samples: 1000
+  max_samples: null
   
   # 数据加载器
   num_workers: 0  # Windows兼容性

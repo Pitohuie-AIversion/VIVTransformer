@@ -60,7 +60,13 @@ class CropDataset(Dataset):
         with h5py.File(self.data_path, 'r') as f:
             if 'tensor' in f:
                 tensor_data = f['tensor']
-                actual_samples = min(self.num_samples, tensor_data.shape[0])
+                # 处理num_samples为None的情况（使用全量数据）
+                if self.num_samples is None:
+                    actual_samples = tensor_data.shape[0]
+                    logger.info(f"使用全量数据，总样本数: {actual_samples}")
+                else:
+                    actual_samples = min(self.num_samples, tensor_data.shape[0])
+                    logger.info(f"使用指定样本数: {actual_samples}")
                 data = np.array(tensor_data[:actual_samples], dtype=np.float32)
                 
                 # 处理数据维度
@@ -135,7 +141,14 @@ def create_crop_dataloader(config):
     data_config = config.get('data', {})
     data_path = data_config.get('data_path', '')
     batch_size = data_config.get('batch_size', 32)
-    num_samples = data_config.get('num_samples', 100)
+    num_samples = data_config.get('num_samples', None)
+    
+    # 如果num_samples为None，则使用全量数据
+    if num_samples is None:
+        # 先获取数据文件信息来确定实际样本数
+        data_info = get_data_info(data_path)
+        num_samples = data_info.get('total_samples', 1000)  # 如果无法获取，使用较大默认值
+        logger.info(f"使用全量数据，样本数: {num_samples}")
     
     # 输入输出分辨率
     input_resolution = data_config.get('input_resolution', [32, 32])

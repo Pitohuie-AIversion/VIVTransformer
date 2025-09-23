@@ -67,23 +67,23 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
         return
 
     # 优化图形创建，减少内存占用
-    fig, axes = plt.subplots(1, 3, figsize=(12, 3))  # 减小图形尺寸从(15,4)到(12,3)
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))  # 减小图形尺寸
     
     # 使用更高效的绘图方式
     try:
         # 输入压力图
         im1 = axes[0].imshow(input_2d, cmap='viridis', interpolation='bilinear')  # 使用更快的插值
-        axes[0].set_title(f"Input t={time_step:.2f}", fontsize=9)  # 减小字体
+        axes[0].set_title(f"Input t={time_step:.2f}", fontsize=10)
         plt.colorbar(im1, ax=axes[0], shrink=0.8)
         
         # 真实压力图
         im2 = axes[1].imshow(true_2d, cmap='viridis', interpolation='bilinear')
-        axes[1].set_title(f"True t={time_step:.2f}", fontsize=9)
+        axes[1].set_title(f"True t={time_step:.2f}", fontsize=10)
         plt.colorbar(im2, ax=axes[1], shrink=0.8)
         
         # 预测压力图
         im3 = axes[2].imshow(pred_2d, cmap='viridis', interpolation='bilinear')
-        axes[2].set_title(f"Predicted t={time_step:.2f}", fontsize=9)
+        axes[2].set_title(f"Predicted t={time_step:.2f}", fontsize=10)
         plt.colorbar(im3, ax=axes[2], shrink=0.8)
         
     except Exception as e:
@@ -205,27 +205,27 @@ def plot_difference_figure(input_pressure, true_pressure, predicted_pressure, ti
         return
 
     # 优化图形创建
-    fig, axes = plt.subplots(1, 4, figsize=(14, 3))  # 减小图形尺寸从(16,4)到(14,3)
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
     
     try:
         # 输入压力图
         im1 = axes[0].imshow(input_2d, cmap='viridis', interpolation='bilinear')
-        axes[0].set_title(f"Input t={time_step:.2f}", fontsize=9)  # 减小字体
+        axes[0].set_title(f"Input t={time_step:.2f}", fontsize=10)
         plt.colorbar(im1, ax=axes[0], shrink=0.8)
         
         # 真实压力图
         im2 = axes[1].imshow(true_2d, cmap='viridis', interpolation='bilinear')
-        axes[1].set_title(f"True t={time_step:.2f}", fontsize=9)
+        axes[1].set_title(f"True t={time_step:.2f}", fontsize=10)
         plt.colorbar(im2, ax=axes[1], shrink=0.8)
         
         # 预测压力图
         im3 = axes[2].imshow(pred_2d, cmap='viridis', interpolation='bilinear')
-        axes[2].set_title(f"Predicted t={time_step:.2f}", fontsize=9)
+        axes[2].set_title(f"Predicted t={time_step:.2f}", fontsize=10)
         plt.colorbar(im3, ax=axes[2], shrink=0.8)
         
         # 差异图
         im4 = axes[3].imshow(diff, cmap='RdBu', interpolation='bilinear')
-        axes[3].set_title(f"Difference t={time_step:.2f}", fontsize=9)
+        axes[3].set_title(f"Difference t={time_step:.2f}", fontsize=10)
         plt.colorbar(im4, ax=axes[3], shrink=0.8)
         
     except Exception as e:
@@ -312,7 +312,7 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
                 f'{score:.6f}', ha='center', va='bottom')
     
     plt.tight_layout()
-    plt.savefig(performance_plot, dpi=150, bbox_inches='tight')  # 降低DPI从300到150
+    plt.savefig(performance_plot, dpi=300, bbox_inches='tight')
     plt.close()
     
     # 2. 参数量对比图
@@ -321,9 +321,9 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
     
     param_counts = [successful_results[model].get('num_parameters', successful_results[model].get('parameters', 0)) for model in models]
     
-    plt.figure(figsize=(8, 5))  # 减小图形尺寸从(10,6)到(8,5)
+    plt.figure(figsize=(10, 6))
     bars = plt.bar(models, param_counts, color='lightgreen', alpha=0.7)
-    plt.title('模型参数量对比', fontsize=12, fontweight='bold')  # 减小字体
+    plt.title('模型参数量对比', fontsize=14, fontweight='bold')
     plt.ylabel('参数数量')
     plt.yscale('log')  # 使用对数坐标
     plt.xticks(rotation=45)
@@ -332,10 +332,10 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
     for bar, count in zip(bars, param_counts):
         height = bar.get_height()
         plt.text(bar.get_x() + bar.get_width()/2., height,
-                f'{count:,}', ha='center', va='bottom', fontsize=8)  # 减小标签字体
+                f'{count:,}', ha='center', va='bottom')
     
     plt.tight_layout()
-    plt.savefig(params_plot, dpi=150, bbox_inches='tight')  # 降低DPI
+    plt.savefig(params_plot, dpi=300, bbox_inches='tight')
     plt.close()
     
     # 3. 训练时间对比图
@@ -344,9 +344,9 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
     
     train_times = [successful_results[model].get('train_time', successful_results[model].get('training_time', 0)) for model in models]
     
-    plt.figure(figsize=(8, 5))  # 减小图形尺寸
+    plt.figure(figsize=(10, 6))
     bars = plt.bar(models, train_times, color='orange', alpha=0.7)
-    plt.title('模型训练时间对比', fontsize=12, fontweight='bold')  # 减小字体
+    plt.title('模型训练时间对比', fontsize=14, fontweight='bold')
     plt.ylabel('训练时间 (秒)')
     plt.xticks(rotation=45)
     
@@ -354,10 +354,10 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
     for bar, time_val in zip(bars, train_times):
         height = bar.get_height()
         plt.text(bar.get_x() + bar.get_width()/2., height,
-                f'{time_val:.1f}s', ha='center', va='bottom', fontsize=8)  # 减小标签字体
+                f'{time_val:.1f}s', ha='center', va='bottom')
     
     plt.tight_layout()
-    plt.savefig(time_plot, dpi=150, bbox_inches='tight')  # 降低DPI
+    plt.savefig(time_plot, dpi=300, bbox_inches='tight')
     plt.close()
     
     return plot_files
@@ -481,7 +481,7 @@ def plot_training_losses(train_losses, valid_losses, test_losses, model_name, ou
              bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
     plt.tight_layout()
-    plt.savefig(loss_plot, dpi=120, bbox_inches='tight')  # 降低DPI从300到120
+    plt.savefig(loss_plot, dpi=300, bbox_inches='tight')
     plt.close()
     
     print(f"✅ {model_name} 损失曲线已保存: {loss_plot}")

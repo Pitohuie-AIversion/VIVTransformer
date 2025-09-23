@@ -4,7 +4,15 @@ import copy
 import math
 import logging
 from typing import Optional
-from .components.attention_factory import get_attention_module  # 动态获取注意力模块
+
+# 动态获取注意力模块 - 修复相对导入问题
+try:
+    from .components.attention_factory import get_attention_module
+except ImportError:
+    try:
+        from components.attention_factory import get_attention_module
+    except ImportError:
+        from mymodels.components.attention_factory import get_attention_module
 
 # 统一导入所有可用的注意力机制
 from fightingcv_attention.attention.ExternalAttention import ExternalAttention
@@ -159,12 +167,26 @@ class CustomEncoderLayer(nn.Module):
                                 break
                     if out_ch is None:
                         out_ch = in_ch if in_ch is not None else d_model
-                    # 创建并注册adapter
+                    # 创建并注册adapter，确保设备一致性
                     if in_ch is not None and in_ch != d_model and in_adapter is None:
-                        in_adapter = nn.Conv2d(d_model, in_ch, kernel_size=1, bias=False).to(x_tensor.device)
+                        in_adapter = nn.Conv2d(d_model, in_ch, kernel_size=1, bias=False)
+                        # 确保适配器在正确设备上
+                        try:
+                            param = next(attn_mod.parameters())
+                            target_device = param.device
+                        except StopIteration:
+                            target_device = x_tensor.device
+                        in_adapter = in_adapter.to(target_device)
                         setattr(self, f"{prefix}_in", in_adapter)
                     if out_ch is not None and out_ch != d_model and out_adapter is None:
-                        out_adapter = nn.Conv2d(out_ch, d_model, kernel_size=1, bias=False).to(x_tensor.device)
+                        out_adapter = nn.Conv2d(out_ch, d_model, kernel_size=1, bias=False)
+                        # 确保适配器在正确设备上
+                        try:
+                            param = next(attn_mod.parameters())
+                            target_device = param.device
+                        except StopIteration:
+                            target_device = x_tensor.device
+                        out_adapter = out_adapter.to(target_device)
                         setattr(self, f"{prefix}_out", out_adapter)
                     return getattr(self, f"{prefix}_in", None), getattr(self, f"{prefix}_out", None)
                 in_adp, out_adp = _ensure_adapters(self.self_attn, x, "_enc_sa2d_adapter")
@@ -313,9 +335,23 @@ class CustomDecoderLayer(nn.Module):
                     out_adapter = getattr(self, f"{prefix}_out", None)
                     if in_adapter is None:
                         in_adapter = nn.Conv2d(d_model, getattr(attn_mod, "in_channels", d_model), kernel_size=1)
+                        # 确保适配器在正确设备上
+                        try:
+                            param = next(attn_mod.parameters())
+                            target_device = param.device
+                        except StopIteration:
+                            target_device = x_tensor.device
+                        in_adapter = in_adapter.to(target_device)
                         setattr(self, f"{prefix}_in", in_adapter)
                     if out_adapter is None:
                         out_adapter = nn.Conv2d(getattr(attn_mod, "out_channels", getattr(attn_mod, "channels", d_model)), d_model, kernel_size=1)
+                        # 确保适配器在正确设备上
+                        try:
+                            param = next(attn_mod.parameters())
+                            target_device = param.device
+                        except StopIteration:
+                            target_device = x_tensor.device
+                        out_adapter = out_adapter.to(target_device)
                         setattr(self, f"{prefix}_out", out_adapter)
                     return in_adapter, out_adapter
                 in_adp, out_adp = _ensure_adapters(self.self_attn, x, "_dec_self_sa2d_adapter")
@@ -516,7 +552,7 @@ class TransformerFlowReconstructionModel(nn.Module):
             pe[:, :, 0::2] = torch.sin(position * div_term)
             if D > 1:
                 pe[:, :, 1::2] = torch.cos(position * div_term)
-            self.register_buffer('positional_encoding', pe, persistent=False)
+            self.register_buffer('positional_encoding', pe, persistent=True)
         elif self.pe_type == 'learnable_2d':
             D_h = d_model // 2
             D_w = d_model - D_h
@@ -562,7 +598,13 @@ class TransformerFlowReconstructionModel(nn.Module):
 
     def forward(self, x_in_pressures_flat, x_time_steps):
         batch_size = x_in_pressures_flat.size(0)
-        x_time_steps = x_time_steps.long()
+        device = x_in_pressures_flat.device
+        
+        # 确保所有模块都在正确的设备上
+        if next(self.parameters()).device != device:
+            self.to(device)
+        
+        x_time_steps = x_time_steps.long().to(device)
 
         # 时间步索引裁剪至有效范围
         max_idx = self.time_step_embedding.num_embeddings - 1
@@ -589,7 +631,7 @@ class TransformerFlowReconstructionModel(nn.Module):
             time_emb = self.time_mlp(x_time_steps.float()).unsqueeze(1)  # [B,1,D]
         
         if self.pe_type in ('learnable_1d', 'sinusoidal_1d'):
-            pos_enc = self.positional_encoding.expand(batch_size, -1, -1)  # [B,L,D]
+            pos_enc = self.positional_encoding.expand(batch_size, -1, -1).to(device)  # [B,L,D]
         elif self.pe_type == 'learnable_2d':
             H, W = self.input_hw
             D_h = self.pe_h.size(-1)
@@ -598,9 +640,12 @@ class TransformerFlowReconstructionModel(nn.Module):
                 self.pe_h.expand(1, H, W, D_h),  # [1,H,W,Dh]
                 self.pe_w.expand(1, 1, W, D_w).expand(1, H, W, D_w),  # [1,1,W,Dw]
             ], dim=-1).view(1, H * W, D_h + D_w)  # [1,L,D]
-            pos_enc = pe2d.expand(batch_size, -1, -1)
+            pos_enc = pe2d.expand(batch_size, -1, -1).to(device)
         else:
-            pos_enc = torch.zeros(batch_size, self.seq_len, expected_d_model, device=x_embedded.device)
+            # Fallback to learnable_1d if pe_type is unrecognized
+            if not hasattr(self, 'positional_encoding'):
+                self.positional_encoding = nn.Parameter(torch.zeros(1, self.seq_len, expected_d_model))
+            pos_enc = self.positional_encoding.expand(batch_size, -1, -1).to(device)
 
         if time_emb.size(-1) != expected_d_model:
             time_emb = time_emb[:, :, :expected_d_model]

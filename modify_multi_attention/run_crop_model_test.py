@@ -398,7 +398,19 @@ class CustomTransformerWrapper(nn.Module):
         batch_size = x.size(0)
         device = x.device
         
-        # 创建固定时间步张量
+        # 确保transformer模型及其所有子模块在正确设备上
+        if next(self.transformer.parameters()).device != device:
+            self.transformer = self.transformer.to(device)
+            # 确保所有子模块也在正确设备上
+            for module in self.transformer.modules():
+                if hasattr(module, 'to'):
+                    module.to(device)
+        
+        # 确保固定时间步张量在正确设备上
+        if self.fixed_time_step.device != device:
+            self.fixed_time_step = self.fixed_time_step.to(device)
+        
+        # 创建时间步张量
         time_steps = self.fixed_time_step.expand(batch_size).to(device)
         
         # 调用自定义Transformer
@@ -460,7 +472,7 @@ class EnhancedUNetWrapper(nn.Module):
         self.model = create_enhanced_unet2d(
             in_channels=kwargs.get('in_channels', 1),
             out_channels=kwargs.get('out_channels', 1),
-            init_features=kwargs.get('init_features', 32),
+            init_features=kwargs.get('init_features', kwargs.get('base_channels', kwargs.get('base_ch', 32))),
             input_resolution=kwargs.get('input_resolution', (32, 32)),
             output_resolution=kwargs.get('output_resolution', (128, 128)),
             use_upsampling=kwargs.get('use_upsampling', True),
@@ -795,44 +807,79 @@ def train_unified_model(model, train_loader, val_loader, device, training_config
     
     logger.info(f"开始训练，共 {epochs} 个epoch")
     
-    for epoch in range(epochs):
-        # 训练阶段
-        model.train()
-        epoch_train_loss = 0.0
-        
-        for batch_idx, (inputs, targets) in enumerate(train_loader):
-            inputs, targets = inputs.to(device), targets.to(device)
+    try:
+        for epoch in range(epochs):
+            # 训练阶段
+            model.train()
+            epoch_train_loss = 0.0
             
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
-            loss.backward()
-            optimizer.step()
+            for batch_idx, (inputs, targets) in enumerate(train_loader):
+                try:
+                    inputs, targets = inputs.to(device), targets.to(device)
+                    
+                    # 调试信息：打印输入形状
+                    if batch_idx == 0 and epoch == 0:
+                        logger.info(f"🔍 调试信息 - 输入形状: {inputs.shape}, 目标形状: {targets.shape}")
+                    
+                    optimizer.zero_grad()
+                    outputs = model(inputs)
+                    
+                    # 调试信息：打印输出形状
+                    if batch_idx == 0 and epoch == 0:
+                        logger.info(f"🔍 调试信息 - 输出形状: {outputs.shape}")
+                    
+                    loss = criterion(outputs, targets)
+                    loss.backward()
+                    optimizer.step()
+                    
+                    epoch_train_loss += loss.item()
+                    
+                except Exception as e:
+                    import traceback
+                    error_msg = f"训练批次 {batch_idx} 失败: {str(e)}"
+                    error_traceback = traceback.format_exc()
+                    logger.error(f"❌ {error_msg}")
+                    logger.error(f"完整错误堆栈:\n{error_traceback}")
+                    print(f"\n=== 训练批次错误详情 ===")
+                    print(f"错误: {error_msg}")
+                    print(f"完整堆栈:\n{error_traceback}")
+                    print("=" * 50)
+                    raise e  # 重新抛出异常
             
-            epoch_train_loss += loss.item()
+            avg_train_loss = epoch_train_loss / len(train_loader)
+            train_losses.append(avg_train_loss)
+            
+            # 验证阶段
+            model.eval()
+            epoch_val_loss = 0.0
+            
+            with torch.no_grad():
+                for inputs, targets in val_loader:
+                    inputs, targets = inputs.to(device), targets.to(device)
+                    outputs = model(inputs)
+                    loss = criterion(outputs, targets)
+                    epoch_val_loss += loss.item()
+            
+            avg_val_loss = epoch_val_loss / len(val_loader)
+            val_losses.append(avg_val_loss)
+            
+            if epoch % 10 == 0:
+                logger.info(f"Epoch {epoch}/{epochs}, Train Loss: {avg_train_loss:.6f}, Val Loss: {avg_val_loss:.6f}")
         
-        avg_train_loss = epoch_train_loss / len(train_loader)
-        train_losses.append(avg_train_loss)
+        logger.info("训练完成")
+        return train_losses, val_losses
         
-        # 验证阶段
-        model.eval()
-        epoch_val_loss = 0.0
-        
-        with torch.no_grad():
-            for inputs, targets in val_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                outputs = model(inputs)
-                loss = criterion(outputs, targets)
-                epoch_val_loss += loss.item()
-        
-        avg_val_loss = epoch_val_loss / len(val_loader)
-        val_losses.append(avg_val_loss)
-        
-        if epoch % 10 == 0:
-            logger.info(f"Epoch {epoch}/{epochs}, Train Loss: {avg_train_loss:.6f}, Val Loss: {avg_val_loss:.6f}")
-    
-    logger.info("训练完成")
-    return train_losses, val_losses
+    except Exception as e:
+        import traceback
+        error_msg = f"训练过程失败: {str(e)}"
+        error_traceback = traceback.format_exc()
+        logger.error(f"❌ {error_msg}")
+        logger.error(f"完整错误堆栈:\n{error_traceback}")
+        print(f"\n=== 训练过程错误详情 ===")
+        print(f"错误: {error_msg}")
+        print(f"完整堆栈:\n{error_traceback}")
+        print("=" * 50)
+        raise e  # 重新抛出异常以便上层处理
 
 def load_unified_config(config_path: str) -> Dict[str, Any]:
     """加载统一配置文件"""
@@ -879,14 +926,14 @@ def merge_configs(base_config: Dict, preset_config: Dict) -> Dict:
             result[key] = value
     return result
 
-def create_enhanced_model(model_config: Dict[str, Any], input_dim: int, output_dim: int) -> nn.Module:
+def create_enhanced_model(model_config: Dict[str, Any], input_dim: int, output_dim: int, device=None) -> nn.Module:
     """创建增强模型"""
     model_type = model_config.get('model_type', 'mlp').lower()
     
     try:
         if ENHANCED_MODELS_AVAILABLE:
             if model_type == 'transformer':
-                return EnhancedTransformer1d(
+                model = EnhancedTransformer1d(
                     input_channels=1,
                     output_channels=1,
                     d_model=model_config.get('d_model', 128),
@@ -901,7 +948,7 @@ def create_enhanced_model(model_config: Dict[str, Any], input_dim: int, output_d
             elif model_type == 'mlp':
                 # 使用兼容的MLP模型
                 from fix_mlp_unet_compatibility import CompatibleEnhancedMLP
-                return CompatibleEnhancedMLP(
+                model = CompatibleEnhancedMLP(
                     input_dim=input_dim,
                     output_dim=output_dim,
                     hidden_dim=model_config.get('hidden_dims', [256])[0] if model_config.get('hidden_dims') else 256,
@@ -910,26 +957,36 @@ def create_enhanced_model(model_config: Dict[str, Any], input_dim: int, output_d
             elif model_type == 'unet':
                 # 使用兼容的UNet模型
                 from fix_mlp_unet_compatibility import CompatibleEnhancedUNet
-                return CompatibleEnhancedUNet(
+                model = CompatibleEnhancedUNet(
                     input_dim=input_dim,
                     output_dim=output_dim,
-                    input_spatial_dim=int(np.sqrt(input_dim)),
-                    output_spatial_dim=int(np.sqrt(output_dim)),
-                    base_channels=model_config.get('base_ch', 32)
+                    base_ch=model_config.get('base_channels', model_config.get('base_ch', 32)),
+                    num_levels=model_config.get('num_levels', 4),
+                    dropout=model_config.get('dropout', 0.1)
                 )
             elif model_type == 'fno':
-                return EnhancedFNO1d(
+                model = EnhancedFNO1d(
                     num_channels=1,
                     modes=model_config.get('modes', 12),
                     width=model_config.get('width', 64),
                     input_resolution=int(np.sqrt(input_dim)),
                     output_resolution=int(np.sqrt(output_dim))
                 )
+            
+            # 如果提供了设备，将模型移动到设备
+            if device is not None:
+                model = model.to(device)
+            
+            return model
+            
     except Exception as e:
         logging.warning(f"创建增强模型失败: {e}")
     
     # 后备简单模型
-    return create_simple_model(model_type, input_dim, output_dim, model_config)
+    model = create_simple_model(model_type, input_dim, output_dim, model_config)
+    if device is not None:
+        model = model.to(device)
+    return model
 
 def create_simple_model(model_type: str, input_dim: int, output_dim: int, config: Dict) -> nn.Module:
     """创建简单模型作为后备"""
@@ -970,8 +1027,12 @@ def create_model(model_type, input_dim, output_dim, **kwargs):
 
 def train_model(model, train_loader, val_loader, config, device, normalizer=None):
     """训练模型"""
+    # 强制确保模型在正确的设备上
     model = model.to(device)
-    criterion = nn.MSELoss()
+    
+    # 确保模型处于训练模式
+    model.train()
+    criterion = nn.MSELoss().to(device)
     
     # 确保优化器参数类型正确
     learning_rate = float(config['training']['learning_rate'])
@@ -1181,8 +1242,7 @@ def run_single_model_training(config: Dict, output_dir: str) -> Dict:
     model_config = models_config.get(active_model, {})
     
     # 创建模型
-    model = create_enhanced_model(model_config, input_dim, output_dim)
-    model = model.to(device)
+    model = create_enhanced_model(model_config, input_dim, output_dim, device)
     
     # 计算参数量
     param_count = sum(p.numel() for p in model.parameters())
@@ -1324,8 +1384,7 @@ def run_multi_model_comparison(config: Dict, output_dir: str, models: List[str] 
         
         try:
             model_config = models_config[model_key]
-            model = create_enhanced_model(model_config, input_dim, output_dim)
-            model = model.to(device)
+            model = create_enhanced_model(model_config, input_dim, output_dim, device)
             
             # 计算参数量
             param_count = sum(p.numel() for p in model.parameters())
@@ -1561,10 +1620,17 @@ def run_model_test(config_path, models=None):
             
         except Exception as e:
             import traceback
-            logger.error(f"❌ {model_name} 测试失败: {e}")
-            logger.error(f"错误详情: {traceback.format_exc()}")
+            error_msg = str(e)
+            error_traceback = traceback.format_exc()
+            logger.error(f"❌ {model_name} 测试失败: {error_msg}")
+            logger.error(f"完整错误堆栈:\n{error_traceback}")
+            print(f"\n=== {model_name} 详细错误信息 ===")
+            print(f"错误: {error_msg}")
+            print(f"完整堆栈:\n{error_traceback}")
+            print("=" * 50)
             results[model_name] = {
-                'error': str(e),
+                'error': error_msg,
+                'traceback': error_traceback,
                 'status': 'failed'
             }
     
@@ -1684,7 +1750,7 @@ def create_visualization_plots(results: Dict[str, Any], timestamp: str) -> List[
 
 def generate_triplet_plots(results: Dict[str, Any], viz_folder: Path, timestamp: str) -> List[str]:
     """
-    生成三联图（输入-真实-预测对比图）
+    生成三联图（输入-真实-预测对比图），优化性能
     
     Args:
         results: 模型测试结果字典
@@ -1711,8 +1777,8 @@ def generate_triplet_plots(results: Dict[str, Any], viz_folder: Path, timestamp:
                 triplet_dir = viz_folder / f"{model_name}_triplet_plots"
                 triplet_dir.mkdir(exist_ok=True)
                 
-                # 选择几个代表性样本进行可视化（避免生成过多图片）
-                num_samples = min(5, len(inputs))  # 最多生成5个样本的三联图
+                # 大幅减少生成的样本数量，提升性能
+                num_samples = min(2, len(inputs))  # 最多生成2个样本的三联图
                 sample_indices = np.linspace(0, len(inputs)-1, num_samples, dtype=int)
                 
                 logger.info(f"🎨 为模型 {model_name} 生成 {num_samples} 个三联图样本...")
@@ -1723,68 +1789,42 @@ def generate_triplet_plots(results: Dict[str, Any], viz_folder: Path, timestamp:
                     target_sample = targets[sample_idx] 
                     pred_sample = predictions[sample_idx]
                     
-                    # 调试信息：打印原始数据形状
-                    logger.info(f"🔍 样本 {sample_idx} 原始数据形状: input={input_sample.shape}, target={target_sample.shape}, pred={pred_sample.shape}")
-                    
-                    # 处理数据维度：确保是2D图像格式
-                    if len(input_sample.shape) == 3:
-                        # 如果是3D (C, H, W)，取第一个通道或平均
-                        if input_sample.shape[0] == 1:
-                            input_2d = input_sample[0]
-                            target_2d = target_sample[0] 
-                            pred_2d = pred_sample[0]
+                    # 快速数据处理，减少计算开销
+                    def quick_reshape_to_2d(data, name):
+                        """快速重塑数据为2D格式"""
+                        if len(data.shape) == 3:
+                            # 如果是3D (C, H, W)，取第一个通道
+                            return data[0] if data.shape[0] == 1 else np.mean(data, axis=0)
+                        elif len(data.shape) == 2:
+                            return data
                         else:
-                            # 多通道情况，取平均
-                            input_2d = np.mean(input_sample, axis=0)
-                            target_2d = np.mean(target_sample, axis=0)
-                            pred_2d = np.mean(pred_sample, axis=0)
-                    elif len(input_sample.shape) == 2:
-                        # 已经是2D
-                        input_2d = input_sample
-                        target_2d = target_sample
-                        pred_2d = pred_sample
-                    else:
-                        # 1D数据，分别处理每个数组的维度
-                        def reshape_1d_to_2d(data, name):
+                            # 1D数据快速处理
                             data_size = data.shape[0]
-                            side_len = int(np.sqrt(data_size))
-                            if side_len * side_len == data_size:
-                                return data.reshape(side_len, side_len)
+                            if data_size == 16384:
+                                return data.reshape(128, 128)
+                            elif data_size == 1024:
+                                return data.reshape(32, 32)
                             else:
-                                # 无法重塑为正方形，尝试其他合理的矩形形状
-                                if data_size == 16384:
-                                    return data.reshape(128, 128)
-                                elif data_size == 1024:
-                                    return data.reshape(32, 32)
+                                side_len = int(np.sqrt(data_size))
+                                if side_len * side_len == data_size:
+                                    return data.reshape(side_len, side_len)
                                 else:
-                                    # 尝试找到合适的因子分解
-                                    factors = []
-                                    for i in range(1, int(np.sqrt(data_size)) + 1):
-                                        if data_size % i == 0:
-                                            factors.append((i, data_size // i))
-                                    
-                                    if factors:
-                                        # 选择最接近正方形的形状
-                                        h, w = min(factors, key=lambda x: abs(x[0] - x[1]))
-                                        return data.reshape(h, w)
-                                    else:
-                                        logger.warning(f"⚠️ {name} 数据大小 {data_size} 无法重塑为2D图像")
-                                        return None
-                        
-                        input_2d = reshape_1d_to_2d(input_sample, "input")
-                        target_2d = reshape_1d_to_2d(target_sample, "target")
-                        pred_2d = reshape_1d_to_2d(pred_sample, "pred")
-                        
-                        # 检查是否有任何数组重塑失败
-                        if input_2d is None or target_2d is None or pred_2d is None:
-                            logger.warning(f"⚠️ 样本 {sample_idx} 数据重塑失败，跳过")
-                            continue
+                                    # 简化处理，直接返回行向量
+                                    return data.reshape(1, -1)
+                    
+                    try:
+                        input_2d = quick_reshape_to_2d(input_sample, "input")
+                        target_2d = quick_reshape_to_2d(target_sample, "target")
+                        pred_2d = quick_reshape_to_2d(pred_sample, "pred")
+                    except Exception as e:
+                        logger.warning(f"⚠️ 样本 {sample_idx} 数据处理失败: {e}，跳过")
+                        continue
                     
                     # 生成三联图
                     time_step = float(i)  # 使用索引作为时间步
                     epoch = 0  # 测试阶段，epoch设为0
                     
-                    # 调用visualization.py中的plot_comparison_figure函数
+                    # 调用优化后的visualization.py中的plot_comparison_figure函数
                     plot_comparison_figure(
                         input_pressure=input_2d,
                         true_pressure=target_2d,
@@ -1797,13 +1837,13 @@ def generate_triplet_plots(results: Dict[str, Any], viz_folder: Path, timestamp:
                         mode="test"
                     )
                     
-                    # 记录生成的文件路径
-                    svg_filename = f"test_epoch_{epoch}_sample_{sample_idx}.svg"
-                    svg_path = triplet_dir / model_name / "visualization_results" / svg_filename
+                    # 记录生成的文件路径（现在是PNG格式）
+                    png_filename = f"test_epoch_{epoch}_sample_{sample_idx}.png"
+                    png_path = triplet_dir / model_name / "visualization_results" / png_filename
                     
-                    if svg_path.exists():
-                        triplet_plot_files.append(str(svg_path))
-                        logger.info(f"  📈 样本 {sample_idx} 三联图已保存: {svg_path}")
+                    if png_path.exists():
+                        triplet_plot_files.append(str(png_path))
+                        logger.info(f"  📈 样本 {sample_idx} 三联图已保存: {png_path}")
                     
                 logger.info(f"✅ 模型 {model_name} 三联图生成完成，共 {len([f for f in triplet_plot_files if model_name in f])} 个文件")
                 

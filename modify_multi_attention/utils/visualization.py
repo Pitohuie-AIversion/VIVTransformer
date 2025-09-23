@@ -20,182 +20,232 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
     result_dir = os.path.join(parent_dir, attention_type, "visualization_results")
     os.makedirs(result_dir, exist_ok=True)
 
-    # 确保所有输入都是2D数组，并限制图像尺寸
-    def ensure_2d_and_limit_size(data, name, max_size=512):
-        """确保数据是2D格式，并限制最大尺寸以避免matplotlib错误"""
+    # 优化的数据处理函数，减少计算开销
+    def ensure_2d_and_optimize(data, name, max_size=256):
+        """快速数据处理，优化性能"""
         if len(data.shape) == 1:
-            # 1D数据，尝试重塑为2D
             size = data.shape[0]
-            side_len = int(np.sqrt(size))
-            if side_len * side_len == size:
-                reshaped = data.reshape(side_len, side_len)
+            # 快速形状推断
+            if size == 16384:
+                reshaped = data.reshape(128, 128)
+            elif size == 1024:
+                reshaped = data.reshape(32, 32)
             else:
-                # 无法重塑为正方形，尝试找到合适的矩形形状
-                if size == 16384:
-                    reshaped = data.reshape(128, 128)
-                elif size == 1024:
-                    reshaped = data.reshape(32, 32)
+                side_len = int(np.sqrt(size))
+                if side_len * side_len == size:
+                    reshaped = data.reshape(side_len, side_len)
                 else:
-                    # 尝试找到合适的因子分解
-                    factors = []
-                    for i in range(1, int(np.sqrt(size)) + 1):
+                    # 简化的因子分解
+                    for i in range(int(np.sqrt(size)), 0, -1):
                         if size % i == 0:
-                            factors.append((i, size // i))
-                    
-                    if factors:
-                        # 选择最接近正方形的形状
-                        h, w = min(factors, key=lambda x: abs(x[0] - x[1]))
-                        reshaped = data.reshape(h, w)
+                            reshaped = data.reshape(i, size // i)
+                            break
                     else:
-                        # 最后的备选方案：重塑为行向量
                         reshaped = data.reshape(1, -1)
         elif len(data.shape) == 2:
             reshaped = data
         else:
             raise ValueError(f"{name} 数据维度不支持: {data.shape}")
         
-        # 检查并限制图像尺寸
+        # 快速尺寸限制
         h, w = reshaped.shape
         if h > max_size or w > max_size:
-            print(f"Warning: {name} 图像尺寸 {h}x{w} 过大，将进行下采样到 {max_size}x{max_size}")
-            
-            # 计算下采样比例
-            scale_h = max_size / h if h > max_size else 1
-            scale_w = max_size / w if w > max_size else 1
-            scale = min(scale_h, scale_w)
-            
-            new_h = int(h * scale)
-            new_w = int(w * scale)
-            
-            # 使用简单的下采样方法
-            step_h = max(1, h // new_h)
-            step_w = max(1, w // new_w)
-            
+            # 使用更高效的下采样
+            step_h = max(1, h // max_size)
+            step_w = max(1, w // max_size)
             reshaped = reshaped[::step_h, ::step_w]
-            print(f"  下采样后尺寸: {reshaped.shape}")
-        
-        # 最终安全检查：确保尺寸不超过限制
-        h, w = reshaped.shape
-        if h > 65535 or w > 65535:
-            print(f"Error: {name} 图像尺寸 {h}x{w} 仍然过大，强制裁剪到 512x512")
-            reshaped = reshaped[:512, :512]
         
         return reshaped
     
     try:
-        input_2d = ensure_2d_and_limit_size(input_pressure, "input_pressure")
-        true_2d = ensure_2d_and_limit_size(true_pressure, "true_pressure")
-        pred_2d = ensure_2d_and_limit_size(predicted_pressure, "predicted_pressure")
+        # 使用优化的处理函数
+        input_2d = ensure_2d_and_optimize(input_pressure, "input_pressure")
+        true_2d = ensure_2d_and_optimize(true_pressure, "true_pressure")
+        pred_2d = ensure_2d_and_optimize(predicted_pressure, "predicted_pressure")
     except Exception as e:
         print(f"数据维度处理失败: {e}")
         return
 
-    # 创建图形，使用合理的尺寸
-    plt.figure(figsize=(18, 5))
-
-    # 输入压力图
-    plt.subplot(1, 3, 1)
-    try:
-        plt.imshow(input_2d, cmap='coolwarm', interpolation='nearest')
-        plt.colorbar()
-        plt.title(f"Input Pressure Matrix at t={time_step:.2f}")
-    except Exception as e:
-        print(f"绘制输入图像失败: {e}")
-        plt.text(0.5, 0.5, f"输入图像绘制失败\n{str(e)}", ha='center', va='center', transform=plt.gca().transAxes)
-
-    # 真实压力图
-    plt.subplot(1, 3, 2)
-    try:
-        plt.imshow(true_2d, cmap='coolwarm', interpolation='nearest')
-        plt.colorbar()
-        plt.title(f"True Pressure Matrix at t={time_step:.2f}")
-    except Exception as e:
-        print(f"绘制真实图像失败: {e}")
-        plt.text(0.5, 0.5, f"真实图像绘制失败\n{str(e)}", ha='center', va='center', transform=plt.gca().transAxes)
-
-    # 预测压力图
-    plt.subplot(1, 3, 3)
-    try:
-        plt.imshow(pred_2d, cmap='coolwarm', interpolation='nearest')
-        plt.colorbar()
-        plt.title(f"Predicted Pressure Matrix at t={time_step:.2f}")
-    except Exception as e:
-        print(f"绘制预测图像失败: {e}")
-        plt.text(0.5, 0.5, f"预测图像绘制失败\n{str(e)}", ha='center', va='center', transform=plt.gca().transAxes)
-
-    plt.tight_layout()
-
-    # 仅保存SVG矢量格式，减少磁盘占用
-    svg_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.svg")
-    try:
-        plt.savefig(svg_path, bbox_inches='tight', facecolor='white')
-        print(f"三联图已保存: {svg_path}")
-    except Exception as e:
-        print(f"保存三联图失败: {e}")
-        # 尝试保存为PNG格式作为备选
-        png_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.png")
-        try:
-            plt.savefig(png_path, bbox_inches='tight', facecolor='white', dpi=150)
-            print(f"三联图已保存为PNG: {png_path}")
-        except Exception as e2:
-            print(f"保存PNG格式也失败: {e2}")
+    # 优化图形创建，减少内存占用
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))  # 减小图形尺寸
     
-    plt.close()
-
-
-def plot_losses(train_loss, valid_loss, test_loss, save_path=None):
-    import matplotlib.pyplot as plt
-    if len(train_loss) == 0 or len(valid_loss) == 0 or len(test_loss) == 0:
-        print("Warning: 损失列表为空，无法绘制Loss曲线！")
+    # 使用更高效的绘图方式
+    try:
+        # 输入压力图
+        im1 = axes[0].imshow(input_2d, cmap='viridis', interpolation='bilinear')  # 使用更快的插值
+        axes[0].set_title(f"Input t={time_step:.2f}", fontsize=10)
+        plt.colorbar(im1, ax=axes[0], shrink=0.8)
+        
+        # 真实压力图
+        im2 = axes[1].imshow(true_2d, cmap='viridis', interpolation='bilinear')
+        axes[1].set_title(f"True t={time_step:.2f}", fontsize=10)
+        plt.colorbar(im2, ax=axes[1], shrink=0.8)
+        
+        # 预测压力图
+        im3 = axes[2].imshow(pred_2d, cmap='viridis', interpolation='bilinear')
+        axes[2].set_title(f"Predicted t={time_step:.2f}", fontsize=10)
+        plt.colorbar(im3, ax=axes[2], shrink=0.8)
+        
+    except Exception as e:
+        print(f"绘制图像失败: {e}")
         return
 
-    # 避免对数坐标出现非正值报错，做轻微修正
-    eps = 1e-12
-    train_vals = [max(float(x), eps) for x in train_loss]
-    valid_vals = [max(float(x), eps) for x in valid_loss]
-    test_vals = [max(float(x), eps) for x in test_loss]
+    # 优化布局
+    plt.tight_layout(pad=1.0)
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_vals, label='Train Loss')
-    plt.plot(valid_vals, label='Valid Loss')
-    plt.plot(test_vals, label='Test Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.yscale('log')  # 使用对数y轴
-    plt.title('Loss Curve (Log Scale)')
-    plt.legend()
-
-    if save_path:
-        # 将任何传入的路径转换为SVG后缀
-        import os
-        svg_path = os.path.splitext(save_path)[0] + ".svg"
-        plt.savefig(svg_path, bbox_inches='tight', facecolor='white')
-        print(f"Loss曲线已保存到: {svg_path}")
-    else:
-        plt.show()
-
-    plt.close()
+    # 优先保存PNG格式，性能更好
+    png_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.png")
+    try:
+        # 使用优化的保存参数
+        plt.savefig(png_path, dpi=100, bbox_inches='tight', 
+                   facecolor='white', edgecolor='none', 
+                   format='png', optimize=True)
+        print(f"三联图已保存: {png_path}")
+    except Exception as e:
+        print(f"保存PNG失败: {e}")
+        # 备选：保存为更简单的格式
+        try:
+            simple_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}_simple.png")
+            plt.savefig(simple_path, dpi=72, format='png')
+            print(f"简化版三联图已保存: {simple_path}")
+        except Exception as e2:
+            print(f"保存简化版也失败: {e2}")
+    
+    plt.close(fig)  # 明确关闭图形对象
 
 
-def plot_difference_figure(true_pressure, predicted_pressure, time_step, epoch, attention_type, idx, parent_dir="attention_results", mode="test"):
-    # 创建对应注意力机制的子文件夹
-    result_dir = os.path.join(parent_dir, attention_type, "difference_results")
+def plot_losses(train_losses, val_losses, attention_type, parent_dir="attention_results"):
+    """绘制训练和验证损失曲线，优化性能"""
+    result_dir = os.path.join(parent_dir, attention_type, "visualization_results")
+    os.makedirs(result_dir, exist_ok=True)
+    
+    # 优化图形创建
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    try:
+        # 使用更高效的绘图方式
+        epochs = range(1, len(train_losses) + 1)
+        ax.plot(epochs, train_losses, 'b-', label='Training Loss', linewidth=2)
+        ax.plot(epochs, val_losses, 'r-', label='Validation Loss', linewidth=2)
+        
+        ax.set_xlabel('Epoch', fontsize=12)
+        ax.set_ylabel('Loss', fontsize=12)
+        ax.set_title(f'{attention_type} - Training and Validation Loss', fontsize=14)
+        ax.legend(fontsize=11)
+        ax.grid(True, alpha=0.3)
+        
+        # 优化布局
+        plt.tight_layout()
+        
+        # 优先保存PNG格式
+        png_path = os.path.join(result_dir, "loss_curves.png")
+        plt.savefig(png_path, dpi=100, bbox_inches='tight', 
+                   facecolor='white', edgecolor='none', 
+                   format='png', optimize=True)
+        print(f"损失曲线图已保存: {png_path}")
+        
+    except Exception as e:
+        print(f"绘制损失曲线失败: {e}")
+    finally:
+        plt.close(fig)
+
+
+def plot_difference_figure(input_pressure, true_pressure, predicted_pressure, time_step, epoch, attention_type, idx, parent_dir="attention_results", mode="test"):
+    """绘制差异图，优化性能"""
+    result_dir = os.path.join(parent_dir, attention_type, "visualization_results")
     os.makedirs(result_dir, exist_ok=True)
 
-    # 计算差异（绝对误差）
-    difference = np.abs(true_pressure - predicted_pressure)
+    # 使用优化的数据处理函数
+    def ensure_2d_and_optimize(data, name, max_size=256):
+        """快速数据处理，优化性能"""
+        if len(data.shape) == 1:
+            size = data.shape[0]
+            # 快速形状推断
+            if size == 16384:
+                reshaped = data.reshape(128, 128)
+            elif size == 1024:
+                reshaped = data.reshape(32, 32)
+            else:
+                side_len = int(np.sqrt(size))
+                if side_len * side_len == size:
+                    reshaped = data.reshape(side_len, side_len)
+                else:
+                    # 简化的因子分解
+                    for i in range(int(np.sqrt(size)), 0, -1):
+                        if size % i == 0:
+                            reshaped = data.reshape(i, size // i)
+                            break
+                    else:
+                        reshaped = data.reshape(1, -1)
+        elif len(data.shape) == 2:
+            reshaped = data
+        else:
+            raise ValueError(f"{name} 数据维度不支持: {data.shape}")
+        
+        # 快速尺寸限制
+        h, w = reshaped.shape
+        if h > max_size or w > max_size:
+            # 使用更高效的下采样
+            step_h = max(1, h // max_size)
+            step_w = max(1, w // max_size)
+            reshaped = reshaped[::step_h, ::step_w]
+        
+        return reshaped
+    
+    try:
+        # 使用优化的处理函数
+        input_2d = ensure_2d_and_optimize(input_pressure, "input_pressure")
+        true_2d = ensure_2d_and_optimize(true_pressure, "true_pressure")
+        pred_2d = ensure_2d_and_optimize(predicted_pressure, "predicted_pressure")
+        
+        # 计算差异
+        diff = true_2d - pred_2d
+    except Exception as e:
+        print(f"数据维度处理失败: {e}")
+        return
 
-    plt.figure(figsize=(6, 5))
-    plt.imshow(difference, cmap='hot', interpolation='nearest')
-    plt.colorbar()
-    plt.title(f"Difference (|True - Predicted|) at t={time_step:.2f}")
+    # 优化图形创建
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+    
+    try:
+        # 输入压力图
+        im1 = axes[0].imshow(input_2d, cmap='viridis', interpolation='bilinear')
+        axes[0].set_title(f"Input t={time_step:.2f}", fontsize=10)
+        plt.colorbar(im1, ax=axes[0], shrink=0.8)
+        
+        # 真实压力图
+        im2 = axes[1].imshow(true_2d, cmap='viridis', interpolation='bilinear')
+        axes[1].set_title(f"True t={time_step:.2f}", fontsize=10)
+        plt.colorbar(im2, ax=axes[1], shrink=0.8)
+        
+        # 预测压力图
+        im3 = axes[2].imshow(pred_2d, cmap='viridis', interpolation='bilinear')
+        axes[2].set_title(f"Predicted t={time_step:.2f}", fontsize=10)
+        plt.colorbar(im3, ax=axes[2], shrink=0.8)
+        
+        # 差异图
+        im4 = axes[3].imshow(diff, cmap='RdBu', interpolation='bilinear')
+        axes[3].set_title(f"Difference t={time_step:.2f}", fontsize=10)
+        plt.colorbar(im4, ax=axes[3], shrink=0.8)
+        
+    except Exception as e:
+        print(f"绘制图像失败: {e}")
+        return
 
-    plt.tight_layout()
+    # 优化布局
+    plt.tight_layout(pad=1.0)
 
-    # 仅保存SVG矢量格式，减少磁盘占用
-    svg_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}_difference.svg")
-    plt.savefig(svg_path, bbox_inches='tight', facecolor='white')
-    plt.close()
+    # 优先保存PNG格式
+    png_path = os.path.join(result_dir, f"{mode}_diff_epoch_{epoch}_sample_{idx}.png")
+    try:
+        plt.savefig(png_path, dpi=100, bbox_inches='tight', 
+                   facecolor='white', edgecolor='none', 
+                   format='png', optimize=True)
+        print(f"差异图已保存: {png_path}")
+    except Exception as e:
+        print(f"保存差异图失败: {e}")
+    
+    plt.close(fig)
 
 
 def create_model_comparison_plots(results, output_dir="visualization_results", timestamp=None):

@@ -77,20 +77,57 @@ def get_loaders(data_path, batch_size, train_ratio=0.7, valid_ratio=0.15, test_r
     else:
         raise ValueError(f"不支持的数据集类型: {dataset_type}")
     
-    logger.info(f"数据集大小: {len(dataset)} (type={dataset_type})")
+    # 打印数据集基本信息
+    logger.info(f"="*60)
+    logger.info(f"数据集加载信息 (Dataset Loading Information)")
+    logger.info(f"="*60)
+    logger.info(f"数据集类型 (Dataset Type): {dataset_type}")
+    logger.info(f"原始数据集大小 (Original Dataset Size): {len(dataset)} 个样本")
+    
+    # 获取并打印数据维度信息
+    try:
+        if len(dataset) > 0:
+            sample_data = dataset[0]
+            if isinstance(sample_data, (tuple, list)) and len(sample_data) >= 2:
+                input_data, target_data = sample_data[0], sample_data[1]
+                input_shape = input_data.shape if hasattr(input_data, 'shape') else len(input_data)
+                target_shape = target_data.shape if hasattr(target_data, 'shape') else len(target_data)
+                logger.info(f"输入数据维度 (Input Data Shape): {input_shape}")
+                logger.info(f"目标数据维度 (Target Data Shape): {target_shape}")
+                
+                # 计算数据大小
+                input_size = input_data.numel() if hasattr(input_data, 'numel') else len(input_data)
+                target_size = target_data.numel() if hasattr(target_data, 'numel') else len(target_data)
+                logger.info(f"输入数据元素数量 (Input Data Elements): {input_size}")
+                logger.info(f"目标数据元素数量 (Target Data Elements): {target_size}")
+            else:
+                logger.info(f"样本数据格式: {type(sample_data)}")
+    except Exception as e:
+        logger.warning(f"获取数据维度信息时出错: {e}")
     
     # 通用的 max_samples 支持：对任意数据集进行子集限制
     if max_samples is not None and max_samples > 0 and len(dataset) > max_samples:
         indices = list(range(max_samples))
         dataset = Subset(dataset, indices)
-        logger.info(f"已应用 max_samples={max_samples}，限制后数据集大小: {len(dataset)}")
+        logger.info(f"已应用 max_samples={max_samples}，限制后数据集大小: {len(dataset)} 个样本")
     
-    # 如果是PDEBench数据集，打印统计信息
+    # 如果是PDEBench数据集，打印详细统计信息
     if isinstance(getattr(dataset, 'dataset', dataset), PDEBenchDataset):
         # 兼容 Subset 包裹的情况
         base_ds = dataset.dataset if isinstance(dataset, Subset) else dataset
         stats = base_ds.get_data_statistics()
-        logger.info(f"数据集统计: {stats}")
+        logger.info(f"PDEBench数据集详细统计:")
+        logger.info(f"  - 总样本数: {stats['total_samples']}")
+        logger.info(f"  - 文件数量: {stats['unique_files']}")
+        logger.info(f"  - 数据形状: {stats['data_shapes']}")
+        
+        # 验证是否为10000个样本的真实数据
+        if stats['total_samples'] == 10000:
+            logger.info(f"✓ 确认: 这是包含10000个样本的真实数据集!")
+        elif stats['total_samples'] > 10000:
+            logger.info(f"ℹ️ 注意: 数据集包含{stats['total_samples']}个样本，超过预期的10000个")
+        else:
+            logger.info(f"⚠️ 注意: 数据集只包含{stats['total_samples']}个样本，少于预期的10000个")
     
     total_size = len(dataset)
     train_size = int(train_ratio * total_size)
@@ -105,6 +142,15 @@ def get_loaders(data_path, batch_size, train_ratio=0.7, valid_ratio=0.15, test_r
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
     
-    logger.info(f"训练集: {len(train_dataset)}, 验证集: {len(valid_dataset)}, 测试集: {len(test_dataset)}")
+    # 打印数据分割信息
+    logger.info(f"="*60)
+    logger.info(f"数据分割信息 (Data Split Information)")
+    logger.info(f"="*60)
+    logger.info(f"训练集 (Training Set): {len(train_dataset)} 个样本 ({len(train_loader)} 个批次)")
+    logger.info(f"验证集 (Validation Set): {len(valid_dataset)} 个样本 ({len(valid_loader)} 个批次)")
+    logger.info(f"测试集 (Test Set): {len(test_dataset)} 个样本 ({len(test_loader)} 个批次)")
+    logger.info(f"批次大小 (Batch Size): {batch_size}")
+    logger.info(f"数据分割比例 - 训练:验证:测试 = {train_ratio}:{valid_ratio}:{test_ratio}")
+    logger.info(f"="*60)
     
     return train_loader, valid_loader, test_loader

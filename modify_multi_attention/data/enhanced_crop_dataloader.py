@@ -70,8 +70,29 @@ class EnhancedCropDataset(Dataset):
         logger.info(f"加载数据: {self.data_path}")
         
         with h5py.File(self.data_path, 'r') as f:
-            if 'tensor' in f:
-                tensor_data = f['tensor']
+            # 尝试多种可能的键名
+            possible_keys = ['input', 'data', 'tensor', 'x', 'inputs']
+            found_key = None
+            
+            # 首先列出所有可用的键
+            available_keys = list(f.keys())
+            logger.info(f"数据文件中的键: {available_keys}")
+            
+            # 尝试找到合适的键
+            for key in possible_keys:
+                if key in f:
+                    found_key = key
+                    break
+            
+            # 如果没找到预期的键，使用第一个可用的键
+            if found_key is None and available_keys:
+                found_key = available_keys[0]
+                logger.info(f"使用第一个可用键: {found_key}")
+            
+            if found_key:
+                tensor_data = f[found_key]
+                logger.info(f"使用数据键: {found_key}，数据形状: {tensor_data.shape}")
+                
                 if self.num_samples is None:
                     # 使用全量数据
                     actual_samples = tensor_data.shape[0]
@@ -116,7 +137,7 @@ class EnhancedCropDataset(Dataset):
                 
                 return inputs_flat, outputs_flat
             else:
-                raise ValueError("数据文件中未找到'tensor'键")
+                raise ValueError(f"数据文件中未找到合适的数据键。可用键: {available_keys}，尝试的键: {possible_keys}")
     
     def _apply_normalization(self, inputs, outputs):
         """
@@ -490,9 +511,28 @@ def create_enhanced_crop_dataloader(config):
         try:
             import h5py
             with h5py.File(data_path, 'r') as f:
-                if 'input' in f:
-                    num_samples = f['input'].shape[0]
-                    logger.info(f"从数据文件获取全量样本数: {num_samples}")
+                # 尝试多种可能的键名
+                possible_keys = ['input', 'data', 'tensor', 'x', 'inputs']
+                found_key = None
+                
+                # 首先列出所有可用的键
+                available_keys = list(f.keys())
+                logger.info(f"数据文件中的键: {available_keys}")
+                
+                # 尝试找到合适的键
+                for key in possible_keys:
+                    if key in f:
+                        found_key = key
+                        break
+                
+                # 如果没找到预期的键，使用第一个可用的键
+                if found_key is None and available_keys:
+                    found_key = available_keys[0]
+                    logger.info(f"使用第一个可用键: {found_key}")
+                
+                if found_key:
+                    num_samples = f[found_key].shape[0]
+                    logger.info(f"从数据文件获取全量样本数: {num_samples} (使用键: {found_key})")
                 else:
                     num_samples = 1000  # 默认值
                     logger.warning(f"无法从数据文件获取样本数，使用默认值: {num_samples}")

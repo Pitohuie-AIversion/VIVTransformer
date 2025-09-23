@@ -1,0 +1,367 @@
+# 自适应训练配置文件
+# 自动检测硬件并应用最大化资源利用策略
+# 适用于任何硬件环境的自适应训练
+# 创建时间: 2025-01-24
+
+# 实验配置
+experiment:
+  name: "auto_adaptive_training_experiment"
+  description: "完全自适应的训练实验 - 自动检测硬件并最大化利用"
+  mode: "multi_model_comparison"  # 可选: single_model, multi_model_comparison, parameter_fair_comparison, loss_comparison
+  output_dir: "adaptive_training_results"
+  seed: 42
+  deterministic: true
+  log_level: "INFO"
+  save_intermediate: true
+  version: "2.0"
+  tags: ["auto_adaptive", "max_utilization", "hardware_agnostic"]
+
+# 硬件自适应资源管理配置
+adaptive_resources:
+  # 启用完整的自适应优化
+  enable_adaptive: true
+  
+  # 硬件检测配置
+  hardware_detection:
+    auto_detect: true
+    force_gpu_check: true
+    force_cpu_check: true
+    force_memory_check: true
+    detection_timeout: 30       # 硬件检测超时时间(秒)
+    memory_safety_margin: 0.1   # 保留10%内存作为安全边际(更激进)
+    gpu_memory_safety_margin: 0.15  # GPU内存安全边际
+    cpu_reserve_cores: "auto"   # 自动计算保留核心数
+  
+  # 批次大小自适应配置 - 最大化利用
+  batch_size_adaptation:
+    enable: true
+    strategy: "max_utilization"  # 新增最大化利用策略
+    auto_detect_optimal: true
+    base_batch_size: "auto"     # 自动检测基础批次大小
+    min_batch_size: 1           # 最小批次大小
+    max_batch_size: 512         # 更大的上限，由硬件决定实际值
+    memory_threshold: 0.9       # 更激进的GPU内存使用阈值
+    oom_recovery: true          # 启用OOM恢复机制
+    dynamic_scaling: true       # 动态缩放
+    dynamic_adjustment: true    # 训练过程中动态调整
+    
+    # 模型复杂度映射
+    model_complexity_map:
+      mlp: "simple"             # MLP使用简单策略
+      transformer: "medium"     # Transformer使用中等策略
+      fno: "complex"            # FNO使用复杂策略
+      unet: "complex"           # UNet使用复杂策略
+  
+  # 数据加载器自适应配置 - 最大化利用
+  dataloader_adaptation:
+    enable: true
+    strategy: "max_utilization"  # 新增最大化利用策略
+    auto_detect_optimal: true
+    base_workers: "auto"        # 自动检测基础工作进程数
+    min_workers: 0              # 最小工作进程数
+    max_workers: 128            # 更大的上限，由CPU核心数决定实际值
+    cpu_threshold: 0.9          # 更激进的CPU使用阈值
+    prefetch_factor: 4          # 预取因子
+    persistent_workers: true    # 持久化工作进程
+    dynamic_adjustment: true    # 训练过程中动态调整
+    
+    # 数据复杂度映射
+    data_complexity_map:
+      crop_center: "medium"     # 中心裁剪
+      crop_random: "complex"    # 随机裁剪
+      normalize: "medium"       # 归一化处理
+  
+  # 自动优化策略
+  optimization_strategy:
+    target: "max_performance"   # max_performance, balanced, memory_efficient
+    auto_mixed_precision: true  # 自动混合精度
+    gradient_checkpointing: "auto"  # 自动梯度检查点
+    compile_model: "auto"       # 自动模型编译优化
+    pin_memory: "auto"          # 自动内存固定
+    non_blocking: true          # 非阻塞数据传输
+  
+  # 内存监控和管理
+  memory_monitoring:
+    enable: true
+    cleanup_frequency: "adaptive"  # adaptive, per_epoch, per_model, manual
+    cleanup_threshold: 0.80        # 内存使用超过80%时清理
+    log_frequency: "detailed"      # minimal, normal, detailed
+    gpu_memory_tracking: true      # GPU内存跟踪
+    system_memory_tracking: true   # 系统内存跟踪
+    
+    # 自动清理策略
+    auto_cleanup:
+      enable: true
+      interval_epochs: 5         # 每5轮清理一次
+      force_cleanup_threshold: 0.90  # 强制清理阈值
+      clear_cache_between_models: true  # 模型间清理缓存
+
+# 数据配置
+data:
+  dataset_name: "auto_detect"  # 自动检测数据集
+  data_path: "auto"  # 自动查找数据路径
+  max_samples: "auto"  # 自动确定样本数量
+  
+  # 数据预处理
+  preprocessing:
+    normalize: "auto"  # 自动选择归一化方法
+    augmentation: "auto"  # 自动数据增强
+    cache_data: "auto"  # 自动缓存策略
+    
+  # 数据分割
+  split:
+    train_ratio: 0.8
+    val_ratio: 0.1
+    test_ratio: 0.1
+    random_seed: 42
+
+# 训练配置
+training:
+  # 基础训练参数 - 自适应设置
+  epochs: "auto"  # 自动确定训练轮数
+  learning_rate: "auto"  # 自动学习率
+  weight_decay: "auto"  # 自动权重衰减
+  
+  # 优化器配置
+  optimizer:
+    type: "auto"  # 自动选择优化器 (AdamW, Adam, SGD)
+    betas: [0.9, 0.999]
+    eps: 1e-8
+    amsgrad: false
+    
+  # 学习率调度器
+  scheduler:
+    type: "auto"  # 自动选择调度器
+    patience: "auto"
+    factor: 0.5
+    min_lr: 1e-7
+    
+  # 早停策略
+  early_stopping:
+    enable: true
+    patience: "auto"  # 自动确定耐心值
+    min_delta: 1e-6
+    monitor: "val_loss"
+    mode: "min"
+
+# 损失函数配置
+loss:
+  primary_loss: "auto"  # 自动选择主损失函数
+  loss_weights: "auto"  # 自动权重分配
+  
+  # 可用损失函数
+  available_losses:
+    - "mse"
+    - "mae" 
+    - "huber"
+    - "smooth_l1"
+    - "relative_l2"
+    - "spectral"
+    - "gradient"
+    - "combined"
+
+# 模型配置
+models:
+  # 自动模型选择
+  auto_select: true
+  selection_criteria: "performance"  # performance, speed, memory
+  
+  # Transformer配置
+  transformer:
+    enable: true
+    d_model: "auto"  # 自动确定模型维度
+    nhead: "auto"    # 自动确定注意力头数
+    num_layers: "auto"  # 自动确定层数
+    dim_feedforward: "auto"
+    dropout: "auto"
+    
+  # MLP配置  
+  mlp:
+    enable: true
+    hidden_dims: "auto"  # 自动确定隐藏层维度
+    num_layers: "auto"
+    activation: "auto"
+    dropout: "auto"
+    
+  # UNet配置
+  unet:
+    enable: true
+    channels: "auto"
+    depth: "auto"
+    
+  # FNO配置
+  fno:
+    enable: true
+    modes: "auto"
+    width: "auto"
+
+# 注意力机制配置
+attention:
+  # 自动注意力选择
+  auto_select: true
+  selection_strategy: "performance"  # performance, efficiency, memory
+  
+  # 可用注意力机制
+  available_mechanisms:
+    - "self"
+    - "cross"
+    - "multi_head"
+    - "sparse"
+    - "efficient"
+    
+  # 注意力参数
+  parameters:
+    dropout: "auto"
+    temperature: "auto"
+    use_bias: "auto"
+
+# 评估配置
+evaluation:
+  metrics: "auto"  # 自动选择评估指标
+  save_predictions: true
+  save_attention_maps: "auto"
+  
+  # 可用指标
+  available_metrics:
+    - "mse"
+    - "mae"
+    - "rmse"
+    - "relative_error"
+    - "correlation"
+    - "spectral_loss"
+
+# 对比实验配置
+comparison:
+  enable: true
+  compare_models: "auto"  # 自动选择对比模型
+  compare_losses: "auto"  # 自动选择对比损失
+  compare_attention: "auto"  # 自动选择对比注意力
+  
+  # 公平对比设置
+  fair_comparison:
+    normalize_parameters: true
+    same_data_split: true
+    same_random_seed: true
+    same_hardware: true
+
+# 系统资源配置
+system:
+  device: "auto"  # 自动检测设备
+  mixed_precision: "auto"  # 自动混合精度
+  gradient_clipping: "auto"  # 自动梯度裁剪
+  
+  # 内存管理
+  memory_management:
+    enable: true
+    cleanup_frequency: "auto"
+    garbage_collection: "auto"
+    
+  # 并行计算
+  parallel:
+    data_parallel: "auto"
+    model_parallel: "auto"
+    distributed: "auto"
+
+# 输出配置
+output:
+  save_model: true
+  save_predictions: true
+  save_metrics: true
+  save_plots: true
+  save_config: true
+  
+  # 结果导出
+  export_formats: ["json", "csv", "png", "pdf"]
+  
+  # 可视化
+  visualization:
+    loss_curves: true
+    attention_maps: "auto"
+    prediction_samples: "auto"
+    model_architecture: true
+
+# 调试配置
+debug:
+  enable: false
+  verbose: "auto"
+  save_debug_info: "auto"
+  
+  # 性能分析
+  profiling:
+    enable: "auto"
+    memory_profiling: "auto"
+    time_profiling: "auto"
+
+# 预设配置模板
+presets:
+  # 快速测试模式
+  quick_test:
+    training:
+      epochs: 2
+      max_samples: 100
+    system:
+      device: "auto"
+    adaptive_resources:
+      batch_size_adaptation:
+        strategy: "conservative"
+      dataloader_adaptation:
+        strategy: "conservative"
+        
+  # 完整训练模式  
+  full_training:
+    training:
+      epochs: "auto"
+      max_samples: "auto"
+    adaptive_resources:
+      batch_size_adaptation:
+        strategy: "max_utilization"
+      dataloader_adaptation:
+        strategy: "max_utilization"
+        
+  # 内存保守模式
+  memory_conservative:
+    adaptive_resources:
+      batch_size_adaptation:
+        strategy: "conservative"
+        memory_threshold: 0.7
+      dataloader_adaptation:
+        strategy: "conservative"
+        max_workers: 4
+    system:
+      mixed_precision: true
+      gradient_checkpointing: true
+      
+  # 速度优化模式
+  speed_optimized:
+    adaptive_resources:
+      batch_size_adaptation:
+        strategy: "max_utilization"
+        memory_threshold: 0.95
+      dataloader_adaptation:
+        strategy: "max_utilization"
+        cpu_threshold: 0.95
+    system:
+      mixed_precision: true
+      compile_model: true
+
+# 硬件特定优化 - 自动检测应用
+hardware_optimizations:
+  auto_apply: true
+  
+  # GPU优化
+  gpu:
+    auto_detect: true
+    tensor_cores: "auto"
+    memory_format: "auto"
+    
+  # CPU优化  
+  cpu:
+    auto_detect: true
+    threading: "auto"
+    vectorization: "auto"
+    
+  # 内存优化
+  memory:
+    auto_detect: true
+    page_locking: "auto"
+    numa_optimization: "auto"

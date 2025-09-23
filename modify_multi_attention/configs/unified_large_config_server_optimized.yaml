@@ -12,7 +12,7 @@ experiment:
   log_level: "INFO"
   save_intermediate: true
 
-# 数据配置 - 服务器大容量优化
+# 数据配置 - 高显存利用率优化
 data:
   # 数据路径和基本设置
   data_path: "X:/2025/Graduation_project/report/data/pdebench/2D/DarcyFlow/2D_DarcyFlow_beta0.01_Train.hdf5"
@@ -29,8 +29,8 @@ data:
   normalize: true
   remove_channel_dim: true
   
-  # 数据集分割 - 大容量训练模式
-  batch_size: 64  # 充分利用GPU显存，从日志看64是合适的
+  # 数据集分割 - 高显存利用率模式
+  batch_size: 128  # 大幅增加批次大小以充分利用44.3GB显存
   val_split: 0.2
   test_split: 0.1
   max_samples: null  # 使用全部数据
@@ -39,7 +39,7 @@ data:
   num_workers: 32  # 利用服务器多核优势，从日志看32是最优的
   pin_memory: true  # 启用内存锁定加速GPU传输
   shuffle: true
-  prefetch_factor: 8  # 预取因子，提高数据加载效率
+  prefetch_factor: 16  # 增大预取因子，更充分利用内存
   persistent_workers: true  # 持久化工作进程，减少启动开销
 
 # 训练配置 - 大规模训练模式
@@ -95,16 +95,16 @@ models:
   # 当前激活的模型 (single_model模式使用)
   active_model: "transformer"
   
-  # 所有可用模型配置 - 充分利用GPU显存
+  # 所有可用模型配置 - 高显存利用率优化
   transformer:
     model_type: "transformer"
     input_dim: 1024
     output_dim: 16384
-    d_model: 512  # 增大模型维度，充分利用GPU显存
-    num_heads: 8  # 增加注意力头数
-    num_layers: 6  # 增加层数，提高模型容量
+    d_model: 1024  # 大幅增加模型维度，充分利用显存
+    num_heads: 16  # 增加注意力头数
+    num_layers: 12  # 大幅增加层数
     dropout: 0.1  # 适当的dropout防止过拟合
-    seq_len: 64  # 增加序列长度
+    seq_len: 128  # 增加序列长度，提高显存利用率
     pe_type: "sinusoidal_1d"
     use_memory_film: true  # 启用增强功能
     max_time_steps: 100
@@ -115,7 +115,7 @@ models:
     model_type: "mlp"
     input_dim: 1024
     output_dim: 16384
-    hidden_dims: [2048, 1024, 512]  # 增大隐藏层维度
+    hidden_dims: [4096, 2048, 1024, 512]  # 大幅增大隐藏层维度
     activation: "relu"
     dropout: 0.1
     use_batch_norm: true
@@ -125,17 +125,17 @@ models:
     model_type: "unet"
     input_dim: 1024
     output_dim: 16384
-    base_channels: 64  # 增加基础通道数
-    num_levels: 4  # 增加层级数
+    base_channels: 128  # 大幅增加基础通道数
+    num_levels: 6  # 增加层级数
     dropout: 0.1
   
   fno:
     model_type: "fno"
     input_dim: 1024
     output_dim: 16384
-    modes: 16  # 增加模式数
-    width: 128  # 增加宽度
-    num_layers: 4  # 增加层数
+    modes: 32  # 大幅增加模式数
+    width: 256  # 大幅增加宽度
+    num_layers: 8  # 增加层数
     dropout: 0.1
 
 # 注意力机制配置 - 支持多种注意力类型
@@ -200,18 +200,26 @@ system:
     max_memory_usage: 0.9  # 充分利用GPU显存，从日志看90%是安全的
     gpu_memory_fraction: 0.9  # GPU显存使用比例
   
-  # 批次大小自适应 - 大显存优化
+  # 批次大小自适应 - 高显存利用率优化
   adaptive_batch_size:
     enabled: true
-    min_batch_size: 32
-    max_batch_size: 128  # 增大最大批次大小
-    memory_threshold: 0.85
+    min_batch_size: 64
+    max_batch_size: 256  # 大幅增大最大批次大小
+    memory_threshold: 0.95  # 提高内存阈值，更充分利用显存
+    auto_scale: true  # 启用自动缩放
   
   # CPU优化 - 利用192核心
   cpu_optimization:
     num_threads: 190  # 从日志看190个线程是最优的
     omp_num_threads: 32
     mkl_num_threads: 32
+  
+  # GPU优化 - 高显存利用率
+  gpu_optimization:
+    memory_fraction: 0.98  # 使用98%的GPU显存
+    allow_growth: false  # 预分配显存，避免碎片化
+    enable_tensor_core: true  # 启用Tensor Core加速
+    mixed_precision_level: "O2"  # 更激进的混合精度
 
 # 输出配置
 output:
@@ -259,22 +267,29 @@ presets:
       visualization:
         interval: 10
   
-  # 服务器超大模型训练
-  server_ultra_large:
+  # 服务器超高显存利用率训练
+  server_ultra_memory:
     training:
       epochs: 1000
-      batch_size: 32  # 减小批次大小以支持更大模型
+      batch_size: 256  # 超大批次大小
     data:
       max_samples: null
       num_workers: 32
+      prefetch_factor: 32  # 超大预取因子
     models:
       transformer:
-        d_model: 1024
-        num_heads: 16
-        num_layers: 12
+        d_model: 2048  # 超大模型维度
+        num_heads: 32  # 超多注意力头
+        num_layers: 24  # 超深网络
+        seq_len: 256  # 超长序列
+    system:
+      memory_management:
+        max_memory_usage: 0.98
+      adaptive_batch_size:
+        max_batch_size: 512
     evaluation:
       visualization:
-        interval: 20
+        interval: 50
   
   # 服务器快速验证
   server_quick_validation:
@@ -309,9 +324,13 @@ server_config:
     use_gradient_checkpointing: false  # 大显存下可以关闭
     use_cpu_offload: false  # 大显存下不需要CPU卸载
   
-  # 监控配置
+  # 监控配置 - 显存利用率优化
   monitoring:
     log_gpu_memory: true
     log_cpu_usage: true
     save_system_metrics: true
-    alert_memory_threshold: 0.95
+    alert_memory_threshold: 0.98  # 提高警报阈值
+    memory_profiling: true  # 启用内存分析
+    auto_memory_optimization: true  # 自动内存优化
+    dynamic_batch_adjustment: true  # 动态批次调整
+    memory_usage_target: 0.95  # 目标显存使用率95%

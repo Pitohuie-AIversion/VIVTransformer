@@ -117,37 +117,37 @@ data:
 
 # 训练配置
 training:
-  # 基础训练参数 - 自适应设置
-  epochs: "auto"  # 自动确定训练轮数
-  learning_rate: "auto"  # 自动学习率
-  weight_decay: "auto"  # 自动权重衰减
+  # 基础训练参数 - 具体设置
+  epochs: 10  # 训练轮数
+  learning_rate: 0.001  # 学习率
+  weight_decay: 0.0001  # 权重衰减
   
   # 优化器配置
   optimizer:
-    type: "auto"  # 自动选择优化器 (AdamW, Adam, SGD)
+    type: "adam"  # 优化器类型
     betas: [0.9, 0.999]
     eps: 1e-8
     amsgrad: false
     
   # 学习率调度器
   scheduler:
-    type: "auto"  # 自动选择调度器
-    patience: "auto"
+    type: "reduce_on_plateau"  # 调度器类型
+    patience: 5
     factor: 0.5
     min_lr: 1e-7
     
   # 早停策略
   early_stopping:
     enable: true
-    patience: "auto"  # 自动确定耐心值
+    patience: 10  # 耐心值
     min_delta: 1e-6
     monitor: "val_loss"
     mode: "min"
 
 # 损失函数配置
 loss:
-  primary_loss: "auto"  # 自动选择主损失函数
-  loss_weights: "auto"  # 自动权重分配
+  primary_loss: "mse"  # 主损失函数
+  loss_weights: [1.0]  # 损失权重
   
   # 可用损失函数
   available_losses:
@@ -162,38 +162,21 @@ loss:
 
 # 模型配置
 models:
-  # 自动模型选择
-  auto_select: true
-  selection_criteria: "performance"  # performance, speed, memory
-  
-  # Transformer配置
+  # Transformer配置 - 主要训练模型
   transformer:
-    enable: true
-    d_model: "auto"  # 自动确定模型维度
-    nhead: "auto"    # 自动确定注意力头数
-    num_layers: "auto"  # 自动确定层数
-    dim_feedforward: "auto"
-    dropout: "auto"
-    
-  # MLP配置  
-  mlp:
-    enable: true
-    hidden_dims: "auto"  # 自动确定隐藏层维度
-    num_layers: "auto"
-    activation: "auto"
-    dropout: "auto"
-    
-  # UNet配置
-  unet:
-    enable: true
-    channels: "auto"
-    depth: "auto"
-    
-  # FNO配置
-  fno:
-    enable: true
-    modes: "auto"
-    width: "auto"
+    model_type: 'custom_transformer'
+    d_model: 64  # 模型维度
+    num_heads: 8  # 注意力头数
+    num_layers: 6  # 层数
+    dropout: 0.1
+    attention_type: 'simplified_self'  # 注意力类型
+    seq_len: 64  # 序列长度
+    pe_type: 'learnable_1d'
+    output_head_type: 'global'
+    time_encoding: 'embedding'
+    use_memory_film: true
+    use_memory_concat: false
+    max_time_steps: 100
 
 # 注意力机制配置
 attention:
@@ -246,7 +229,7 @@ comparison:
   # 多模型对比
   multi_model:
     enabled: true
-    models: "auto"  # 自动选择模型
+    models: ["transformer"]  # 指定要训练的模型列表
     generate_report: true
     generate_plots: true
   

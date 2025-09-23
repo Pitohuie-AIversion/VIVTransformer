@@ -1,0 +1,317 @@
+# 服务器大容量训练优化配置文件
+# 针对服务器硬件配置优化：192 CPU核心，2x NVIDIA L40 (44.3GB显存)
+# 支持: 单模型训练、多模型对比、参数量公平对比、损失函数对比等
+
+# 实验配置
+experiment:
+  name: "server_large_scale_training"
+  mode: "multi_model_comparison"  # 可选: single_model, multi_model_comparison, parameter_fair_comparison, loss_comparison
+  output_dir: "server_training_results"
+  seed: 42
+  deterministic: true
+  log_level: "INFO"
+  save_intermediate: true
+
+# 数据配置 - 服务器大容量优化
+data:
+  # 数据路径和基本设置
+  data_path: "X:/2025/Graduation_project/report/data/pdebench/2D/DarcyFlow/2D_DarcyFlow_beta0.01_Train.hdf5"
+  input_dim: 1024      # 32x32输入
+  output_dim: 16384    # 128x128输出
+  
+  # 分辨率设置
+  input_resolution: [32, 32]
+  output_resolution: [128, 128]
+  output_channels: 1
+  
+  # 数据处理
+  crop_mode: "center"
+  normalize: true
+  remove_channel_dim: true
+  
+  # 数据集分割 - 大容量训练模式
+  batch_size: 64  # 充分利用GPU显存，从日志看64是合适的
+  val_split: 0.2
+  test_split: 0.1
+  max_samples: null  # 使用全部数据
+  
+  # 数据加载器 - 服务器优化
+  num_workers: 32  # 利用服务器多核优势，从日志看32是最优的
+  pin_memory: true  # 启用内存锁定加速GPU传输
+  shuffle: true
+  prefetch_factor: 8  # 预取因子，提高数据加载效率
+  persistent_workers: true  # 持久化工作进程，减少启动开销
+
+# 训练配置 - 大规模训练模式
+training:
+  epochs: 550  # 从日志看服务器配置支持长时间训练
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  
+  # 学习率调度
+  scheduler: "cosine"
+  warmup_epochs: 10  # 适当的预热阶段
+  
+  # 早停配置
+  early_stopping:
+    patience: 20  # 更大的耐心值适合长时间训练
+    min_delta: 0.0001
+  
+  # 检查点配置
+  checkpoint:
+    save_best: true
+    save_interval: 50  # 定期保存，避免过于频繁
+    save_last: true
+  
+  # 设备配置 - 多GPU优化
+  device: "cuda"  # 使用GPU加速
+  mixed_precision: true  # 启用混合精度训练，节省显存
+  use_dataparallel: true  # 启用多GPU并行训练
+  gradient_accumulation_steps: 4  # 梯度累积，从日志看服务器支持
+  gradient_clip_norm: 0.5  # 梯度裁剪，从日志看已启用
+
+# 损失函数配置
+loss:
+  # 基础损失
+  mse_weight: 1.0
+  l1_weight: 0.0
+  
+  # 高级损失
+  ssim_weight: 0.0
+  perceptual_weight: 0.0
+  gradient_weight: 0.0
+  frequency_weight: 0.0
+  
+  # SVD损失配置 - 可选启用
+  svd_loss:
+    enabled: false  # 从日志看SVD损失被禁用以节省计算资源
+    base_weight: 0.7
+    svd_weights: [0.1, 0.1, 0.05, 0.03, 0.02]
+    topk: 5
+
+# 模型配置 - 大容量优化
+models:
+  # 当前激活的模型 (single_model模式使用)
+  active_model: "transformer"
+  
+  # 所有可用模型配置 - 充分利用GPU显存
+  transformer:
+    model_type: "transformer"
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 512  # 增大模型维度，充分利用GPU显存
+    num_heads: 8  # 增加注意力头数
+    num_layers: 6  # 增加层数，提高模型容量
+    dropout: 0.1  # 适当的dropout防止过拟合
+    seq_len: 64  # 增加序列长度
+    pe_type: "sinusoidal_1d"
+    use_memory_film: true  # 启用增强功能
+    max_time_steps: 100
+    output_head_type: "global"
+    time_encoding: "embedding"
+  
+  mlp:
+    model_type: "mlp"
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [2048, 1024, 512]  # 增大隐藏层维度
+    activation: "relu"
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: true  # 启用残差连接
+  
+  unet:
+    model_type: "unet"
+    input_dim: 1024
+    output_dim: 16384
+    base_channels: 64  # 增加基础通道数
+    num_levels: 4  # 增加层级数
+    dropout: 0.1
+  
+  fno:
+    model_type: "fno"
+    input_dim: 1024
+    output_dim: 16384
+    modes: 16  # 增加模式数
+    width: 128  # 增加宽度
+    num_layers: 4  # 增加层数
+    dropout: 0.1
+
+# 注意力机制配置 - 支持多种注意力类型
+attention:
+  type: "self"  # 默认使用self注意力
+  
+  # 多注意力对比模式 - 服务器可以支持更多类型
+  comparison_types: ["self", "sge", "cbam", "se"]  # 从日志看sge注意力被使用
+
+# 评估配置 - 大规模训练模式
+evaluation:
+  # 评估指标 - 完整指标集
+  metrics: ["mse", "mae", "rmse", "psnr", "ssim"]
+  
+  # 可视化配置
+  visualization:
+    enabled: true
+    interval: 10  # 适当的可视化间隔
+    max_samples: 5  # 适量样本用于可视化
+    save_plots: true
+    plot_types: ["prediction", "loss_curve", "attention_map", "error_map"]
+
+# 对比实验配置
+comparison:
+  # 参数量公平对比
+  parameter_fair:
+    enabled: true
+    target_params: 50000000  # 增大目标参数量，充分利用GPU显存
+    tolerance: 2.0
+  
+  # 多模型对比
+  multi_model:
+    enabled: true
+    models: ["transformer", "mlp", "unet", "fno"]  # 支持多模型对比
+    generate_report: true
+    generate_plots: true
+  
+  # 损失函数对比
+  loss_comparison:
+    enabled: true
+    loss_configs:
+      - name: "mse_only"
+        mse_weight: 1.0
+        svd_weight: 0.0
+      - name: "mse_l1"
+        mse_weight: 0.8
+        l1_weight: 0.2
+      - name: "multi_loss"
+        mse_weight: 0.6
+        l1_weight: 0.2
+        ssim_weight: 0.2
+
+# 系统资源配置 - 服务器优化
+system:
+  # 自适应资源管理
+  adaptive_resources: true
+  
+  # 内存管理 - 针对大显存优化
+  memory_management:
+    auto_cleanup: true
+    cleanup_interval: 50  # 适当的清理间隔
+    max_memory_usage: 0.9  # 充分利用GPU显存，从日志看90%是安全的
+    gpu_memory_fraction: 0.9  # GPU显存使用比例
+  
+  # 批次大小自适应 - 大显存优化
+  adaptive_batch_size:
+    enabled: true
+    min_batch_size: 32
+    max_batch_size: 128  # 增大最大批次大小
+    memory_threshold: 0.85
+  
+  # CPU优化 - 利用192核心
+  cpu_optimization:
+    num_threads: 190  # 从日志看190个线程是最优的
+    omp_num_threads: 32
+    mkl_num_threads: 32
+
+# 输出配置
+output:
+  # 保存配置
+  save_model: true
+  save_predictions: true
+  save_metrics: true
+  
+  # 报告生成
+  generate_report: true
+  report_format: "markdown"
+  
+  # 图表生成 - 使用SVG格式
+  generate_plots: true
+  plot_format: "svg"  # 使用SVG格式，更好的缩放质量
+  
+  # 结果导出
+  export_results: true
+  export_format: "json"
+
+# 调试配置 - 生产模式
+debug:
+  enabled: false  # 生产训练时关闭调试
+  verbose: false
+  profile_memory: false
+  profile_time: false
+  save_debug_info: false
+
+# 预设配置模板
+presets:
+  # 服务器大容量训练
+  server_large_scale:
+    training:
+      epochs: 550
+      batch_size: 64
+    data:
+      max_samples: null
+      num_workers: 32
+    models:
+      transformer:
+        d_model: 512
+        num_heads: 8
+        num_layers: 6
+    evaluation:
+      visualization:
+        interval: 10
+  
+  # 服务器超大模型训练
+  server_ultra_large:
+    training:
+      epochs: 1000
+      batch_size: 32  # 减小批次大小以支持更大模型
+    data:
+      max_samples: null
+      num_workers: 32
+    models:
+      transformer:
+        d_model: 1024
+        num_heads: 16
+        num_layers: 12
+    evaluation:
+      visualization:
+        interval: 20
+  
+  # 服务器快速验证
+  server_quick_validation:
+    training:
+      epochs: 50
+      batch_size: 128
+    data:
+      max_samples: 5000
+      num_workers: 16
+    models:
+      transformer:
+        d_model: 256
+        num_heads: 4
+        num_layers: 3
+    evaluation:
+      visualization:
+        interval: 5
+
+# 服务器特定配置
+server_config:
+  # 硬件信息
+  hardware:
+    cpu_cores: 192
+    gpu_count: 2
+    gpu_memory_per_device: "44.3GB"
+    gpu_model: "NVIDIA L40"
+  
+  # 优化策略
+  optimization:
+    use_lazy_loading: true  # 从日志看启用了懒加载
+    use_mixed_precision: true
+    use_gradient_checkpointing: false  # 大显存下可以关闭
+    use_cpu_offload: false  # 大显存下不需要CPU卸载
+  
+  # 监控配置
+  monitoring:
+    log_gpu_memory: true
+    log_cpu_usage: true
+    save_system_metrics: true
+    alert_memory_threshold: 0.95

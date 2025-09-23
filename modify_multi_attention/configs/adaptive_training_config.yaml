@@ -99,7 +99,7 @@ adaptive_resources:
 # 数据配置
 data:
   dataset_name: "auto_detect"  # 自动检测数据集
-  data_path: "auto"  # 自动查找数据路径
+  data_path: "X:/2025/Graduation_project/report/data/pdebench/2D/DarcyFlow/2D_DarcyFlow_beta0.01_Train.hdf5"  # 使用已知的数据路径
   max_samples: "auto"  # 自动确定样本数量
   
   # 数据预处理
@@ -236,6 +236,24 @@ comparison:
   compare_models: "auto"  # 自动选择对比模型
   compare_losses: "auto"  # 自动选择对比损失
   compare_attention: "auto"  # 自动选择对比注意力
+  
+  # 参数量公平对比
+  parameter_fair:
+    enabled: "auto"  # 自动确定是否启用
+    target_params: "auto"  # 自动计算目标参数量
+    tolerance: 2.0
+  
+  # 多模型对比
+  multi_model:
+    enabled: true
+    models: "auto"  # 自动选择模型
+    generate_report: true
+    generate_plots: true
+  
+  # 损失函数对比
+  loss_comparison:
+    enabled: "auto"  # 自动确定是否启用
+    loss_configs: "auto"  # 自动生成损失配置
   
   # 公平对比设置
   fair_comparison:

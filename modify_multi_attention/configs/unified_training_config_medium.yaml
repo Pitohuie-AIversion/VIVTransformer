@@ -1,8 +1,8 @@
-# 冒烟测试配置 - 最小化参数用于快速调试
+# 中参数量配置 - 目标: 5-8M参数
 experiment:
-  name: 'smoke_test_experiment'
-  mode: 'single_model'
-  output_dir: 'smoke_test_results'
+  name: 'medium_params_comparison'
+  mode: 'multi_model'
+  output_dir: 'medium_params_results'
   seed: 42
   deterministic: true
   log_level: 'INFO'
@@ -15,52 +15,52 @@ device:
 data:
   data_type: 'synthetic'
   input_dim: 1024  # seq_len * d_model = 32 * 32 = 1024
-  output_dim: 1024  # 匹配input_dim
-  input_resolution: [32, 32]  # 匹配seq_len
-  output_resolution: [32, 32]  # 匹配seq_len
+  output_dim: 1024
+  input_resolution: [32, 32]
+  output_resolution: [32, 32]
   output_channels: 1
   crop_mode: 'center'
   normalize: true
   remove_channel_dim: true
-  batch_size: 2  # 最小批次大小
+  batch_size: 4
   val_split: 0.2
   test_split: 0.1
-  max_samples: 10  # 最小数据集
+  max_samples: 100
   num_workers: 0
   pin_memory: false
   shuffle: true
 
 training:
-  epochs: 2  # 最少训练轮数
+  epochs: 20
   learning_rate: 0.001
   weight_decay: 0.0001
   optimizer: 'adam'
-  patience: 5  # 添加patience参数
-  min_delta: 0.0001  # 添加min_delta参数
+  patience: 10
+  min_delta: 0.0001
 
 models:
   transformer:
     model_type: 'custom_transformer'
-    d_model: 32  # 保持32维度
-    num_heads: 8
-    num_layers: 6
+    d_model: 64          # 中型：适中的d_model
+    num_heads: 8         # 适中的注意力头数
+    num_layers: 6        # 适中的层数
     dropout: 0.1
-    attention_type: 'simplified_self'  # 使用简化注意力
-    seq_len: 32  # 保持32序列长度
+    attention_type: 'simplified_self'
+    seq_len: 32
     pe_type: 'learnable_1d'
     output_head_type: 'global'
     time_encoding: 'embedding'
-    use_memory_film: true
+    use_memory_film: false
     use_memory_concat: false
     max_time_steps: 100
 
   unet:
-    type: "unet"
+    model_type: "unet"
     input_dim: 1024
     output_dim: 1024
     input_spatial_dim: 32
     output_spatial_dim: 32
-    channels: [32, 64, 128, 256]
+    channels: [64, 128, 256]  # 中型：适中的通道数
     kernel_size: 3
     stride: 1
     padding: 1
@@ -69,29 +69,29 @@ models:
     dropout: 0.1
 
   mlp:
-    type: "mlp"
+    model_type: "mlp"
     input_dim: 1024
-    output_dim: 1024  # 修正为与input_dim一致
-    hidden_dims: [512, 512, 512, 512, 512]  # 增加隐藏层维度和层数
+    output_dim: 1024
+    hidden_dims: [512, 512, 512]  # 中型：适中的隐藏层
     activation: "relu"
     dropout: 0.1
     use_batch_norm: true
     use_residual: false
 
   fno:
-    type: "fno"
+    model_type: "fno"
     input_dim: 1024
-    output_dim: 1024  # 修正为与input_dim一致
+    output_dim: 1024
     input_spatial_dim: 32
-    output_spatial_dim: 32  # 修正为与input_spatial_dim一致
-    modes: [12, 12]  # 减少模式数
-    width: 48        # 减少网络宽度
-    num_layers: 3    # 减少层数
+    output_spatial_dim: 32
+    modes: [12, 12]          # 中型：适中的模式数
+    width: 48                # 中型：适中的宽度
+    num_layers: 3            # 中型：适中的层数
     activation: "gelu"
     dropout: 0.1
 
 adaptive_resources:
-  enable_adaptive: false  # 禁用自适应资源
+  enable_adaptive: false
 
 visualization:
   enable_plots: true

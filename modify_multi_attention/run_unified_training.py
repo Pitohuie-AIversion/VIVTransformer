@@ -290,10 +290,10 @@ class SimpleUnifiedTrainer:
         plt.grid(True, axis='x')
         
         plt.tight_layout()
-        plt.savefig(self.output_dir / 'unified_model_comparison.png', dpi=300, bbox_inches='tight')
+        plt.savefig(self.output_dir / 'unified_model_comparison.svg', bbox_inches='tight', format='svg')
         plt.close()
         
-        print(f"对比图表已保存到: {self.output_dir / 'unified_model_comparison.png'}")
+        print(f"对比图表已保存到: {self.output_dir / 'unified_model_comparison.svg'}")
     
     def generate_report(self):
         """生成训练报告"""

@@ -91,11 +91,15 @@ class CompatibleEnhancedMLP(nn.Module):
 class CompatibleEnhancedUNet(nn.Module):
     """兼容的增强UNet模型，处理扁平化输入"""
     
-    def __init__(self, input_dim, output_dim, base_ch=32, num_levels=4, dropout=0.1):
+    def __init__(self, input_dim, output_dim, base_ch=32, num_levels=4, dropout=0.1, **kwargs):
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.base_ch = base_ch
+        
+        # 忽略不支持的参数
+        if 'input_spatial_dim' in kwargs:
+            print(f"⚠️ 忽略不支持的参数: input_spatial_dim={kwargs['input_spatial_dim']}")
         
         # 计算输入和输出的空间维度
         self.input_spatial_dim = int(np.sqrt(input_dim))

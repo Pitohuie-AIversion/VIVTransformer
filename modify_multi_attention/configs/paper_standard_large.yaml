@@ -1,0 +1,175 @@
+# 论文标准配置 - Large规模 (约60M参数)
+# 验证方法在大规模下的可扩展性
+
+experiment:
+  name: "paper_standard_large"
+  mode: "multi_model_comparison"
+  output_dir: "paper_results/large_scale"
+  seed: 42
+  deterministic: true
+
+# 数据配置
+data:
+  data_path: "../preprocessed_data/sample_data.h5"
+  input_dim: 1024      # 32x32输入
+  output_dim: 16384    # 128x128输出
+  input_resolution: [32, 32]
+  output_resolution: [128, 128]
+  output_channels: 1
+  
+  # 训练配置
+  batch_size: 64
+  val_split: 0.2
+  test_split: 0.1
+  max_samples: null  # 使用全部数据
+  
+  # 数据处理
+  crop_mode: "center"
+  normalize: true
+  remove_channel_dim: true
+  num_workers: 16
+  pin_memory: true
+  shuffle: true
+
+# 训练配置
+training:
+  epochs: 200
+  learning_rate: 0.0005  # 大模型使用较小学习率
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  
+  scheduler: "cosine"
+  warmup_epochs: 20
+  
+  early_stopping:
+    patience: 25
+    min_delta: 0.00001
+  
+  device: "auto"
+  mixed_precision: true
+  gradient_clipping: 1.0  # 大模型需要梯度裁剪
+
+# 损失函数配置
+loss:
+  mse_weight: 0.6
+  l1_weight: 0.1
+  ssim_weight: 0.2
+  perceptual_weight: 0.1
+  
+  svd_loss:
+    enabled: true
+    base_weight: 0.2
+    svd_weights: [0.1, 0.05, 0.03, 0.02]
+    topk: 4
+
+# 模型配置 - 目标参数量约60M
+models:
+  transformer:
+    model_type: "transformer"
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 512        # 大幅增加模型维度
+    num_heads: 16       # 更多注意力头
+    num_layers: 12      # 深层网络
+    dropout: 0.1
+    seq_len: 32
+    pe_type: "sinusoidal_1d"
+    use_memory_film: true
+    max_time_steps: 200
+    # 预期参数量: ~60.1M
+  
+  unet:
+    model_type: "unet"
+    input_dim: 1024
+    output_dim: 16384
+    input_spatial_dim: 32
+    output_spatial_dim: 128
+    channels: [128, 256, 512, 1024, 2048]  # 大幅增加通道数
+    kernel_size: 3
+    stride: 1
+    padding: 1
+    activation: "relu"
+    use_batch_norm: true
+    dropout: 0.1
+    use_attention: true  # 添加注意力机制
+    # 预期参数量: ~60.0M
+  
+  mlp:
+    model_type: "mlp"
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [8192, 4096, 2048, 1024, 512]  # 大幅增加隐藏层
+    activation: "gelu"
+    dropout: 0.15
+    use_batch_norm: true
+    use_residual: true
+    use_layer_norm: true
+    # 预期参数量: ~60.2M
+  
+  fno:
+    model_type: "fno"
+    input_dim: 1024
+    output_dim: 16384
+    input_spatial_dim: 32
+    output_spatial_dim: 128
+    modes: [32, 32]     # 大幅增加频域模式数
+    width: 256          # 大幅增加网络宽度
+    num_layers: 6       # 增加层数
+    activation: "gelu"
+    dropout: 0.1
+    use_residual: true
+    # 预期参数量: ~60.0M
+
+# 评估配置
+evaluation:
+  metrics: ["mse", "mae", "r2", "psnr", "ssim", "lpips"]
+  
+  visualization:
+    enabled: true
+    interval: 20
+    max_samples: 10
+    save_plots: true
+    plot_types: ["prediction", "loss_curve", "error_map", "attention_map", "feature_map"]
+
+# 对比实验配置
+comparison:
+  multi_model:
+    enabled: true
+    models: ["transformer", "unet", "mlp", "fno"]
+    generate_report: true
+    generate_plots: true
+  
+  parameter_fair:
+    enabled: true
+    target_params: 60000000  # 60M参数
+    tolerance: 1.05          # 允许5%差异（大模型要求更严格）
+
+# 系统资源配置
+system:
+  adaptive_resources: true
+  
+  memory_management:
+    auto_cleanup: true
+    cleanup_interval: 50
+    max_memory_usage: 0.85
+  
+  adaptive_batch_size:
+    enabled: true
+    min_batch_size: 8
+    max_batch_size: 128
+    memory_threshold: 0.9
+
+# 输出配置
+output:
+  save_model: true
+  save_predictions: true
+  save_metrics: true
+  generate_report: true
+  generate_plots: true
+  
+  # 详细分析
+  detailed_analysis: true
+  parameter_efficiency: true
+  flops_analysis: true
+  memory_analysis: true
+  convergence_analysis: true

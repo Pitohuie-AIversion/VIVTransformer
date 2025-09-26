@@ -207,7 +207,7 @@ class ModelComparisonAnalyzer:
                     f'{rate:.1f}%', ha='center', va='bottom', fontsize=10)
         
         plt.tight_layout()
-        plt.savefig(self.output_dir / 'success_rates_comparison.png', dpi=300, bbox_inches='tight')
+        plt.savefig(self.output_dir / 'success_rates_comparison.svg', bbox_inches='tight', format='svg')
         plt.close()
         
     def _plot_error_distribution(self, analysis: Dict):
@@ -251,7 +251,7 @@ class ModelComparisonAnalyzer:
                     str(size), ha='center', va='bottom', fontsize=10)
         
         plt.tight_layout()
-        plt.savefig(self.output_dir / 'error_distribution.png', dpi=300, bbox_inches='tight')
+        plt.savefig(self.output_dir / 'error_distribution.svg', bbox_inches='tight', format='svg')
         plt.close()
         
     def _plot_model_architecture_comparison(self):
@@ -282,7 +282,7 @@ class ModelComparisonAnalyzer:
                    str(count), ha='center', va='bottom', fontsize=12, fontweight='bold')
         
         plt.tight_layout()
-        plt.savefig(self.output_dir / 'model_architecture_comparison.png', dpi=300, bbox_inches='tight')
+        plt.savefig(self.output_dir / 'model_architecture_comparison.svg', bbox_inches='tight', format='svg')
         plt.close()
         
     def _plot_parameter_comparison(self):
@@ -337,7 +337,7 @@ class ModelComparisonAnalyzer:
         ax2.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        plt.savefig(self.output_dir / 'parameter_comparison.png', dpi=300, bbox_inches='tight')
+        plt.savefig(self.output_dir / 'parameter_comparison.svg', bbox_inches='tight', format='svg')
         plt.close()
         
     def generate_detailed_report(self):

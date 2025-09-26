@@ -290,7 +290,7 @@ class NormalizationTester:
         plt.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        plt.savefig(self.output_dir / f'{method_name}_training_curves.png', dpi=300, bbox_inches='tight')
+        plt.savefig(self.output_dir / f'{method_name}_training_curves.svg', bbox_inches='tight', format='svg')
         plt.close()
     
     def _plot_data_distribution(self, method_name, data_analysis):
@@ -344,7 +344,7 @@ class NormalizationTester:
         axes[1, 1].set_ylabel('范围大小')
         
         plt.tight_layout()
-        plt.savefig(self.output_dir / f'{method_name}_data_distribution.png', dpi=300, bbox_inches='tight')
+        plt.savefig(self.output_dir / f'{method_name}_data_distribution.svg', bbox_inches='tight', format='svg')
         plt.close()
     
     def _generate_comparison_report(self, results):

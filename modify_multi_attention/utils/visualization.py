@@ -93,23 +93,23 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
     # 优化布局
     plt.tight_layout(pad=1.0)
 
-    # 优先保存PNG格式，性能更好
-    png_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.png")
+    # 保存SVG格式，矢量图形更清晰
+    svg_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.svg")
     try:
-        # 使用优化的保存参数
-        plt.savefig(png_path, dpi=100, bbox_inches='tight', 
+        # 使用SVG格式保存参数
+        plt.savefig(svg_path, bbox_inches='tight', 
                    facecolor='white', edgecolor='none', 
-                   format='png', optimize=True)
-        print(f"三联图已保存: {png_path}")
+                   format='svg')
+        print(f"三联图已保存: {svg_path}")
     except Exception as e:
-        print(f"保存PNG失败: {e}")
-        # 备选：保存为更简单的格式
+        print(f"保存SVG失败: {e}")
+        # 备选：保存为PNG格式
         try:
-            simple_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}_simple.png")
-            plt.savefig(simple_path, dpi=72, format='png')
-            print(f"简化版三联图已保存: {simple_path}")
+            png_path = os.path.join(result_dir, f"{mode}_epoch_{epoch}_sample_{idx}.png")
+            plt.savefig(png_path, dpi=300, bbox_inches='tight', format='png')
+            print(f"备选PNG三联图已保存: {png_path}")
         except Exception as e2:
-            print(f"保存简化版也失败: {e2}")
+            print(f"保存备选PNG也失败: {e2}")
     
     plt.close(fig)  # 明确关闭图形对象
 
@@ -235,13 +235,13 @@ def plot_difference_figure(input_pressure, true_pressure, predicted_pressure, ti
     # 优化布局
     plt.tight_layout(pad=1.0)
 
-    # 优先保存PNG格式
-    png_path = os.path.join(result_dir, f"{mode}_diff_epoch_{epoch}_sample_{idx}.png")
+    # 保存SVG格式
+    svg_path = os.path.join(result_dir, f"{mode}_diff_epoch_{epoch}_sample_{idx}.svg")
     try:
-        plt.savefig(png_path, dpi=100, bbox_inches='tight', 
+        plt.savefig(svg_path, bbox_inches='tight', 
                    facecolor='white', edgecolor='none', 
-                   format='png', optimize=True)
-        print(f"差异图已保存: {png_path}")
+                   format='svg')
+        print(f"差异图已保存: {svg_path}")
     except Exception as e:
         print(f"保存差异图失败: {e}")
     
@@ -277,7 +277,7 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
     plot_files = []
     
     # 1. 性能对比图 (R² 和 MSE)
-    performance_plot = os.path.join(output_dir, f"model_performance_comparison_{timestamp}.png")
+    performance_plot = os.path.join(output_dir, f"model_performance_comparison_{timestamp}.svg")
     plot_files.append(performance_plot)
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
@@ -312,11 +312,11 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
                 f'{score:.6f}', ha='center', va='bottom')
     
     plt.tight_layout()
-    plt.savefig(performance_plot, dpi=300, bbox_inches='tight')
+    plt.savefig(performance_plot.replace('.png', '.svg'), bbox_inches='tight', format='svg')
     plt.close()
     
     # 2. 参数量对比图
-    params_plot = os.path.join(output_dir, f"model_parameters_comparison_{timestamp}.png")
+    params_plot = os.path.join(output_dir, f"model_parameters_comparison_{timestamp}.svg")
     plot_files.append(params_plot)
     
     param_counts = [successful_results[model].get('num_parameters', successful_results[model].get('parameters', 0)) for model in models]
@@ -335,11 +335,11 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
                 f'{count:,}', ha='center', va='bottom')
     
     plt.tight_layout()
-    plt.savefig(params_plot, dpi=300, bbox_inches='tight')
+    plt.savefig(params_plot.replace('.png', '.svg'), bbox_inches='tight', format='svg')
     plt.close()
     
     # 3. 训练时间对比图
-    time_plot = os.path.join(output_dir, f"model_training_time_comparison_{timestamp}.png")
+    time_plot = os.path.join(output_dir, f"model_training_time_comparison_{timestamp}.svg")
     plot_files.append(time_plot)
     
     train_times = [successful_results[model].get('train_time', successful_results[model].get('training_time', 0)) for model in models]
@@ -357,7 +357,7 @@ def create_model_comparison_plots(results, output_dir="visualization_results", t
                 f'{time_val:.1f}s', ha='center', va='bottom')
     
     plt.tight_layout()
-    plt.savefig(time_plot, dpi=300, bbox_inches='tight')
+    plt.savefig(time_plot, bbox_inches='tight', format='svg')
     plt.close()
     
     return plot_files
@@ -444,7 +444,7 @@ def plot_training_losses(train_losses, valid_losses, test_losses, model_name, ou
     
     os.makedirs(output_dir, exist_ok=True)
     
-    loss_plot = os.path.join(output_dir, f"{model_name}_loss_curves_{timestamp}.png")
+    loss_plot = os.path.join(output_dir, f"{model_name}_loss_curves_{timestamp}.svg")
     
     if not train_losses or not valid_losses or not test_losses:
         print(f"Warning: {model_name} 的损失列表为空，无法绘制Loss曲线！")
@@ -481,7 +481,7 @@ def plot_training_losses(train_losses, valid_losses, test_losses, model_name, ou
              bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
     plt.tight_layout()
-    plt.savefig(loss_plot, dpi=300, bbox_inches='tight')
+    plt.savefig(loss_plot, bbox_inches='tight', format='svg')
     plt.close()
     
     print(f"✅ {model_name} 损失曲线已保存: {loss_plot}")

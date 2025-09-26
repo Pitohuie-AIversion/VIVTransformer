@@ -282,13 +282,24 @@ class EnhancedCropDataset(Dataset):
         创建空间裁剪
         
         Args:
-            data: 原始数据 (N, H, W)
+            data: 原始数据，可能是 (N, H, W) 或 (N, H, W, C)
             crop_size: 裁剪尺寸
             
         Returns:
             numpy.ndarray: 裁剪后数据 (N, crop_size, crop_size)
         """
-        num_samples, height, width = data.shape
+        # 处理不同的数据形状
+        if len(data.shape) == 4:  # (N, H, W, C)
+            num_samples, height, width, channels = data.shape
+            # 如果有通道维度，取第一个通道或平均
+            if channels == 1:
+                data = data.squeeze(-1)  # 移除通道维度
+            else:
+                data = data.mean(axis=-1)  # 平均所有通道
+        elif len(data.shape) == 3:  # (N, H, W)
+            num_samples, height, width = data.shape
+        else:
+            raise ValueError(f"不支持的数据形状: {data.shape}")
         
         # 中心裁剪
         start_h = (height - crop_size) // 2

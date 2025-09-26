@@ -177,8 +177,8 @@ def plot_training_curve(losses):
     plt.yscale('log')  # 使用对数刻度
     
     # 保存图片
-    plt.savefig('svd_training_curve.png', dpi=300, bbox_inches='tight')
-    print("训练曲线已保存为 svd_training_curve.png")
+    plt.savefig('svd_training_curve.svg', bbox_inches='tight', format='svg')
+    print("训练曲线已保存为 svd_training_curve.svg")
     plt.show()
 
 def main():

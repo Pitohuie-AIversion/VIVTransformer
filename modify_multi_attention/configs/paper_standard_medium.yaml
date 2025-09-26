@@ -1,0 +1,152 @@
+# 论文标准配置 - Medium规模 (约12M参数)
+# 作为主要对比基准，符合大多数论文标准
+
+experiment:
+  name: "paper_standard_medium"
+  mode: "multi_model_comparison"
+  output_dir: "paper_results/medium_scale"
+  seed: 42
+  deterministic: true
+
+# 数据配置
+data:
+  data_path: "../preprocessed_data/sample_data.h5"
+  input_dim: 1024      # 32x32输入
+  output_dim: 16384    # 128x128输出
+  input_resolution: [32, 32]
+  output_resolution: [128, 128]
+  output_channels: 1
+  
+  # 训练配置
+  batch_size: 32
+  val_split: 0.2
+  test_split: 0.1
+  max_samples: 5000
+  
+  # 数据处理
+  crop_mode: "center"
+  normalize: true
+  remove_channel_dim: true
+  num_workers: 8
+  pin_memory: true
+  shuffle: true
+
+# 训练配置
+training:
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  
+  scheduler: "cosine"
+  warmup_epochs: 10
+  
+  early_stopping:
+    patience: 15
+    min_delta: 0.0001
+  
+  device: "auto"
+  mixed_precision: true
+
+# 损失函数配置
+loss:
+  mse_weight: 0.8
+  l1_weight: 0.1
+  ssim_weight: 0.1
+  
+  svd_loss:
+    enabled: true
+    base_weight: 0.1
+    svd_weights: [0.05, 0.03, 0.02]
+    topk: 3
+
+# 模型配置 - 目标参数量约12M
+models:
+  transformer:
+    model_type: "transformer"
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 256        # 增加模型维度
+    num_heads: 8        # 多头注意力
+    num_layers: 6       # 增加层数
+    dropout: 0.1
+    seq_len: 32
+    pe_type: "sinusoidal_1d"
+    use_memory_film: true
+    # 预期参数量: ~12.1M
+  
+  unet:
+    model_type: "unet"
+    input_dim: 1024
+    output_dim: 16384
+    input_spatial_dim: 32
+    output_spatial_dim: 128
+    channels: [64, 128, 256, 512]  # 增加通道数
+    kernel_size: 3
+    stride: 1
+    padding: 1
+    activation: "relu"
+    use_batch_norm: true
+    dropout: 0.1
+    # 预期参数量: ~12.0M
+  
+  mlp:
+    model_type: "mlp"
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [4096, 2048, 1024, 512]  # 增加隐藏层
+    activation: "relu"
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: true
+    # 预期参数量: ~12.2M
+  
+  fno:
+    model_type: "fno"
+    input_dim: 1024
+    output_dim: 16384
+    input_spatial_dim: 32
+    output_spatial_dim: 128
+    modes: [24, 24]     # 增加频域模式数
+    width: 128          # 增加网络宽度
+    num_layers: 4       # 适中的层数
+    activation: "gelu"
+    dropout: 0.1
+    # 预期参数量: ~12.0M
+
+# 评估配置
+evaluation:
+  metrics: ["mse", "mae", "r2", "psnr", "ssim"]
+  
+  visualization:
+    enabled: true
+    interval: 10
+    max_samples: 8
+    save_plots: true
+    plot_types: ["prediction", "loss_curve", "error_map", "attention_map"]
+
+# 对比实验配置
+comparison:
+  multi_model:
+    enabled: true
+    models: ["transformer", "unet", "mlp", "fno"]
+    generate_report: true
+    generate_plots: true
+  
+  parameter_fair:
+    enabled: true
+    target_params: 12000000  # 12M参数
+    tolerance: 1.1           # 允许10%差异
+
+# 输出配置
+output:
+  save_model: true
+  save_predictions: true
+  save_metrics: true
+  generate_report: true
+  generate_plots: true
+  
+  # 详细分析
+  detailed_analysis: true
+  parameter_efficiency: true
+  flops_analysis: true

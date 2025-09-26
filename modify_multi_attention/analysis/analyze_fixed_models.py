@@ -93,9 +93,9 @@ class ModelAnalyzer:
         axes[1, 1].grid(True, alpha=0.3)
         
         plt.tight_layout()
-        plt.savefig('training_curves_analysis.png', dpi=300, bbox_inches='tight')
+        plt.savefig('training_curves_analysis.svg', bbox_inches='tight', format='svg')
         plt.close()
-        print("✅ 训练曲线分析图已保存: training_curves_analysis.png")
+        print("✅ 训练曲线分析图已保存: training_curves_analysis.svg")
     
     def analyze_model_complexity(self):
         """分析模型复杂度"""
@@ -181,9 +181,9 @@ class ModelAnalyzer:
         axes[2].legend(lines1 + lines2, labels1 + labels2, loc='upper right')
         
         plt.tight_layout()
-        plt.savefig('model_complexity_analysis.png', dpi=300, bbox_inches='tight')
+        plt.savefig('model_complexity_analysis.svg', bbox_inches='tight', format='svg')
         plt.close()
-        print("✅ 模型复杂度分析图已保存: model_complexity_analysis.png")
+        print("✅ 模型复杂度分析图已保存: model_complexity_analysis.svg")
     
     def analyze_overfitting_patterns(self):
         """分析过拟合模式"""
@@ -262,9 +262,9 @@ class ModelAnalyzer:
         axes[1, 1].grid(True, alpha=0.3)
         
         plt.tight_layout()
-        plt.savefig('overfitting_analysis.png', dpi=300, bbox_inches='tight')
+        plt.savefig('overfitting_analysis.svg', bbox_inches='tight', format='svg')
         plt.close()
-        print("✅ 过拟合分析图已保存: overfitting_analysis.png")
+        print("✅ 过拟合分析图已保存: overfitting_analysis.svg")
     
     def generate_performance_report(self):
         """生成性能分析报告"""

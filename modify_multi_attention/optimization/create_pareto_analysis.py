@@ -162,8 +162,7 @@ class ParetoAnalyzer:
         self._plot_pareto_frontier(ax6, color_map)
         
         plt.tight_layout()
-        plt.savefig(save_path / 'complete_pareto_analysis.png', dpi=300, bbox_inches='tight')
-        plt.savefig(save_path / 'complete_pareto_analysis.svg', bbox_inches='tight')
+        plt.savefig(save_path / 'complete_pareto_analysis.svg', bbox_inches='tight', format='svg')
         plt.close()
         
         # 创建单独的高质量图
@@ -295,22 +294,19 @@ class ParetoAnalyzer:
         # 1. 精度-参数量图
         plt.figure(figsize=(10, 8))
         self._plot_accuracy_vs_params(plt.gca(), color_map)
-        plt.savefig(save_path / 'accuracy_vs_params.png', dpi=300, bbox_inches='tight')
-        plt.savefig(save_path / 'accuracy_vs_params.svg', bbox_inches='tight')
+        plt.savefig(save_path / 'accuracy_vs_params.svg', bbox_inches='tight', format='svg')
         plt.close()
         
         # 2. 精度-FLOPs图
         plt.figure(figsize=(10, 8))
         self._plot_accuracy_vs_flops(plt.gca(), color_map)
-        plt.savefig(save_path / 'accuracy_vs_flops.png', dpi=300, bbox_inches='tight')
-        plt.savefig(save_path / 'accuracy_vs_flops.svg', bbox_inches='tight')
+        plt.savefig(save_path / 'accuracy_vs_flops.svg', bbox_inches='tight', format='svg')
         plt.close()
         
         # 3. 精度-延迟图
         plt.figure(figsize=(10, 8))
         self._plot_accuracy_vs_latency(plt.gca(), color_map)
-        plt.savefig(save_path / 'accuracy_vs_latency.png', dpi=300, bbox_inches='tight')
-        plt.savefig(save_path / 'accuracy_vs_latency.svg', bbox_inches='tight')
+        plt.savefig(save_path / 'accuracy_vs_latency.svg', bbox_inches='tight', format='svg')
         plt.close()
     
     def generate_model_recommendations(self) -> Dict[str, List[str]]:

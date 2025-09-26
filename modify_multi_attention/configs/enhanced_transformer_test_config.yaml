@@ -1,0 +1,227 @@
+# Enhanced Transformer测试配置文件
+# 专门用于测试enhanced_transformer模型的配置
+
+# 实验配置
+experiment:
+  name: "enhanced_transformer_test"
+  mode: "multi_model_comparison"
+  output_dir: "enhanced_transformer_test_results"
+  seed: 42
+  deterministic: true
+  log_level: "INFO"
+  save_intermediate: true
+
+# 数据配置
+data:
+  # 数据路径和基本设置
+  data_path: "X:/2025/Graduation_project/report/data/pdebench/2D/DarcyFlow/2D_DarcyFlow_beta0.01_Train.hdf5"
+  input_dim: 1024      # 32x32输入
+  output_dim: 16384    # 128x128输出
+  
+  # 分辨率设置
+  input_resolution: [32, 32]
+  output_resolution: [128, 128]
+  output_channels: 1
+  
+  # 数据处理
+  crop_mode: "center"
+  normalize: true
+  remove_channel_dim: true
+  
+  # 数据集分割 - 测试模式
+  batch_size: 2
+  val_split: 0.2
+  test_split: 0.1
+  max_samples: 20  # 限制样本数进行快速测试
+  
+  # 数据加载器
+  num_workers: 0  # Windows兼容性
+  pin_memory: false
+  shuffle: true
+
+# 训练配置
+training:
+  epochs: 5  # 测试模式使用较少轮数
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  
+  # 学习率调度
+  scheduler: "cosine"
+  warmup_epochs: 0
+  
+  # 早停配置
+  early_stopping:
+    patience: 3
+    min_delta: 0.001
+  
+  # 检查点配置
+  checkpoint:
+    save_best: true
+    save_interval: 2
+    save_last: true
+  
+  # 设备配置
+  device: "cuda"
+  mixed_precision: false
+  use_dataparallel: false
+
+# 损失函数配置
+loss:
+  # 基础损失
+  mse_weight: 1.0
+  l1_weight: 0.0
+  
+  # 高级损失
+  ssim_weight: 0.0
+  perceptual_weight: 0.0
+  gradient_weight: 0.0
+  frequency_weight: 0.0
+  
+  # SVD损失配置
+  svd_loss:
+    enabled: false
+    base_weight: 0.7
+    svd_weights: [0.1, 0.1, 0.05, 0.03, 0.02]
+    topk: 5
+
+# 模型配置
+models:
+  # 当前激活的模型
+  active_model: "enhanced_transformer"
+  
+  # Enhanced Transformer配置
+  enhanced_transformer:
+    model_type: "enhanced_transformer"
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 64  # 适中的模型维度
+    num_heads: 4  # 多头注意力
+    num_layers: 2  # 较少层数用于测试
+    dropout: 0.1
+    seq_len: 11
+    pe_type: "sinusoidal_1d"
+    use_memory_film: true
+    max_time_steps: 100
+    output_head_type: "global"
+    time_encoding: "embedding"
+    # Enhanced Transformer特有参数
+    enhanced_features:
+      use_layer_norm: true
+      use_residual_connection: true
+      activation: "gelu"
+      use_positional_encoding: true
+  
+  # 对比模型 - 标准Transformer
+  transformer:
+    model_type: "transformer"
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 64
+    num_heads: 4
+    num_layers: 2
+    dropout: 0.1
+    seq_len: 11
+    pe_type: "sinusoidal_1d"
+    use_memory_film: false
+    max_time_steps: 100
+    output_head_type: "global"
+    time_encoding: "embedding"
+  
+  # MLP对比模型
+  mlp:
+    model_type: "mlp"
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [512, 256, 128]
+    activation: "relu"
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: false
+
+# 注意力机制配置
+attention:
+  type: "self"
+  
+  # 多注意力对比模式
+  comparison_types: ["self", "cross"]
+
+# 评估配置
+evaluation:
+  # 评估指标
+  metrics: ["mse", "mae", "r2"]
+  
+  # 可视化配置
+  visualization:
+    enabled: true
+    interval: 2
+    max_samples: 3
+    save_plots: true
+    plot_types: ["prediction", "loss_curve", "attention_weights"]
+
+# 对比实验配置
+comparison:
+  # 参数量公平对比
+  parameter_fair:
+    enabled: false
+    target_params: 1000000
+    tolerance: 2.0
+  
+  # 多模型对比
+  multi_model:
+    enabled: true
+    models: ["enhanced_transformer", "transformer", "mlp"]
+    generate_report: true
+    generate_plots: true
+  
+  # 损失函数对比
+  loss_comparison:
+    enabled: false
+
+# 系统资源配置
+system:
+  # 自适应资源管理
+  adaptive_resources: true
+  
+  # 内存管理
+  memory_management:
+    auto_cleanup: true
+    cleanup_interval: 50
+    max_memory_usage: 0.8
+  
+  # 批次大小自适应
+  adaptive_batch_size:
+    enabled: true
+    initial_batch_size: 2
+    max_batch_size: 8
+    min_batch_size: 1
+
+# 预设配置
+presets:
+  quick_test:
+    data:
+      max_samples: 10
+      batch_size: 1
+    training:
+      epochs: 2
+    comparison:
+      multi_model:
+        models: ["enhanced_transformer"]
+  
+  full_test:
+    data:
+      max_samples: 100
+      batch_size: 4
+    training:
+      epochs: 10
+    comparison:
+      multi_model:
+        models: ["enhanced_transformer", "transformer", "mlp"]
+  
+  comparison_test:
+    comparison:
+      multi_model:
+        enabled: true
+        models: ["enhanced_transformer", "transformer", "mlp"]
+        generate_report: true
+        generate_plots: true

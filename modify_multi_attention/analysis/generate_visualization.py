@@ -91,7 +91,7 @@ def plot_performance_comparison(df, save_dir):
         ax6.text(i, v + 0.02, f'{v:.1f}GB', ha='center', va='bottom')
     
     plt.tight_layout()
-    plt.savefig(save_dir / 'model_performance_comparison.png', dpi=300, bbox_inches='tight')
+    plt.savefig(save_dir / 'model_performance_comparison.svg', bbox_inches='tight', format='svg')
     plt.close()
 
 def plot_radar_chart(df, save_dir):
@@ -128,7 +128,7 @@ def plot_radar_chart(df, save_dir):
     ax.grid(True)
     
     plt.tight_layout()
-    plt.savefig(save_dir / 'model_radar_comparison.png', dpi=300, bbox_inches='tight')
+    plt.savefig(save_dir / 'model_radar_comparison.svg', bbox_inches='tight', format='svg')
     plt.close()
 
 def plot_efficiency_scatter(df, save_dir):
@@ -165,7 +165,7 @@ def plot_efficiency_scatter(df, save_dir):
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(save_dir / 'efficiency_scatter_plot.png', dpi=300, bbox_inches='tight')
+    plt.savefig(save_dir / 'efficiency_scatter_plot.svg', bbox_inches='tight', format='svg')
     plt.close()
 
 def generate_summary_table(df, save_dir):

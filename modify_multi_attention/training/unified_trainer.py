@@ -320,7 +320,7 @@ class UnifiedModelTrainer:
         plt.legend()
         
         plt.tight_layout()
-        plt.savefig(save_dir / f"{result['model_type']}_losses.png", dpi=300, bbox_inches='tight')
+        plt.savefig(save_dir / f"{result['model_type']}_losses.svg", bbox_inches='tight', format='svg')
         plt.close()
     
     def run_comparison(self, results_dir: Optional[Path] = None) -> Dict[str, Any]:
@@ -430,7 +430,7 @@ class UnifiedModelTrainer:
         axes[1, 1].legend()
         
         plt.tight_layout()
-        plt.savefig(save_dir / 'model_comparison.png', dpi=300, bbox_inches='tight')
+        plt.savefig(save_dir / 'model_comparison.svg', bbox_inches='tight', format='svg')
         plt.close()
 
 # 示例配置

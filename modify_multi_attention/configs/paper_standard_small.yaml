@@ -1,0 +1,143 @@
+# 论文标准配置 - Small规模 (约2M参数)
+# 适用于资源受限环境和快速验证
+
+experiment:
+  name: "paper_standard_small"
+  mode: "multi_model_comparison"
+  output_dir: "paper_results/small_scale"
+  seed: 42
+  deterministic: true
+
+# 数据配置
+data:
+  data_path: "../preprocessed_data/sample_data.h5"
+  input_dim: 1024      # 32x32输入
+  output_dim: 16384    # 128x128输出
+  input_resolution: [32, 32]
+  output_resolution: [128, 128]
+  output_channels: 1
+  
+  # 训练配置
+  batch_size: 16
+  val_split: 0.2
+  test_split: 0.1
+  max_samples: 1000
+  
+  # 数据处理
+  crop_mode: "center"
+  normalize: true
+  remove_channel_dim: true
+  num_workers: 4
+  pin_memory: true
+  shuffle: true
+
+# 训练配置
+training:
+  epochs: 50
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  
+  scheduler: "cosine"
+  warmup_epochs: 5
+  
+  early_stopping:
+    patience: 10
+    min_delta: 0.001
+  
+  device: "auto"
+  mixed_precision: true
+
+# 损失函数配置
+loss:
+  mse_weight: 1.0
+  l1_weight: 0.1
+  ssim_weight: 0.0
+  
+  svd_loss:
+    enabled: false
+
+# 模型配置 - 目标参数量约2M
+models:
+  transformer:
+    model_type: "transformer"
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 128        # 减小模型维度
+    num_heads: 8        # 保持多头注意力
+    num_layers: 4       # 适中的层数
+    dropout: 0.1
+    seq_len: 32
+    pe_type: "sinusoidal_1d"
+    # 预期参数量: ~2.1M
+  
+  unet:
+    model_type: "unet"
+    input_dim: 1024
+    output_dim: 16384
+    input_spatial_dim: 32
+    output_spatial_dim: 128
+    channels: [32, 64, 128]  # 减少通道数
+    kernel_size: 3
+    stride: 1
+    padding: 1
+    activation: "relu"
+    use_batch_norm: true
+    dropout: 0.1
+    # 预期参数量: ~2.0M
+  
+  mlp:
+    model_type: "mlp"
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [2048, 1024, 512]  # 调整隐藏层大小
+    activation: "relu"
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: false
+    # 预期参数量: ~2.1M
+  
+  fno:
+    model_type: "fno"
+    input_dim: 1024
+    output_dim: 16384
+    input_spatial_dim: 32
+    output_spatial_dim: 128
+    modes: [12, 12]     # 减少频域模式数
+    width: 64           # 适中的网络宽度
+    num_layers: 3       # 减少层数
+    activation: "gelu"
+    dropout: 0.1
+    # 预期参数量: ~2.0M
+
+# 评估配置
+evaluation:
+  metrics: ["mse", "mae", "r2", "psnr"]
+  
+  visualization:
+    enabled: true
+    interval: 10
+    max_samples: 5
+    save_plots: true
+    plot_types: ["prediction", "loss_curve", "error_map"]
+
+# 对比实验配置
+comparison:
+  multi_model:
+    enabled: true
+    models: ["transformer", "unet", "mlp", "fno"]
+    generate_report: true
+    generate_plots: true
+  
+  parameter_fair:
+    enabled: true
+    target_params: 2000000  # 2M参数
+    tolerance: 1.2          # 允许20%差异
+
+# 输出配置
+output:
+  save_model: true
+  save_predictions: true
+  save_metrics: true
+  generate_report: true
+  generate_plots: true

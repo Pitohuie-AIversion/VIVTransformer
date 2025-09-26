@@ -455,10 +455,10 @@ class FixedModelTrainer:
         axes[1, 1].tick_params(axis='x', rotation=45)
         
         plt.tight_layout()
-        plt.savefig('fixed_models_comparison.png', dpi=300, bbox_inches='tight')
+        plt.savefig('fixed_models_comparison.svg', bbox_inches='tight', format='svg')
         plt.close()
         
-        print("对比图表已保存到: fixed_models_comparison.png")
+        print("对比图表已保存到: fixed_models_comparison.svg")
 
 def main():
     """主函数"""

@@ -69,20 +69,28 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
     # 优化图形创建，减少内存占用
     fig, axes = plt.subplots(1, 3, figsize=(15, 4))  # 减小图形尺寸
     
-    # 使用更高效的绘图方式
+    # 计算统一的colorbar范围
     try:
+        # 计算所有数据的全局最小值和最大值，确保colorbar范围一致
+        global_min = min(np.min(input_2d), np.min(true_2d), np.min(pred_2d))
+        global_max = max(np.max(input_2d), np.max(true_2d), np.max(pred_2d))
+        
+        # 使用更高效的绘图方式，统一colorbar范围
         # 输入压力图
-        im1 = axes[0].imshow(input_2d, cmap='viridis', interpolation='bilinear')  # 使用更快的插值
+        im1 = axes[0].imshow(input_2d, cmap='viridis', interpolation='bilinear', 
+                            vmin=global_min, vmax=global_max)  # 统一范围
         axes[0].set_title(f"Input t={time_step:.2f}", fontsize=10)
         plt.colorbar(im1, ax=axes[0], shrink=0.8)
         
         # 真实压力图
-        im2 = axes[1].imshow(true_2d, cmap='viridis', interpolation='bilinear')
+        im2 = axes[1].imshow(true_2d, cmap='viridis', interpolation='bilinear',
+                            vmin=global_min, vmax=global_max)  # 统一范围
         axes[1].set_title(f"True t={time_step:.2f}", fontsize=10)
         plt.colorbar(im2, ax=axes[1], shrink=0.8)
         
         # 预测压力图
-        im3 = axes[2].imshow(pred_2d, cmap='viridis', interpolation='bilinear')
+        im3 = axes[2].imshow(pred_2d, cmap='viridis', interpolation='bilinear',
+                            vmin=global_min, vmax=global_max)  # 统一范围
         axes[2].set_title(f"Predicted t={time_step:.2f}", fontsize=10)
         plt.colorbar(im3, ax=axes[2], shrink=0.8)
         
@@ -207,24 +215,37 @@ def plot_difference_figure(input_pressure, true_pressure, predicted_pressure, ti
     # 优化图形创建
     fig, axes = plt.subplots(1, 4, figsize=(16, 4))
     
+    # 计算统一的colorbar范围
     try:
+        # 计算前三个图的全局最小值和最大值，确保colorbar范围一致
+        global_min = min(np.min(input_2d), np.min(true_2d), np.min(pred_2d))
+        global_max = max(np.max(input_2d), np.max(true_2d), np.max(pred_2d))
+        
+        # 差异图使用独立的范围，以更好地显示差异
+        diff_min = np.min(diff)
+        diff_max = np.max(diff)
+        
         # 输入压力图
-        im1 = axes[0].imshow(input_2d, cmap='viridis', interpolation='bilinear')
+        im1 = axes[0].imshow(input_2d, cmap='viridis', interpolation='bilinear',
+                            vmin=global_min, vmax=global_max)  # 统一范围
         axes[0].set_title(f"Input t={time_step:.2f}", fontsize=10)
         plt.colorbar(im1, ax=axes[0], shrink=0.8)
         
         # 真实压力图
-        im2 = axes[1].imshow(true_2d, cmap='viridis', interpolation='bilinear')
+        im2 = axes[1].imshow(true_2d, cmap='viridis', interpolation='bilinear',
+                            vmin=global_min, vmax=global_max)  # 统一范围
         axes[1].set_title(f"True t={time_step:.2f}", fontsize=10)
         plt.colorbar(im2, ax=axes[1], shrink=0.8)
         
         # 预测压力图
-        im3 = axes[2].imshow(pred_2d, cmap='viridis', interpolation='bilinear')
+        im3 = axes[2].imshow(pred_2d, cmap='viridis', interpolation='bilinear',
+                            vmin=global_min, vmax=global_max)  # 统一范围
         axes[2].set_title(f"Predicted t={time_step:.2f}", fontsize=10)
         plt.colorbar(im3, ax=axes[2], shrink=0.8)
         
-        # 差异图
-        im4 = axes[3].imshow(diff, cmap='RdBu', interpolation='bilinear')
+        # 差异图使用独立的范围和不同的colormap
+        im4 = axes[3].imshow(diff, cmap='RdBu', interpolation='bilinear',
+                            vmin=diff_min, vmax=diff_max)  # 差异图独立范围
         axes[3].set_title(f"Difference t={time_step:.2f}", fontsize=10)
         plt.colorbar(im4, ax=axes[3], shrink=0.8)
         

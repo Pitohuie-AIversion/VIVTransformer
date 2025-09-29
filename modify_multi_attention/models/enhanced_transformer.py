@@ -23,9 +23,8 @@ except ImportError as e:
             super().__init__()
             self.input_dim = input_dim
             self.output_dim = output_dim
-            # 使用d_model作为实际的输出维度，如果没有提供则使用output_dim
-            actual_output_dim = d_model if d_model is not None else output_dim
-            self.fc = nn.Linear(input_dim, actual_output_dim)
+            # 使用output_dim作为实际的输出维度，d_model只用于内部计算
+            self.fc = nn.Linear(input_dim, output_dim)
         
         def forward(self, x, time_steps=None):
             # 返回正确的输出维度
@@ -42,7 +41,7 @@ class EnhancedTransformer1d(nn.Module):
                  num_layers=3,
                  input_resolution=32,
                  output_resolution=128,
-                 attention_type='simplified_self_attention',
+                 attention_type='simplified_self',
                  pe_type='learnable_1d',
                  time_encoding='embedding',
                  max_time_steps=100,
@@ -59,13 +58,14 @@ class EnhancedTransformer1d(nn.Module):
         self.input_dim = input_dim if input_dim is not None else input_resolution * input_channels
         self.final_output_dim = output_dim if output_dim is not None else output_resolution * output_channels
         
-        # Transformer的实际输出维度（d_model，因为使用了mean(dim=1)）
+        # Transformer的实际输出维度是d_model（因为使用了mean(dim=1)）
+        # 但我们需要将其映射到最终输出维度
         self.transformer_output_dim = d_model
         
         # 创建底层Transformer模型
         self.transformer = TransformerFlowReconstructionModel(
             input_dim=self.input_dim,
-            output_dim=self.transformer_output_dim,  # 使用正确的transformer输出维度
+            output_dim=self.transformer_output_dim,  # 使用d_model作为transformer输出维度
             d_model=d_model,
             num_heads=num_heads,
             num_layers=num_layers,
@@ -81,18 +81,20 @@ class EnhancedTransformer1d(nn.Module):
         )
         
         # 上采样层（如果需要）
-        if self.use_upsampling and output_resolution > input_resolution:
+        if self.use_upsampling and self.final_output_dim != self.transformer_output_dim:
+            # 从transformer输出维度上采样到最终输出维度
             self.upsampler = nn.Sequential(
-                nn.Linear(self.transformer_output_dim, self.transformer_output_dim * 2),  # 使用正确的输入维度
+                nn.Linear(self.transformer_output_dim, self.transformer_output_dim * 2),
                 nn.ReLU(),
                 nn.Linear(self.transformer_output_dim * 2, self.final_output_dim)
             )
             self.output_dim = self.final_output_dim
         else:
-            self.output_dim = self.transformer_output_dim
+            # 如果不需要上采样或维度已经匹配，直接使用transformer输出
+            self.output_dim = self.final_output_dim
     
     def forward(self, x):
-        # x shape: [batch_size, input_resolution, input_channels]
+        # x shape: [batch_size, input_resolution, input_channels] 或 [batch_size, input_dim]
         batch_size = x.size(0)
         device = x.device
         
@@ -100,14 +102,30 @@ class EnhancedTransformer1d(nn.Module):
         if next(self.transformer.parameters()).device != device:
             self.transformer = self.transformer.to(device)
         
-        # 展平输入
-        x_flat = x.view(batch_size, -1)  # [batch_size, input_dim]
+        # 处理输入维度 - 确保展平后的维度与transformer期望的input_dim匹配
+        if x.dim() > 2:
+            # 如果输入是多维的，展平为 [batch_size, input_dim]
+            x_flat = x.view(batch_size, -1)
+        else:
+            # 如果输入已经是2D的，直接使用
+            x_flat = x
+        
+        # 检查维度是否匹配
+        if x_flat.size(1) != self.input_dim:
+            # 如果维度不匹配，需要调整
+            if x_flat.size(1) < self.input_dim:
+                # 如果输入维度小于期望维度，进行填充或重复
+                padding_size = self.input_dim - x_flat.size(1)
+                x_flat = torch.cat([x_flat, torch.zeros(batch_size, padding_size, device=device)], dim=1)
+            else:
+                # 如果输入维度大于期望维度，进行截断
+                x_flat = x_flat[:, :self.input_dim]
         
         # 创建时间步（简单设为0），确保在正确的设备上
         time_steps = torch.zeros(batch_size, 1, dtype=torch.long, device=device)
         
         # 通过Transformer
-        output = self.transformer(x_flat, time_steps)  # [batch_size, output_dim]
+        output = self.transformer(x_flat, time_steps)  # [batch_size, transformer_output_dim]
         
         # 上采样（如果需要），确保在正确的设备上
         if hasattr(self, 'upsampler'):
@@ -129,7 +147,7 @@ class EnhancedTransformer2d(nn.Module):
                  num_layers=3,
                  input_resolution=(32, 32),
                  output_resolution=(128, 128),
-                 attention_type='simplified_self_attention',
+                 attention_type='simplified_self',
                  pe_type='learnable_2d',
                  time_encoding='embedding',
                  max_time_steps=100,
@@ -232,7 +250,7 @@ def create_enhanced_transformer1d(input_dim=None,
                                  num_layers=3,
                                  input_resolution=32,
                                  output_resolution=128,
-                                 attention_type='simplified_self_attention',
+                                 attention_type='simplified_self',
                                  pe_type='learnable_1d',
                                  time_encoding='embedding',
                                  max_time_steps=100,
@@ -265,7 +283,7 @@ def create_enhanced_transformer2d(input_dim=None,
                                  num_layers=3,
                                  input_resolution=(32, 32),
                                  output_resolution=(128, 128),
-                                 attention_type='simplified_self_attention',
+                                 attention_type='simplified_self',
                                  pe_type='learnable_2d',
                                  time_encoding='embedding',
                                  max_time_steps=100,

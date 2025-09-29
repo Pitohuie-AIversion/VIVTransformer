@@ -31,10 +31,13 @@ def create_synthetic_dataloader(config):
     """创建合成数据加载器"""
     data_config = config.get('data', {})
     
-    input_dim = data_config.get('input_dim', 400)
-    output_dim = data_config.get('output_dim', 40000)
+    # 使用配置文件中的维度，如果没有则使用合理的默认值
+    input_dim = data_config.get('input_dim', 16384)  # 默认128*128
+    output_dim = data_config.get('output_dim', 16384)  # 默认128*128
     batch_size = data_config.get('batch_size', 4)
     num_samples = data_config.get('num_samples', 1000)
+    
+    print(f"🔧 合成数据生成器配置: input_dim={input_dim}, output_dim={output_dim}, batch_size={batch_size}")
     
     # 创建数据集
     train_dataset = SyntheticDataset(input_dim, output_dim, num_samples)

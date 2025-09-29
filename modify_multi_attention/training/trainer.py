@@ -18,6 +18,9 @@ from ..utils.visualization import plot_comparison_figure
 from ..utils.visualization import plot_difference_figure
 from ..utils.visualization import plot_losses
 
+# 全局调试开关 - 可通过配置文件控制
+DEBUG_MODE = True  # 默认开启，可通过配置文件关闭
+
 # 设置matplotlib支持中文显示
 # 统一使用全局 sitecustomize.py 的中文字体和负号设置
 # plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
@@ -99,6 +102,10 @@ def _append_finite_record(log_path, stage, tag, tensor_or_scalar, epoch=None, ba
 
 
 def _log_tensor_if_not_finite(x, log_path, stage, tag, epoch=None, batch_idx=None):
+    """仅在调试模式下检查tensor有限性"""
+    if not DEBUG_MODE:
+        return False
+    
     try:
         if isinstance(x, torch.Tensor):
             if not torch.isfinite(x.detach()).all():
@@ -119,7 +126,11 @@ def _inspect_forward_cnn_resize(model, inputs, finite_log_path, batch_idx: int =
     """
     针对 CNNResizeBaselineModel 的逐步前向检查：
     依次检查 x 组装、backbone、interpolate、head、view 各阶段的有限性。
+    仅在调试模式下进行前向传播检查
     """
+    if not DEBUG_MODE:
+        return
+    
     try:
         in_press, time_steps = inputs
         B = in_press.shape[0]
@@ -145,13 +156,22 @@ def _inspect_forward_cnn_resize(model, inputs, finite_log_path, batch_idx: int =
         out_flat = out_map.view(B, -1)
         _log_tensor_if_not_finite(out_flat, finite_log_path, 'inspect', 'out_after_view', batch_idx=batch_idx)
     except Exception as e:
-        print(f"[finite_debug] CNNResize inspect failed: {e}")
+        if DEBUG_MODE:
+            print(f"[finite_debug] CNNResize inspect failed: {e}")
 
 
 def train_model(model, train_loader, valid_loader, test_loader, criterion, optimizer, num_epochs=100, device='cuda',
                 early_stop_patience=10, attention_type='default',
                 result_dir=None, cfg=None, scheduler=None, no_pretrained=False):   # cfg参数必传！
 
+    # 从配置文件读取调试模式设置
+    global DEBUG_MODE
+    experiment_config = cfg.get('experiment', {})
+    DEBUG_MODE = experiment_config.get('debug_mode', True)
+    
+    if not DEBUG_MODE:
+        print("调试模式已关闭，将跳过tensor有限性检查以提高训练速度")
+    
     # 标准 MSELoss（保证横向可比）
     import torch.nn as nn
     mse_loss = nn.MSELoss()

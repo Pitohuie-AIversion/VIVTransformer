@@ -16,6 +16,10 @@
 日期: 2025
 """
 
+# 解决OpenMP库冲突问题
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 """
 多模型测试框架 - 主程序
 
@@ -54,6 +58,7 @@ import yaml
 import time
 import psutil
 import gc
+import copy
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any, Union
 import logging
@@ -77,6 +82,9 @@ sys.path.append(str(project_root))
 models_dir = Path(__file__).parent / 'models'
 sys.path.insert(0, str(models_dir))
 
+# 全局导入日志控制标志 - 使用环境变量实现持久化
+_IMPORT_LOGS_PRINTED = os.environ.get('IMPORT_LOGS_PRINTED', 'False') == 'True'
+
 # 导入增强模型
 try:
     # 尝试多种导入方式
@@ -85,7 +93,8 @@ try:
         from enhanced_fno import EnhancedFNO1d, EnhancedFNO2d
         from enhanced_mlp import EnhancedMLP1d, EnhancedMLP2d
         from enhanced_unet import EnhancedUNet1d, EnhancedUNet2d
-        logger.info("✅ 增强模型导入成功（直接导入）")
+        if not _IMPORT_LOGS_PRINTED:
+            logger.info("✅ 增强模型导入成功（直接导入）")
     except ImportError:
         # 尝试从models目录导入
         try:
@@ -93,10 +102,12 @@ try:
             from models.enhanced_fno import EnhancedFNO1d, EnhancedFNO2d
             from models.enhanced_mlp import EnhancedMLP1d, EnhancedMLP2d
             from models.enhanced_unet import EnhancedUNet1d, EnhancedUNet2d
-            logger.info("✅ 增强模型导入成功（从models目录）")
+            if not _IMPORT_LOGS_PRINTED:
+                logger.info("✅ 增强模型导入成功（从models目录）")
         except ImportError as e:
-            logger.warning(f"⚠️ 增强模型导入失败: {e}")
-            logger.info("📝 将使用内置的简单模型实现")
+            if not _IMPORT_LOGS_PRINTED:
+                logger.warning(f"⚠️ 增强模型导入失败: {e}")
+                logger.info("📝 将使用内置的简单模型实现")
             raise ImportError("Enhanced models not available")
     ENHANCED_MODELS_AVAILABLE = True
 except ImportError:
@@ -111,41 +122,53 @@ matplotlib.use('Agg')  # 使用非交互式后端
 try:
     from data.enhanced_crop_dataloader import create_enhanced_crop_dataloader
     ENHANCED_DATALOADER_AVAILABLE = True
-    logger.info("✅ 使用增强版数据加载器（支持归一化）")
+    if not _IMPORT_LOGS_PRINTED:
+        logger.info("✅ 使用增强版数据加载器（支持归一化）")
 except ImportError as e:
-    logger.warning(f"⚠️ 增强版数据加载器导入失败: {e}")
+    if not _IMPORT_LOGS_PRINTED:
+        logger.warning(f"⚠️ 增强版数据加载器导入失败: {e}")
     try:
         from modify_multi_attention.data.crop_dataloader import create_crop_dataloader
         ENHANCED_DATALOADER_AVAILABLE = False
-        logger.info("✅ 使用标准版数据加载器（不支持归一化）")
+        if not _IMPORT_LOGS_PRINTED:
+            logger.info("✅ 使用标准版数据加载器（不支持归一化）")
     except ImportError as e2:
-        logger.error(f"❌ 所有数据加载器导入失败: {e2}")
+        if not _IMPORT_LOGS_PRINTED:
+            logger.error(f"❌ 所有数据加载器导入失败: {e2}")
         raise ImportError("No dataloader available")
 
 from modify_multi_attention.utils.config import load_config
 try:
     from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
-    logger.info("✅ Transformer模型导入成功")
+    if not _IMPORT_LOGS_PRINTED:
+        logger.info("✅ Transformer模型导入成功")
 except ImportError as e:
-    logger.warning(f"⚠️ Transformer模型导入失败: {e}")
+    if not _IMPORT_LOGS_PRINTED:
+        logger.warning(f"⚠️ Transformer模型导入失败: {e}")
 
 try:
     from models.enhanced_fno import create_enhanced_fno2d
-    logger.info("✅ 增强FNO模型导入成功")
+    if not _IMPORT_LOGS_PRINTED:
+        logger.info("✅ 增强FNO模型导入成功")
 except ImportError as e:
-    logger.warning(f"⚠️ 增强FNO模型导入失败: {e}")
+    if not _IMPORT_LOGS_PRINTED:
+        logger.warning(f"⚠️ 增强FNO模型导入失败: {e}")
 
 try:
     from models.enhanced_unet import create_enhanced_unet2d
-    logger.info("✅ 增强UNet模型导入成功")
+    if not _IMPORT_LOGS_PRINTED:
+        logger.info("✅ 增强UNet模型导入成功")
 except ImportError as e:
-    logger.warning(f"⚠️ 增强UNet模型导入失败: {e}")
+    if not _IMPORT_LOGS_PRINTED:
+        logger.warning(f"⚠️ 增强UNet模型导入失败: {e}")
 
 try:
     from utils.visualization import create_model_comparison_plots, generate_model_comparison_summary, plot_training_losses, plot_comparison_figure
-    logger.info("✅ 可视化工具导入成功")
+    if not _IMPORT_LOGS_PRINTED:
+        logger.info("✅ 可视化工具导入成功")
 except ImportError as e:
-    logger.warning(f"⚠️ 可视化工具导入失败: {e}")
+    if not _IMPORT_LOGS_PRINTED:
+        logger.warning(f"⚠️ 可视化工具导入失败: {e}")
     # 提供备用的可视化函数
     def create_model_comparison_plots(*args, **kwargs):
         logger.warning("可视化功能不可用，跳过图表生成")
@@ -162,6 +185,10 @@ except ImportError as e:
     def plot_comparison_figure(*args, **kwargs):
         logger.warning("可视化功能不可用，跳过对比图表生成")
         return None
+
+# 设置导入日志已打印标志
+_IMPORT_LOGS_PRINTED = True
+os.environ['IMPORT_LOGS_PRINTED'] = 'True'
 
 # ===== 自适应资源管理工具函数 =====
 
@@ -241,17 +268,6 @@ def get_gpu_memory_info(device_id=0):
         }
     except Exception as e:
         logger.warning(f"获取GPU内存信息失败: {e}")
-        return None
-        
-        return {
-            'total_gb': total_memory / (1024**3),
-            'allocated_gb': allocated_memory / (1024**3),
-            'cached_gb': cached_memory / (1024**3),
-            'free_gb': (total_memory - allocated_memory) / (1024**3),
-            'usage_percent': (allocated_memory / total_memory) * 100
-        }
-    except Exception as e:
-        logger.warning(f"无法获取GPU内存信息: {e}")
         return None
 
 def adaptive_batch_size(base_batch_size, gpu_memory_gb, model_complexity='medium'):
@@ -879,7 +895,7 @@ def get_default_config() -> Dict[str, Any]:
         'data': {
             'data_type': 'synthetic',
             'data_path': 'data/default_dataset.h5',
-            'input_dim': 1024,
+            'input_dim': 16384,
             'output_dim': 16384,
             'input_resolution': [32, 32],
             'output_resolution': [128, 128],
@@ -933,7 +949,7 @@ def get_default_config() -> Dict[str, Any]:
             'active_model': 'transformer',
             'transformer': {
                 'model_type': 'transformer',
-                'input_dim': 1024,
+                'input_dim': 16384,
                 'output_dim': 16384,
                 'd_model': 256,
                 'num_heads': 8,
@@ -945,6 +961,33 @@ def get_default_config() -> Dict[str, Any]:
                 'max_time_steps': 100,
                 'output_head_type': 'global',
                 'time_encoding': 'embedding'
+            },
+            'mlp': {
+                'model_type': 'mlp',
+                'input_dim': 16384,
+                'output_dim': 16384,
+                'hidden_dims': [512, 256, 128],
+                'activation': 'relu',
+                'dropout': 0.1,
+                'use_batch_norm': True,
+                'use_residual': False
+            },
+            'unet': {
+                'model_type': 'unet',
+                'input_dim': 16384,
+                'output_dim': 16384,
+                'base_channels': 64,
+                'num_levels': 4,
+                'dropout': 0.1
+            },
+            'fno': {
+                'model_type': 'fno',
+                'input_dim': 16384,
+                'output_dim': 16384,
+                'modes': 12,
+                'width': 64,
+                'num_layers': 4,
+                'dropout': 0.1
             }
         },
         'attention': {
@@ -1019,61 +1062,97 @@ def get_default_config() -> Dict[str, Any]:
     }
 
 def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """验证并修正配置"""
+    """验证和修复配置文件，增强错误处理"""
     try:
-        # 获取默认配置作为基准
+        logger.info("🔍 开始配置验证...")
+        
+        # 深度复制配置以避免修改原始配置
+        config = copy.deepcopy(config)
+        
+        # 验证必需的顶级配置节
+        required_sections = ['data', 'training', 'models', 'loss']
         default_config = get_default_config()
-        
-        # 确保必要的顶级键存在
-        required_keys = ['experiment', 'data', 'training', 'loss', 'models']
-        for key in required_keys:
-            if key not in config:
-                logger.warning(f"配置中缺少必要的键 '{key}'，使用默认值")
-                config[key] = default_config[key]
-        
-        # 验证实验配置
-        if 'mode' not in config['experiment']:
-            config['experiment']['mode'] = 'single_model'
+        for section in required_sections:
+            if section not in config:
+                logger.warning(f"⚠️ 缺少配置节 '{section}'，使用默认配置")
+                config[section] = default_config.get(section, {})
         
         # 验证数据配置
         data_config = config['data']
-        if 'input_dim' not in data_config or 'output_dim' not in data_config:
-            logger.warning("数据配置中缺少维度信息，使用默认值")
-            data_config.update({
-                'input_dim': 1024,
-                'output_dim': 16384
-            })
+        required_data_fields = {
+            'data_path': '../merged_all_pressures_separated_normalized.pt',
+            'input_dim': 16384,
+            'output_dim': 16384,
+            'batch_size': 32,
+            'normalize': True,
+            'normalize_method': 'minmax',
+            'normalize_range': (0, 1)
+        }
+        
+        for field, default_value in required_data_fields.items():
+            if field not in data_config:
+                logger.warning(f"⚠️ 数据配置缺少字段 '{field}'，使用默认值: {default_value}")
+                data_config[field] = default_value
+        
+        # 验证数据路径存在性
+        data_path = data_config['data_path']
+        if not os.path.exists(data_path):
+            logger.error(f"❌ 数据文件不存在: {data_path}")
+            raise FileNotFoundError(f"数据文件不存在: {data_path}")
         
         # 验证训练配置
         training_config = config['training']
-        if 'epochs' not in training_config:
-            training_config['epochs'] = 50
-        if 'learning_rate' not in training_config:
-            training_config['learning_rate'] = 0.001
-        if 'batch_size' not in config['data']:
-            config['data']['batch_size'] = 32
+        required_training_fields = {
+            'epochs': 50,
+            'learning_rate': 0.001,
+            'device': 'auto',
+            'early_stopping_patience': 10,
+            'save_best_model': True
+        }
+        
+        for field, default_value in required_training_fields.items():
+            if field not in training_config:
+                logger.warning(f"⚠️ 训练配置缺少字段 '{field}'，使用默认值: {default_value}")
+                training_config[field] = default_value
         
         # 验证模型配置
-        if 'active_model' not in config['models']:
-            config['models']['active_model'] = 'transformer'
+        models_config = config['models']
+        if 'active_model' not in models_config:
+            logger.warning("⚠️ 未指定活跃模型，使用默认: transformer")
+            models_config['active_model'] = 'transformer'
         
         # 确保活跃模型的配置存在
-        active_model = config['models']['active_model']
-        if active_model not in config['models']:
-            logger.warning(f"活跃模型 '{active_model}' 的配置不存在，使用默认配置")
-            config['models'][active_model] = default_config['models']['transformer']
+        active_model = models_config['active_model']
+        if active_model not in models_config:
+            logger.warning(f"⚠️ 活跃模型 '{active_model}' 的配置不存在，使用默认配置")
+            models_config[active_model] = default_config['models'].get('transformer', {})
         
         # 验证损失配置
-        if 'mse_weight' not in config['loss']:
-            config['loss']['mse_weight'] = 1.0
+        loss_config = config['loss']
+        required_loss_fields = {
+            'mse_weight': 1.0,
+            'loss_type': 'mse'
+        }
+        
+        for field, default_value in required_loss_fields.items():
+            if field not in loss_config:
+                logger.warning(f"⚠️ 损失配置缺少字段 '{field}'，使用默认值: {default_value}")
+                loss_config[field] = default_value
+        
+        # 验证归一化配置的一致性
+        if data_config.get('normalize', False):
+            normalize_method = data_config.get('normalize_method', 'minmax')
+            if normalize_method not in ['minmax', 'zscore', 'robust']:
+                logger.warning(f"⚠️ 不支持的归一化方法 '{normalize_method}'，使用默认: minmax")
+                data_config['normalize_method'] = 'minmax'
         
         logger.info("✅ 配置验证完成")
         return config
         
     except Exception as e:
-        logger.error(f"配置验证失败: {e}")
-        logger.info("使用默认配置")
-        return default_config
+        logger.error(f"❌ 配置验证失败: {e}")
+        logger.info("🔄 使用默认配置")
+        return get_default_config()
 
 def setup_device(config=None):
     """设置设备"""
@@ -1130,15 +1209,28 @@ def load_unified_data(config: Dict[str, Any]):
         data_config = config.get('data', {})
         data_type = data_config.get('data_type', 'real')
         
+        # 验证数据配置
+        if not data_config:
+            raise ValueError("数据配置为空")
+        
         # 如果是合成数据，使用合成数据生成器
         if data_type == 'synthetic':
             try:
                 from synthetic_data_generator import create_synthetic_dataloader
                 logger.info("✅ 使用合成数据生成器")
-                return create_synthetic_dataloader(config)
+                result = create_synthetic_dataloader(config)
+                if len(result) == 4:
+                    return result
+                else:
+                    # 兼容旧版本返回格式
+                    train_loader, val_loader, test_loader = result
+                    return train_loader, val_loader, test_loader, None
             except ImportError as e:
                 logger.error(f"❌ 合成数据生成器导入失败: {e}")
                 raise ImportError(f"合成数据生成器不可用: {e}")
+            except Exception as e:
+                logger.error(f"❌ 合成数据生成失败: {e}")
+                raise RuntimeError(f"合成数据生成失败: {e}")
         
         # 使用真实数据加载器
         logger.info("📊 开始加载真实数据...")
@@ -1148,42 +1240,59 @@ def load_unified_data(config: Dict[str, Any]):
         if not data_path:
             raise ValueError("数据路径未配置")
         
-        # 转换为绝对路径
-        if not os.path.isabs(data_path):
-            data_path = os.path.abspath(data_path)
-        
         if not os.path.exists(data_path):
             raise FileNotFoundError(f"数据文件不存在: {data_path}")
         
-        logger.info(f"✅ 数据文件路径验证成功: {data_path}")
+        # 检查文件大小
+        file_size = os.path.getsize(data_path)
+        if file_size == 0:
+            raise ValueError(f"数据文件为空: {data_path}")
         
-        # 使用增强版或标准版数据加载器
-        if ENHANCED_DATALOADER_AVAILABLE:
-            return create_enhanced_crop_dataloader(config)
-        else:
-            return create_crop_dataloader(config)
+        logger.info(f"📁 数据文件: {data_path} (大小: {file_size / (1024*1024):.2f} MB)")
+        
+        # 尝试加载增强版数据加载器
+        normalize_config = data_config.get('normalize', False)
+        if normalize_config and ENHANCED_DATALOADER_AVAILABLE:
+            try:
+                logger.info("🎯 使用增强版数据加载器（带归一化）")
+                result = create_enhanced_crop_dataloader(config)
+                if len(result) == 4:
+                    train_loader, val_loader, test_loader, normalizer = result
+                    logger.info(f"✅ 增强版数据加载器创建成功，归一化器: {normalizer.__class__.__name__ if normalizer else 'None'}")
+                    return train_loader, val_loader, test_loader, normalizer
+                else:
+                    logger.warning("⚠️ 增强版数据加载器返回格式异常，回退到标准版本")
+                    train_loader, val_loader, test_loader = create_crop_dataloader(config)
+                    return train_loader, val_loader, test_loader, None
+            except Exception as e:
+                logger.error(f"❌ 增强版数据加载器失败: {e}")
+                logger.info("🔄 回退到标准数据加载器")
+        
+        # 使用标准数据加载器
+        try:
+            logger.info("📊 使用标准数据加载器")
+            result = create_crop_dataloader(config)
+            if len(result) == 3:
+                train_loader, val_loader, test_loader = result
+                logger.info("✅ 标准数据加载器创建成功")
+                return train_loader, val_loader, test_loader, None
+            else:
+                raise ValueError("标准数据加载器返回格式异常")
+        except Exception as e:
+            logger.error(f"❌ 标准数据加载器失败: {e}")
+            raise RuntimeError(f"所有数据加载器都失败: {e}")
+        
+    except Exception as e:
+        logger.error(f"❌ 数据加载失败: {e}")
+        logger.error(f"错误类型: {type(e).__name__}")
+        logger.error(f"错误详情: {str(e)}")
+        raise
             
     except Exception as e:
         logger.error(f"❌ 数据加载失败: {e}")
         logger.error(f"错误类型: {type(e).__name__}")
         logger.error(f"配置信息: {config.get('data', {})}")
         raise
-    
-    # 使用增强版数据加载器
-    if ENHANCED_DATALOADER_AVAILABLE:
-        # 增强版数据加载器接受完整的config，并返回4个值（包括normalizer）
-        result = create_enhanced_crop_dataloader(config)
-        if len(result) == 4:
-            train_loader, val_loader, test_loader, normalizer = result
-        else:
-            train_loader, val_loader, test_loader = result
-            normalizer = None
-    else:
-        # 标准版数据加载器接受config，返回3个值
-        train_loader, val_loader, test_loader = create_crop_dataloader(config)
-        normalizer = None
-    
-    return train_loader, val_loader, test_loader, normalizer
 
 def train_unified_model(model, train_loader, val_loader, device, training_config, loss_config):
     """统一模型训练（简化版本，避免递归调用）"""
@@ -1296,101 +1405,82 @@ def merge_configs(base_config: Dict, preset_config: Dict) -> Dict:
     return result
 
 def create_enhanced_model(model_config: Dict[str, Any], input_dim: int, output_dim: int, device=None) -> nn.Module:
-    """创建增强模型，增强错误处理和设备管理"""
+    """创建增强模型，简化异常处理逻辑"""
     model_type = model_config.get('model_type', 'mlp').lower()
-    model = None  # 初始化model变量
     
+    logger.info(f"🔧 创建增强模型: {model_type}")
+    
+    # 如果增强模型不可用，直接使用简单模型
+    if not ENHANCED_MODELS_AVAILABLE:
+        logger.warning("⚠️ 增强模型不可用，使用简单模型")
+        return create_simple_model(model_type, input_dim, output_dim, model_config)
+    
+    # 模型创建映射表
+    model_creators = {
+        'transformer': lambda: EnhancedTransformer1d(
+            input_channels=1,
+            output_channels=1,
+            d_model=model_config.get('d_model', 128),
+            num_heads=model_config.get('num_heads', 4),
+            num_layers=model_config.get('num_layers', 3),
+            input_resolution=int(np.sqrt(input_dim)),
+            output_resolution=int(np.sqrt(output_dim)),
+            attention_type=model_config.get('attention_type', 'simplified_self'),
+            pe_type=model_config.get('pe_type', 'learnable_1d'),
+            use_upsampling=True,  # 确保启用上采样
+            input_dim=input_dim,  # 明确传递输入维度
+            output_dim=output_dim  # 明确传递输出维度
+        ),
+        'mlp': lambda: SimpleMLP(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            hidden_dims=model_config.get('hidden_dims', [256, 128]),
+            dropout=model_config.get('dropout', 0.1)
+        ),
+        'unet': lambda: EnhancedUNetWrapper(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            base_ch=model_config.get('base_channels', model_config.get('base_ch', 32)),
+            num_levels=model_config.get('num_levels', 4)
+        ),
+        'fno': lambda: EnhancedFNOWrapper(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            modes1=model_config.get('modes', [12, 12])[0] if isinstance(model_config.get('modes', 12), list) else model_config.get('modes', 12),
+            modes2=model_config.get('modes', [12, 12])[1] if isinstance(model_config.get('modes', 12), list) else model_config.get('modes', 12),
+            width=model_config.get('width', 64)
+        )
+    }
+    
+    # 尝试创建模型
     try:
-        logger.info(f"🔧 创建增强模型: {model_type}")
-        
-        if not ENHANCED_MODELS_AVAILABLE:
-            logger.warning("⚠️ 增强模型不可用，将使用简单模型")
-            model = create_simple_model(model_type, input_dim, output_dim, model_config)
+        if model_type in model_creators:
+            model = model_creators[model_type]()
+            # 获取实际创建的模型类名
+            actual_model_class = model.__class__.__name__
+            logger.info(f"✅ 增强{model_type.upper()}模型创建成功 (类型: {actual_model_class})")
         else:
-            if model_type == 'transformer':
-                try:
-                    model = EnhancedTransformer1d(
-                        input_channels=1,
-                        output_channels=1,
-                        d_model=model_config.get('d_model', 128),
-                        num_heads=model_config.get('num_heads', 4),
-                        num_layers=model_config.get('num_layers', 3),
-                        input_resolution=int(np.sqrt(input_dim)),
-                        output_resolution=int(np.sqrt(output_dim)),
-                        attention_type=model_config.get('attention_type', 'simplified_self_attention'),
-                        pe_type=model_config.get('pe_type', 'learnable_1d')
-                    )
-                    logger.info("✅ 增强Transformer模型创建成功")
-                except Exception as e:
-                    logger.warning(f"⚠️ 增强Transformer创建失败: {e}，使用简单模型")
-                    model = create_simple_model(model_type, input_dim, output_dim, model_config)
-                    
-            elif model_type == 'mlp':
-                try:
-                    # 直接使用内置的SimpleMLP，避免导入问题
-                    model = SimpleMLP(
-                        input_dim=input_dim,
-                        output_dim=output_dim,
-                        hidden_dims=model_config.get('hidden_dims', [256, 128]),
-                        dropout=model_config.get('dropout', 0.1)
-                    )
-                    logger.info("✅ 内置MLP模型创建成功")
-                except Exception as e:
-                    logger.warning(f"⚠️ MLP创建失败: {e}，使用简单模型")
-                    model = create_simple_model(model_type, input_dim, output_dim, model_config)
-                    
-            elif model_type == 'unet':
-                try:
-                    # 直接使用内置的UNet包装类
-                    model = EnhancedUNetWrapper(
-                        input_dim=input_dim,
-                        output_dim=output_dim,
-                        base_ch=model_config.get('base_channels', model_config.get('base_ch', 32)),
-                        num_levels=model_config.get('num_levels', 4)
-                    )
-                    logger.info("✅ 内置UNet包装模型创建成功")
-                except Exception as e:
-                    logger.warning(f"⚠️ UNet创建失败: {e}，使用简单模型")
-                    model = create_simple_model(model_type, input_dim, output_dim, model_config)
-                    
-            elif model_type == 'fno':
-                try:
-                    # 直接使用内置的FNO包装类
-                    model = EnhancedFNOWrapper(
-                        input_dim=input_dim,
-                        output_dim=output_dim,
-                        modes1=model_config.get('modes', [12, 12])[0] if isinstance(model_config.get('modes', 12), list) else model_config.get('modes', 12),
-                        modes2=model_config.get('modes', [12, 12])[1] if isinstance(model_config.get('modes', 12), list) else model_config.get('modes', 12),
-                        width=model_config.get('width', 64)
-                    )
-                    logger.info("✅ 内置FNO包装模型创建成功")
-                except Exception as e:
-                    logger.warning(f"⚠️ FNO创建失败: {e}，使用简单模型")
-                    model = create_simple_model(model_type, input_dim, output_dim, model_config)
-            else:
-                # 未知模型类型，使用简单模型
-                logger.warning(f"⚠️ 未知模型类型: {model_type}，使用简单模型")
-                model = create_simple_model(model_type, input_dim, output_dim, model_config)
-        
-        # 确保模型被创建
-        if model is None:
-            logger.warning("⚠️ 模型创建失败，使用默认线性模型")
-            model = nn.Linear(input_dim, output_dim)
-        
-        # 如果提供了设备，将模型移动到设备
-        if device is not None:
-            model = model.to(device)
-            logger.info(f"✅ 模型已移动到设备: {device}")
-        
-        return model
-            
+            logger.warning(f"⚠️ 未知模型类型: {model_type}，使用简单模型")
+            model = create_simple_model(model_type, input_dim, output_dim, model_config)
+            actual_model_class = model.__class__.__name__
+            logger.info(f"📝 简单{model_type.upper()}模型创建成功 (类型: {actual_model_class})")
     except Exception as e:
-        logger.error(f"❌ 创建增强模型时发生严重错误: {e}")
-        # 最后的后备方案
+        logger.warning(f"⚠️ {model_type}创建失败: {e}，使用简单模型")
+        model = create_simple_model(model_type, input_dim, output_dim, model_config)
+        actual_model_class = model.__class__.__name__
+        logger.info(f"🔄 备用{model_type.upper()}模型创建成功 (类型: {actual_model_class})")
+    
+    # 确保模型被创建
+    if model is None:
+        logger.warning("⚠️ 模型创建失败，使用默认线性模型")
         model = nn.Linear(input_dim, output_dim)
-        if device is not None:
-            model = model.to(device)
-        return model
+    
+    # 如果提供了设备，将模型移动到设备
+    if device is not None:
+        model = model.to(device)
+        logger.info(f"✅ 模型已移动到设备: {device}")
+    
+    return model
 
 def create_simple_model(model_type: str, input_dim: int, output_dim: int, config: Dict) -> nn.Module:
     """创建参数量平衡的简单模型"""
@@ -1499,11 +1589,13 @@ def train_model(model, train_loader, val_loader, config, device, normalizer=None
     
     # 获取early_stopping配置
     early_stopping_config = config['training'].get('early_stopping', {})
+    early_stopping_enabled = early_stopping_config.get('enabled', False)
     patience = early_stopping_config.get('patience', config['training'].get('patience', 10))
     min_delta = early_stopping_config.get('min_delta', config['training'].get('min_delta', 0.001))
     
     # 调试信息
     logger.info(f"训练配置 - epochs: {epochs} (type: {type(epochs)})")
+    logger.info(f"早停配置 - enabled: {early_stopping_enabled}")
     logger.info(f"训练配置 - patience: {patience} (type: {type(patience)})")
     logger.info(f"训练配置 - min_delta: {min_delta} (type: {type(min_delta)})")
     
@@ -1516,6 +1608,11 @@ def train_model(model, train_loader, val_loader, config, device, normalizer=None
     logger.info(f"转换后 - epochs: {epochs} (type: {type(epochs)})")
     logger.info(f"转换后 - patience: {patience} (type: {type(patience)})")
     logger.info(f"转换后 - min_delta: {min_delta} (type: {type(min_delta)})")
+    
+    if early_stopping_enabled:
+        logger.info("✅ 早停机制已启用")
+    else:
+        logger.info("❌ 早停机制已禁用，将训练完整的epochs")
     
     train_losses = []
     val_losses = []
@@ -1568,17 +1665,23 @@ def train_model(model, train_loader, val_loader, config, device, normalizer=None
         avg_val_loss = val_loss / num_val_batches
         val_losses.append(avg_val_loss)
         
-        # 早停检查
-        if avg_val_loss < best_val_loss - min_delta:
-            best_val_loss = avg_val_loss
-            patience_counter = 0
+        # 早停检查 - 只有在启用早停时才进行检查
+        if early_stopping_enabled:
+            if avg_val_loss < best_val_loss - min_delta:
+                best_val_loss = avg_val_loss
+                patience_counter = 0
+            else:
+                patience_counter += 1
         else:
-            patience_counter += 1
+            # 即使不启用早停，也要更新最佳验证损失
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
         
         if epoch % 5 == 0 or epoch == epochs - 1:
             logger.info(f"轮次 {epoch+1}/{epochs}: 训练损失={avg_train_loss:.6f}, 验证损失={avg_val_loss:.6f}")
         
-        if patience_counter >= patience:
+        # 只有在启用早停时才检查是否需要早停
+        if early_stopping_enabled and patience_counter >= patience:
             logger.info(f"早停于轮次 {epoch+1}")
             break
     
@@ -1657,7 +1760,9 @@ def run_unified_training(config_path: str, models: List[str] = None):
         
         # 根据模式执行不同的训练流程
         if mode == 'single_model':
-            return run_single_model_training(config, output_dir)
+            # 对于单模型训练，如果指定了模型列表，使用第一个模型
+            model_name = models[0] if models and len(models) > 0 else None
+            return run_single_model_training(config, output_dir, model_name)
         elif mode == 'multi_model_comparison':
             return run_multi_model_comparison(config, output_dir, models)
         elif mode == 'parameter_fair_comparison':
@@ -1674,7 +1779,7 @@ def run_unified_training(config_path: str, models: List[str] = None):
         logger.error(f"错误详情: {traceback.format_exc()}")
         return {}
 
-def run_single_model_training(config: Dict, output_dir: str) -> Dict:
+def run_single_model_training(config: Dict, output_dir: str, model_name: str = None) -> Dict:
     """单模型训练"""
     logger.info("执行单模型训练...")
     
@@ -1691,15 +1796,24 @@ def run_single_model_training(config: Dict, output_dir: str) -> Dict:
     
     # 获取激活模型配置
     models_config = config.get('models', {})
-    active_model = models_config.get('active_model', 'transformer')
-    model_config = models_config.get(active_model, {})
+    # 使用指定的模型名称，如果没有指定则使用active_model
+    if model_name and model_name in models_config:
+        active_model = model_name
+        model_config = models_config.get(active_model, {})
+    else:
+        active_model = models_config.get('active_model', 'transformer')
+        model_config = models_config.get(active_model, {})
     
     # 创建模型
     model = create_enhanced_model(model_config, input_dim, output_dim, device)
     
     # 计算参数量
     param_count = sum(p.numel() for p in model.parameters())
-    logger.info(f"模型: {active_model}, 参数量: {param_count:,}")
+    # 获取实际创建的模型类型
+    actual_model_type = model.__class__.__name__
+    # 显示正确的模型名称
+    display_model_name = model_name if model_name else active_model
+    logger.info(f"✅ 模型创建完成: {display_model_name.upper()} ({actual_model_type}), 参数量: {param_count:,}")
     
     # 训练模型
     start_time = time.time()
@@ -1776,7 +1890,10 @@ def save_training_results(results: Dict, config: Dict, output_dir: str):
         try:
             logger.info("🎨 开始生成可视化图表...")
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            plot_files = create_visualization_plots(results, timestamp)
+            # 从结果中获取模型名称
+            model_names = list(results.keys())
+            active_model = model_names[0] if model_names else 'transformer'
+            plot_files = create_visualization_plots(results, timestamp, active_model)
             
             if plot_files:
                 logger.info(f"✅ 成功生成 {len(plot_files)} 个可视化图表:")
@@ -1825,9 +1942,14 @@ def run_multi_model_comparison(config: Dict, output_dir: str, models: List[str] 
     
     # 训练每个模型
     for model_name in models:
-        # 尝试大小写匹配
-        model_key = model_name.lower()
-        if model_key not in models_config:
+        # 检查模型配置是否存在（支持大小写不敏感）
+        model_key = None
+        for key in models_config.keys():
+            if key.lower() == model_name.lower() and key != 'active_model':
+                model_key = key
+                break
+        
+        if model_key is None:
             logger.warning(f"跳过未配置的模型: {model_name}")
             continue
             
@@ -1947,17 +2069,22 @@ def run_model_test(config_path, models=None):
     # 创建数据加载器（包含归一化器）
     logger.info("创建数据加载器...")
     
-    # 检查归一化配置
-    normalize_config = config.get('data', {}).get('normalize', False)
+    # 标准化归一化配置读取
+    data_config = config.get('data', {})
+    normalize_config = data_config.get('normalize', False)
+    normalize_method = data_config.get('normalize_method', 'minmax')
+    normalize_range = data_config.get('normalize_range', (0, 1))
+    
     if normalize_config and ENHANCED_DATALOADER_AVAILABLE:
         logger.info("🎯 启用数据归一化功能")
+        logger.info(f"  归一化方法: {normalize_method}")
+        logger.info(f"  归一化范围: {normalize_range}")
         train_loader, val_loader, test_loader, normalizer = create_enhanced_crop_dataloader(config)
         
-        # 记录归一化信息
-        if hasattr(normalizer, 'method'):
-            logger.info(f"归一化方法: {normalizer.method}")
-            if hasattr(normalizer, 'target_range'):
-                logger.info(f"目标范围: {normalizer.target_range}")
+        # 验证归一化器配置
+        if normalizer and hasattr(normalizer, 'method'):
+            if normalizer.method != normalize_method:
+                logger.warning(f"⚠️ 归一化器方法不匹配: 配置={normalize_method}, 实际={normalizer.method}")
     else:
         if normalize_config and not ENHANCED_DATALOADER_AVAILABLE:
             logger.warning("⚠️ 配置要求归一化但增强版数据加载器不可用，使用标准版本")
@@ -2121,6 +2248,8 @@ def run_model_test(config_path, models=None):
     # 生成可视化图表
     try:
         logger.info("🎨 开始生成可视化图表...")
+        # 由于create_visualization_plots函数已经能够从results中自动提取模型名称
+        # 不再需要手动确定model_name_for_viz
         plot_files = create_visualization_plots(results, timestamp)
         
         if plot_files:
@@ -2141,19 +2270,36 @@ def run_model_test(config_path, models=None):
     
     return results
 
-def create_visualization_plots(results: Dict[str, Any], timestamp: str) -> List[str]:
+def create_visualization_plots(results: Dict[str, Any], timestamp: str, model_name: str = None) -> List[str]:
     """
     创建可视化图表，调用utils.visualization模块并包装结果到指定文件夹
     
     Args:
         results: 模型测试结果字典
         timestamp: 时间戳字符串
+        model_name: 模型名称，用于文件夹命名区分
     
     Returns:
         生成的图表文件路径列表
     """
-    # 创建可视化结果文件夹
-    viz_folder = Path("utils") / "visualization_results" / f"crop_model_test_{timestamp}"
+    # 创建可视化结果文件夹，根据模型名称动态命名
+    # 过滤成功的结果以获取实际的模型名称
+    successful_model_names = [k for k, v in results.items() if 'error' not in v]
+    
+    if len(successful_model_names) > 1:
+        # 多个模型：使用模型名称组合，限制长度避免路径过长
+        model_names_str = "_".join(successful_model_names[:3])  # 最多使用前3个模型名
+        if len(successful_model_names) > 3:
+            model_names_str += f"_and_{len(successful_model_names)-3}more"
+        folder_name = f"{model_names_str}_comparison_{timestamp}"
+    elif len(successful_model_names) == 1:
+        # 单个模型：使用具体模型名称
+        folder_name = f"{successful_model_names[0]}_test_{timestamp}"
+    else:
+        # 没有成功的模型，使用默认命名
+        folder_name = f"crop_model_test_{timestamp}"
+    
+    viz_folder = Path("utils") / "visualization_results" / folder_name
     viz_folder.mkdir(parents=True, exist_ok=True)
     
     logger.info(f"📁 创建可视化结果文件夹: {viz_folder}")
@@ -2166,15 +2312,21 @@ def create_visualization_plots(results: Dict[str, Any], timestamp: str) -> List[
         return []
     
     try:
-        # 调用utils.visualization模块的函数生成图表
+        # 调用utils.visualization模块的函数生成图表（存储在主文件夹，用于模型间比较）
         plot_files = create_model_comparison_plots(
             results=successful_results,
             output_dir=str(viz_folder),
             timestamp=timestamp
         )
         
-        # 如果有训练损失数据，生成损失曲线图
+        # 为每个模型创建独立的子文件夹并生成各自的图表
         for model_name, result in successful_results.items():
+            # 创建模型专用子文件夹
+            model_subfolder = viz_folder / f"{model_name}_results"
+            model_subfolder.mkdir(exist_ok=True)
+            logger.info(f"📁 为模型 {model_name} 创建子文件夹: {model_subfolder}")
+            
+            # 如果有训练损失数据，生成损失曲线图并存储在模型子文件夹中
             if 'train_losses' in result and 'val_losses' in result:
                 # 使用验证损失作为测试损失的替代（因为我们没有单独的测试损失）
                 loss_plot_path = plot_training_losses(
@@ -2182,14 +2334,14 @@ def create_visualization_plots(results: Dict[str, Any], timestamp: str) -> List[
                     valid_losses=result['val_losses'],
                     test_losses=result['val_losses'],  # 使用验证损失作为替代
                     model_name=model_name,
-                    output_dir=str(viz_folder),
+                    output_dir=str(model_subfolder),  # 存储在模型专用子文件夹
                     timestamp=timestamp
                 )
                 if loss_plot_path:
                     plot_files.append(loss_plot_path)
-                    logger.info(f"✅ {model_name} 训练损失曲线已保存: {loss_plot_path}")
+                    logger.info(f"✅ {model_name} 训练损失曲线已保存到子文件夹: {loss_plot_path}")
         
-        # 生成三联图（输入-真实-预测对比图）
+        # 生成三联图（输入-真实-预测对比图）- 已经在generate_triplet_plots中为每个模型创建子文件夹
         triplet_plots = generate_triplet_plots(successful_results, viz_folder, timestamp)
         plot_files.extend(triplet_plots)
         
@@ -2198,8 +2350,8 @@ def create_visualization_plots(results: Dict[str, Any], timestamp: str) -> List[
         
     except Exception as e:
         logger.error(f"❌ 调用utils.visualization模块时出错: {e}")
-        # 回退到原始实现
-        return create_fallback_visualization_plots(successful_results, timestamp, viz_folder)
+        # 回退到原始实现，传递model_name参数
+        return create_fallback_visualization_plots(successful_results, timestamp, viz_folder, model_name)
 
 def generate_triplet_plots(results: Dict[str, Any], viz_folder: Path, timestamp: str) -> List[str]:
     """
@@ -2307,10 +2459,36 @@ def generate_triplet_plots(results: Dict[str, Any], viz_folder: Path, timestamp:
     logger.info(f"🎨 三联图生成完成，共生成 {len(triplet_plot_files)} 个文件")
     return triplet_plot_files
 
-def create_fallback_visualization_plots(successful_results: Dict[str, Any], timestamp: str, viz_folder: Path) -> List[str]:
+def create_fallback_visualization_plots(successful_results: Dict[str, Any], timestamp: str, viz_folder: Path = None, model_name: str = None) -> List[str]:
     """
     回退的可视化实现（当utils.visualization模块调用失败时使用）
+    
+    Args:
+        successful_results: 成功的模型结果字典
+        timestamp: 时间戳
+        viz_folder: 可视化文件夹路径（可选）
+        model_name: 模型名称（可选，用于动态命名文件夹）
     """
+    # 如果没有提供viz_folder，则动态创建
+    if viz_folder is None:
+        model_names = list(successful_results.keys())
+        
+        if len(model_names) > 1:
+            # 多个模型：使用模型名称组合，限制长度避免路径过长
+            model_names_str = "_".join(model_names[:3])  # 最多使用前3个模型名
+            if len(model_names) > 3:
+                model_names_str += f"_and_{len(model_names)-3}more"
+            folder_name = f"{model_names_str}_comparison_{timestamp}"
+        elif len(model_names) == 1:
+            # 单个模型：使用具体模型名称
+            folder_name = f"{model_names[0]}_test_{timestamp}"
+        else:
+            # 没有成功的模型，使用默认命名
+            folder_name = f"crop_model_test_{timestamp}"
+        
+        viz_folder = Path("utils") / "visualization_results" / folder_name
+        viz_folder.mkdir(parents=True, exist_ok=True)
+        logger.info(f"📁 创建可视化文件夹: {viz_folder}")
     plot_files = []
     model_names = list(successful_results.keys())
     
@@ -2318,7 +2496,7 @@ def create_fallback_visualization_plots(successful_results: Dict[str, Any], time
     plt.style.use('default')
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
     
-    # 1. 性能对比图 (MSE 和 R²)
+    # 1. 性能对比图 (MSE 和 R²) - 存储在主文件夹用于模型间比较
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     
     # MSE对比
@@ -2355,6 +2533,38 @@ def create_fallback_visualization_plots(successful_results: Dict[str, Any], time
     plt.close()
     plot_files.append(str(performance_plot))
     logger.info(f"✅ 性能对比图已保存: {performance_plot}")
+    
+    # 2. 为每个模型创建独立的子文件夹并生成各自的详细图表
+    for model_name in model_names:
+        # 创建模型专用子文件夹
+        model_subfolder = viz_folder / f"{model_name}_results"
+        model_subfolder.mkdir(exist_ok=True)
+        logger.info(f"📁 为模型 {model_name} 创建子文件夹: {model_subfolder}")
+        
+        result = successful_results[model_name]
+        
+        # 为单个模型生成详细的性能图表
+        fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+        metrics = ['MSE', 'R²']
+        values = [result['test_mse'], result['test_r2']]
+        colors_single = ['#ff7f0e', '#2ca02c']
+        
+        bars = ax.bar(metrics, values, color=colors_single)
+        ax.set_title(f'{model_name} 模型性能详情', fontsize=14, fontweight='bold')
+        ax.set_ylabel('指标值', fontsize=12)
+        
+        # 添加数值标签
+        for bar, value in zip(bars, values):
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height,
+                    f'{value:.4f}', ha='center', va='bottom', fontsize=10)
+        
+        plt.tight_layout()
+        model_performance_plot = model_subfolder / f"{model_name}_performance_{timestamp}.png"
+        plt.savefig(model_performance_plot, dpi=300, bbox_inches='tight')
+        plt.close()
+        plot_files.append(str(model_performance_plot))
+        logger.info(f"✅ {model_name} 性能详情图已保存到子文件夹: {model_performance_plot}")
     
     return plot_files
 
@@ -2498,21 +2708,21 @@ def run_paper_standard_comparison(config_path: str, models: Optional[List[str]] 
         
         # 为每个模型运行训练
         for model_name in models:
-            logger.info(f"\n🚀 训练 {model_name} 模型 ({scale} 规模)")
+            logger.info(f"\n🚀 开始训练 {model_name.upper()} 模型 ({scale.upper()} 规模)")
             
             try:
                 # 创建临时配置
                 temp_config = create_scale_config(config, scale, model_name)
                 
                 # 运行训练
-                result = run_single_model_training(temp_config, f"{model_name}_{scale}")
+                result = run_single_model_training(temp_config, f"{model_name}_{scale}", model_name)
                 scale_results[model_name] = result
                 scale_params[model_name] = param_verification.get(model_name, {})
                 
-                logger.info(f"✅ {model_name} ({scale}) 训练完成")
+                logger.info(f"✅ {model_name.upper()} ({scale.upper()}) 训练完成")
                 
             except Exception as e:
-                logger.error(f"❌ {model_name} ({scale}) 训练失败: {e}")
+                logger.error(f"❌ {model_name.upper()} ({scale.upper()}) 训练失败: {e}")
                 scale_results[model_name] = {'error': str(e)}
         
         all_results[scale] = scale_results
@@ -2680,7 +2890,7 @@ def verify_scale_parameters(config: Dict, scale: str, models: List[str], target_
 
 def create_scale_config(config: Dict, scale: str, model_name: str) -> Dict:
     """创建规模特定的配置"""
-    scale_config = config.copy()
+    scale_config = copy.deepcopy(config)
     
     # 确保training配置被正确复制
     if 'training' not in scale_config:
@@ -2690,12 +2900,35 @@ def create_scale_config(config: Dict, scale: str, model_name: str) -> Dict:
     if 'training' in config:
         scale_config['training'].update(config['training'])
     
+    # 从paper_standard_comparison配置中获取规模特定的训练参数
+    paper_config = config.get('paper_standard_comparison', {})
+    scale_configs = paper_config.get('scale_configs', {})
+    if scale in scale_configs:
+        scale_training_config = scale_configs[scale]
+        scale_config['training'].update(scale_training_config)
+        logger.info(f"应用 {scale} 规模的训练配置: {scale_training_config}")
+    
     # 更新模型配置
     if 'models' in scale_config and model_name in scale_config['models']:
         model_config = scale_config['models'][model_name]
         if 'scales' in model_config and scale in model_config['scales']:
             scale_params = model_config['scales'][scale]
             model_config.update(scale_params)
+            logger.info(f"应用 {model_name} 模型的 {scale} 规模参数: {scale_params}")
+    else:
+        # 尝试查找带规模后缀的模型名称
+        scale_model_name = f"{model_name}_{scale}"
+        if 'models' in scale_config and scale_model_name in scale_config['models']:
+            # 将带规模后缀的模型配置复制到基础模型名称下
+            scale_config['models'][model_name] = scale_config['models'][scale_model_name].copy()
+            # 设置模型类型
+            if 'type' in scale_config['models'][scale_model_name]:
+                scale_config['models'][model_name]['model_type'] = scale_config['models'][scale_model_name]['type']
+            logger.info(f"找到规模特定模型配置: {scale_model_name} -> {model_name}")
+    
+    # 设置输出目录
+    output_base = scale_config.get('experiment', {}).get('output_dir', 'results')
+    scale_config['experiment']['output_dir'] = f"{output_base}/{scale}_{model_name}"
     
     return scale_config
 

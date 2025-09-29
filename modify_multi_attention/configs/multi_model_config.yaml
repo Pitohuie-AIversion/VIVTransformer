@@ -42,6 +42,7 @@ models:
     num_layers: 2
     dropout: 0.1
     pe_type: sinusoidal_1d
+    attention_type: simplified_self
     use_memory_film: false
     max_time_steps: 100
     output_head_type: global

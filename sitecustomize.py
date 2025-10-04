@@ -18,6 +18,10 @@ warnings.filterwarnings('ignore', message='.*Importing from timm.models.layers.*
 warnings.filterwarnings('ignore', message='.*Glyph.*missing from font.*')
 warnings.filterwarnings('ignore', message='.*does not have a glyph.*')
 warnings.filterwarnings('ignore', message='.*substituting with a dummy symbol.*')
+warnings.filterwarnings('ignore', message='.*Font.*does not have a glyph.*')
+warnings.filterwarnings('ignore', message='.*Substituting symbol.*from.*')
+warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.font_manager')
+warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.backends')
 # Silence known PyTorch CUDA allocator noise on Windows
 warnings.filterwarnings('ignore', message='.*expandable_segments not supported on this platform.*', category=UserWarning)
 
@@ -50,7 +54,11 @@ def setup_chinese_font_global():
         warnings.filterwarnings('ignore', message='.*Glyph.*missing from font.*')
         warnings.filterwarnings('ignore', message='.*does not have a glyph.*')
         warnings.filterwarnings('ignore', message='.*substituting with a dummy symbol.*')
+        warnings.filterwarnings('ignore', message='.*Font.*does not have a glyph.*')
+        warnings.filterwarnings('ignore', message='.*Substituting symbol.*from.*')
         warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.font_manager')
+        warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.backends')
+        warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.mathtext')
         
         # 设置中文字体优先级列表
         chinese_fonts = [

@@ -137,7 +137,30 @@ except ImportError as e:
             logger.error(f"❌ 所有数据加载器导入失败: {e2}")
         raise ImportError("No dataloader available")
 
+# 尝试导入降采样数据加载器
+try:
+    from data.downsampler_dataloader import create_downsample_dataloader
+    DOWNSAMPLE_DATALOADER_AVAILABLE = True
+    if not _IMPORT_LOGS_PRINTED:
+        logger.info("✅ 降采样数据加载器导入成功（支持裁剪和降采样模式）")
+except ImportError as e:
+    DOWNSAMPLE_DATALOADER_AVAILABLE = False
+    if not _IMPORT_LOGS_PRINTED:
+        logger.warning(f"⚠️ 降采样数据加载器导入失败: {e}")
+
 from modify_multi_attention.utils.config import load_config
+
+# 尝试导入新的配置加载器
+try:
+    from utils.config_loader import load_config as load_yaml_config, get_processing_mode, get_downsample_config
+    CONFIG_LOADER_AVAILABLE = True
+    if not _IMPORT_LOGS_PRINTED:
+        logger.info("✅ 新配置加载器导入成功（支持YAML配置）")
+except ImportError as e:
+    CONFIG_LOADER_AVAILABLE = False
+    if not _IMPORT_LOGS_PRINTED:
+        logger.warning(f"⚠️ 新配置加载器导入失败: {e}")
+
 try:
     from modify_multi_attention.mymodels.transformer import TransformerFlowReconstructionModel
     if not _IMPORT_LOGS_PRINTED:
@@ -1079,6 +1102,21 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
         
         # 验证数据配置
         data_config = config['data']
+        logger.info(f"🔍 DEBUG: data_config类型: {type(data_config)}")
+        if isinstance(data_config, dict):
+            logger.info(f"🔍 DEBUG: data_config keys: {list(data_config.keys())}")
+        else:
+            logger.error(f"❌ data_config不是字典类型: {type(data_config)}")
+            logger.warning("⚠️ 重置data_config为默认值")
+            data_config = config['data'] = {
+                'data_path': '../merged_all_pressures_separated_normalized.pt',
+                'input_dim': 16384,
+                'output_dim': 16384,
+                'batch_size': 32,
+                'normalize': True,
+                'normalize_method': 'minmax',
+                'normalize_range': (0, 1)
+            }
         required_data_fields = {
             'data_path': '../merged_all_pressures_separated_normalized.pt',
             'input_dim': 16384,
@@ -1146,6 +1184,57 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
                 logger.warning(f"⚠️ 不支持的归一化方法 '{normalize_method}'，使用默认: minmax")
                 data_config['normalize_method'] = 'minmax'
         
+        # 验证处理配置（processing）
+        if 'processing' not in data_config:
+            logger.warning("⚠️ 缺少处理配置，使用默认裁剪模式")
+            data_config['processing'] = {
+                'mode': 'crop',
+                'downsample': {
+                    'method': 'bilinear',
+                    'backend': 'opencv',
+                    'input_resolution': [128, 128],
+                    'output_resolution': [64, 64],
+                    'aspect_ratio': 'preserve',
+                    'antialias': True
+                },
+                'crop': {
+                    'input_resolution': [128, 128],
+                    'output_resolution': [128, 128]
+                }
+            }
+        else:
+            # 确保processing配置是字典类型
+            processing_config = data_config['processing']
+            if not isinstance(processing_config, dict):
+                logger.error(f"❌ processing配置类型错误: {type(processing_config)}, 应为dict")
+                logger.warning("⚠️ 重置processing配置为默认值")
+                data_config['processing'] = {
+                    'mode': 'crop',
+                    'downsample': {
+                        'method': 'bilinear',
+                        'backend': 'opencv',
+                        'input_resolution': [128, 128],
+                        'output_resolution': [64, 64],
+                        'aspect_ratio': 'preserve',
+                        'antialias': True
+                    },
+                    'crop': {
+                        'input_resolution': [128, 128],
+                        'output_resolution': [128, 128]
+                    }
+                }
+            else:
+                # 验证processing配置的必需字段
+                if 'mode' not in processing_config:
+                    logger.warning("⚠️ processing配置缺少mode字段，使用默认: crop")
+                    processing_config['mode'] = 'crop'
+                
+                # 确保mode是有效值
+                valid_modes = ['crop', 'downsample']
+                if processing_config['mode'] not in valid_modes:
+                    logger.warning(f"⚠️ 无效的processing模式 '{processing_config['mode']}'，使用默认: crop")
+                    processing_config['mode'] = 'crop'
+        
         logger.info("✅ 配置验证完成")
         return config
         
@@ -1204,7 +1293,7 @@ def setup_device(config=None):
     return device
 
 def load_unified_data(config: Dict[str, Any]):
-    """加载统一数据，增强错误处理"""
+    """加载统一数据，增强错误处理，支持降采样模式"""
     try:
         data_config = config.get('data', {})
         data_type = data_config.get('data_type', 'real')
@@ -1250,7 +1339,45 @@ def load_unified_data(config: Dict[str, Any]):
         
         logger.info(f"📁 数据文件: {data_path} (大小: {file_size / (1024*1024):.2f} MB)")
         
-        # 尝试加载增强版数据加载器
+        # 检查是否使用降采样模式
+        processing_config = data_config.get('processing', {})
+        
+        # 调试信息：检查processing_config的类型
+        logger.info(f"🔍 DEBUG: data_config类型: {type(data_config)}")
+        logger.info(f"🔍 DEBUG: data_config keys: {list(data_config.keys()) if isinstance(data_config, dict) else 'Not a dict'}")
+        logger.info(f"🔍 DEBUG: processing_config类型: {type(processing_config)}")
+        logger.info(f"🔍 DEBUG: processing_config内容: {processing_config}")
+        
+        # 确保processing_config是字典类型
+        if not isinstance(processing_config, dict):
+            logger.error(f"❌ processing_config不是字典类型: {type(processing_config)}")
+            processing_config = {}
+        
+        processing_mode = processing_config.get('mode', 'crop')
+        logger.info(f"🔍 检测到处理模式: {processing_mode}")
+        
+        # 优先使用降采样数据加载器（如果配置为downsample模式）
+        if processing_mode == 'downsample' and DOWNSAMPLE_DATALOADER_AVAILABLE:
+            try:
+                logger.info("🎯 使用降采样数据加载器")
+                result = create_downsample_dataloader(config)
+                if len(result) == 4:
+                    train_loader, val_loader, test_loader, normalizer = result
+                    logger.info(f"✅ 降采样数据加载器创建成功，归一化器: {normalizer.__class__.__name__ if normalizer else 'None'}")
+                    return train_loader, val_loader, test_loader, normalizer
+                else:
+                    logger.warning("⚠️ 降采样数据加载器返回格式异常，回退到裁剪模式")
+            except Exception as e:
+                logger.error(f"❌ 降采样数据加载器失败: {e}")
+                logger.error(f"❌ 错误详情: {str(e)}")
+                import traceback
+                logger.error(f"❌ 完整错误堆栈: {traceback.format_exc()}")
+                logger.info("🔄 回退到裁剪数据加载器")
+        elif processing_mode == 'downsample' and not DOWNSAMPLE_DATALOADER_AVAILABLE:
+            logger.error("❌ 配置要求使用降采样模式，但降采样数据加载器不可用")
+            logger.info("🔄 强制回退到裁剪数据加载器")
+        
+        # 尝试加载增强版数据加载器（裁剪模式）
         normalize_config = data_config.get('normalize', False)
         if normalize_config and ENHANCED_DATALOADER_AVAILABLE:
             try:
@@ -1374,6 +1501,15 @@ def load_unified_config(config_path: str) -> Dict[str, Any]:
             logger.warning("配置文件为空，使用默认配置")
             return get_default_config()
         
+        logger.info(f"✅ 成功加载配置文件: {config_path}")
+        
+        # 调试信息：检查原始配置
+        logger.info(f"🔍 DEBUG: 原始配置类型: {type(config)}")
+        if isinstance(config, dict) and 'data' in config:
+            logger.info(f"🔍 DEBUG: data配置类型: {type(config['data'])}")
+            if isinstance(config['data'], dict) and 'processing' in config['data']:
+                logger.info(f"🔍 DEBUG: processing配置类型: {type(config['data']['processing'])}")
+        
         # 应用预设配置
         if 'presets' in config and 'experiment' in config:
             preset_name = config['experiment'].get('preset')
@@ -1383,8 +1519,26 @@ def load_unified_config(config_path: str) -> Dict[str, Any]:
                 config = merge_configs(config, preset_config)
                 logger.info(f"应用预设配置: {preset_name}")
         
+        logger.info("✅ 配置合并完成")
+        
+        # 调试信息：检查合并后的配置
+        logger.info(f"🔍 DEBUG: 合并后配置类型: {type(config)}")
+        if isinstance(config, dict) and 'data' in config:
+            logger.info(f"🔍 DEBUG: 合并后data配置类型: {type(config['data'])}")
+            if isinstance(config['data'], dict) and 'processing' in config['data']:
+                logger.info(f"🔍 DEBUG: 合并后processing配置类型: {type(config['data']['processing'])}")
+        
         # 验证配置
-        config = validate_config(config)
+        try:
+            logger.info("🔍 DEBUG: 开始调用validate_config")
+            config = validate_config(config)
+            logger.info("🔍 DEBUG: validate_config调用成功")
+        except Exception as validate_error:
+            logger.error(f"❌ validate_config调用失败: {validate_error}")
+            logger.error(f"❌ 错误类型: {type(validate_error)}")
+            import traceback
+            logger.error(f"❌ 错误堆栈: {traceback.format_exc()}")
+            raise validate_error
         
         return config
     except yaml.YAMLError as e:
@@ -1396,12 +1550,18 @@ def load_unified_config(config_path: str) -> Dict[str, Any]:
 
 def merge_configs(base_config: Dict, preset_config: Dict) -> Dict:
     """深度合并配置"""
+    logger.info(f"🔍 DEBUG: merge_configs - base_config类型: {type(base_config)}")
+    logger.info(f"🔍 DEBUG: merge_configs - preset_config类型: {type(preset_config)}")
+    
     result = base_config.copy()
     for key, value in preset_config.items():
+        logger.info(f"🔍 DEBUG: merge_configs - 处理键: {key}, 值类型: {type(value)}")
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = merge_configs(result[key], value)
         else:
             result[key] = value
+    
+    logger.info(f"🔍 DEBUG: merge_configs - 返回结果类型: {type(result)}")
     return result
 
 def create_enhanced_model(model_config: Dict[str, Any], input_dim: int, output_dim: int, device=None) -> nn.Module:
@@ -2750,12 +2910,64 @@ def main():
                        help='训练模式：如果不指定，将使用配置文件中的experiment.mode')
     parser.add_argument('--preset', type=str, default=None,
                        help='使用预设配置：quick_test, full_training, parameter_comparison, loss_study')
+    parser.add_argument('--processing-mode', type=str, default=None,
+                       choices=['crop', 'downsample'],
+                       help='数据处理模式：crop（裁剪）或downsample（降采样）')
+    parser.add_argument('--downsample-method', type=str, default=None,
+                       choices=['nearest', 'bilinear', 'bicubic', 'area', 'lanczos'],
+                       help='降采样方法（仅在processing-mode为downsample时有效）')
+    parser.add_argument('--downsample-backend', type=str, default=None,
+                       choices=['opencv', 'scipy'],
+                       help='降采样后端（仅在processing-mode为downsample时有效）')
     
     args = parser.parse_args()
     
     # 加载配置文件
     try:
-        config = load_unified_config(args.config)
+        # 优先使用新的配置加载器
+        if CONFIG_LOADER_AVAILABLE and args.config.endswith('.yaml'):
+            config = load_yaml_config(args.config)
+            logger.info("✅ 使用新的YAML配置加载器")
+        else:
+            config = load_unified_config(args.config)
+            logger.info("✅ 使用传统配置加载器")
+            
+        # 应用命令行参数覆盖配置
+        if args.processing_mode:
+            # 调试信息：检查config类型
+            logger.info(f"🔍 DEBUG: 应用命令行参数前config类型: {type(config)}")
+            if 'data' in config:
+                logger.info(f"🔍 DEBUG: config['data']类型: {type(config['data'])}")
+            
+            if 'data' not in config:
+                config['data'] = {}
+            if not isinstance(config['data'], dict):
+                logger.error(f"❌ config['data']不是字典类型: {type(config['data'])}")
+                logger.warning("⚠️ 重置config['data']为空字典")
+                config['data'] = {}
+            if 'processing' not in config['data']:
+                config['data']['processing'] = {}
+            config['data']['processing']['mode'] = args.processing_mode
+            logger.info(f"✅ 命令行覆盖处理模式: {args.processing_mode}")
+            
+        if args.downsample_method and args.processing_mode == 'downsample':
+            if not isinstance(config['data'], dict):
+                logger.error(f"❌ config['data']不是字典类型: {type(config['data'])}")
+                config['data'] = {}
+            if 'downsample' not in config['data']['processing']:
+                config['data']['processing']['downsample'] = {}
+            config['data']['processing']['downsample']['method'] = args.downsample_method
+            logger.info(f"✅ 命令行覆盖降采样方法: {args.downsample_method}")
+            
+        if args.downsample_backend and args.processing_mode == 'downsample':
+            if not isinstance(config['data'], dict):
+                logger.error(f"❌ config['data']不是字典类型: {type(config['data'])}")
+                config['data'] = {}
+            if 'downsample' not in config['data']['processing']:
+                config['data']['processing']['downsample'] = {}
+            config['data']['processing']['downsample']['backend'] = args.downsample_backend
+            logger.info(f"✅ 命令行覆盖降采样后端: {args.downsample_backend}")
+            
         if args.preset:
             # 应用预设配置
             if args.preset in config.get('presets', {}):
@@ -2766,6 +2978,9 @@ def main():
                 logger.warning(f"⚠️ 预设配置 '{args.preset}' 不存在，使用默认配置")
     except Exception as e:
         logger.error(f"❌ 配置文件加载失败: {e}")
+        logger.error(f"❌ 错误类型: {type(e)}")
+        import traceback
+        logger.error(f"❌ 错误堆栈: {traceback.format_exc()}")
         return
     
     # 确定训练模式
@@ -2789,6 +3004,15 @@ def main():
     logger.info(f"配置文件: {args.config}")
     logger.info(f"实验模式: {experiment_mode}")
     logger.info(f"训练模型: {models if models else '从配置文件自动读取'}")
+    
+    # 显示数据处理模式信息
+    processing_mode = config.get('data', {}).get('processing', {}).get('mode', 'crop')
+    logger.info(f"数据处理模式: {processing_mode}")
+    if processing_mode == 'downsample':
+        downsample_config = config.get('data', {}).get('processing', {}).get('downsample', {})
+        method = downsample_config.get('method', 'bilinear')
+        backend = downsample_config.get('backend', 'opencv')
+        logger.info(f"降采样方法: {method} (后端: {backend})")
     
     # 根据实验模式执行相应的训练
     if experiment_mode in ['single_model', 'unified']:

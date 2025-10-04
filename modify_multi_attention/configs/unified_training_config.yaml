@@ -55,7 +55,7 @@ models:
     max_time_steps: 100
 
   unet:
-    type: "unet"
+    model_type: "unet"
     input_dim: 1024
     output_dim: 1024
     input_spatial_dim: 32
@@ -69,7 +69,7 @@ models:
     dropout: 0.1
 
   mlp:
-    type: "mlp"
+    model_type: "mlp"
     input_dim: 1024
     output_dim: 1024  # 修正为与input_dim一致
     hidden_dims: [512, 512, 512, 512, 512]  # 增加隐藏层维度和层数
@@ -79,7 +79,7 @@ models:
     use_residual: false
 
   fno:
-    type: "fno"
+    model_type: "fno"
     input_dim: 1024
     output_dim: 1024  # 修正为与input_dim一致
     input_spatial_dim: 32

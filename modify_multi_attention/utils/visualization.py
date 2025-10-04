@@ -20,54 +20,61 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
     result_dir = os.path.join(parent_dir, attention_type, "visualization_results")
     os.makedirs(result_dir, exist_ok=True)
 
-    # 优化的数据处理函数，减少计算开销
-    def ensure_2d_and_optimize(data, name, max_size=256):
-        """快速数据处理，优化性能"""
+    # 改进的数据处理函数，保持原始分辨率差异
+    def ensure_2d_preserve_resolution(data, name):
+        """保持原始分辨率的数据处理"""
         if len(data.shape) == 1:
             size = data.shape[0]
-            # 快速形状推断
-            if size == 16384:
+            # 根据数据大小确定分辨率
+            if size == 16384:  # 128x128
                 reshaped = data.reshape(128, 128)
-            elif size == 1024:
+                resolution_info = "128×128"
+            elif size == 1024:  # 32x32
                 reshaped = data.reshape(32, 32)
+                resolution_info = "32×32"
             else:
                 side_len = int(np.sqrt(size))
                 if side_len * side_len == size:
                     reshaped = data.reshape(side_len, side_len)
+                    resolution_info = f"{side_len}×{side_len}"
                 else:
                     # 简化的因子分解
                     for i in range(int(np.sqrt(size)), 0, -1):
                         if size % i == 0:
                             reshaped = data.reshape(i, size // i)
+                            resolution_info = f"{i}×{size//i}"
                             break
                     else:
                         reshaped = data.reshape(1, -1)
+                        resolution_info = f"1×{size}"
         elif len(data.shape) == 2:
             reshaped = data
+            resolution_info = f"{data.shape[0]}×{data.shape[1]}"
         else:
             raise ValueError(f"{name} 数据维度不支持: {data.shape}")
         
-        # 快速尺寸限制
-        h, w = reshaped.shape
-        if h > max_size or w > max_size:
-            # 使用更高效的下采样
-            step_h = max(1, h // max_size)
-            step_w = max(1, w // max_size)
-            reshaped = reshaped[::step_h, ::step_w]
-        
-        return reshaped
+        return reshaped, resolution_info
     
     try:
-        # 使用优化的处理函数
-        input_2d = ensure_2d_and_optimize(input_pressure, "input_pressure")
-        true_2d = ensure_2d_and_optimize(true_pressure, "true_pressure")
-        pred_2d = ensure_2d_and_optimize(predicted_pressure, "predicted_pressure")
+        # 使用改进的处理函数，保持原始分辨率
+        input_2d, input_res = ensure_2d_preserve_resolution(input_pressure, "input_pressure")
+        true_2d, true_res = ensure_2d_preserve_resolution(true_pressure, "true_pressure")
+        pred_2d, pred_res = ensure_2d_preserve_resolution(predicted_pressure, "predicted_pressure")
+        
+        # 打印分辨率信息用于调试
+        print(f"分辨率信息 - 输入: {input_res}, 真实: {true_res}, 预测: {pred_res}")
+        
     except Exception as e:
         print(f"数据维度处理失败: {e}")
         return
 
-    # 优化图形创建，减少内存占用
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4))  # 减小图形尺寸
+    # 创建图形，使用不同的子图尺寸来反映分辨率差异
+    fig = plt.figure(figsize=(18, 6))
+    
+    # 根据分辨率调整子图布局
+    input_h, input_w = input_2d.shape
+    true_h, true_w = true_2d.shape
+    pred_h, pred_w = pred_2d.shape
     
     # 计算统一的colorbar范围
     try:
@@ -75,24 +82,28 @@ def plot_comparison_figure(input_pressure, true_pressure, predicted_pressure, ti
         global_min = min(np.min(input_2d), np.min(true_2d), np.min(pred_2d))
         global_max = max(np.max(input_2d), np.max(true_2d), np.max(pred_2d))
         
-        # 使用更高效的绘图方式，统一colorbar范围
-        # 输入压力图
-        im1 = axes[0].imshow(input_2d, cmap='viridis', interpolation='bilinear', 
-                            vmin=global_min, vmax=global_max)  # 统一范围
-        axes[0].set_title(f"Input t={time_step:.2f}", fontsize=10)
-        plt.colorbar(im1, ax=axes[0], shrink=0.8)
+        # 创建子图，保持原始分辨率比例
+        ax1 = plt.subplot(1, 3, 1)
+        ax2 = plt.subplot(1, 3, 2)
+        ax3 = plt.subplot(1, 3, 3)
         
-        # 真实压力图
-        im2 = axes[1].imshow(true_2d, cmap='viridis', interpolation='bilinear',
-                            vmin=global_min, vmax=global_max)  # 统一范围
-        axes[1].set_title(f"True t={time_step:.2f}", fontsize=10)
-        plt.colorbar(im2, ax=axes[1], shrink=0.8)
+        # 输入压力图 - 显示分辨率信息
+        im1 = ax1.imshow(input_2d, cmap='viridis', interpolation='nearest',  # 使用nearest避免插值
+                        vmin=global_min, vmax=global_max)
+        ax1.set_title(f"Input ({input_res}) t={time_step:.2f}", fontsize=12)
+        plt.colorbar(im1, ax=ax1, shrink=0.8)
         
-        # 预测压力图
-        im3 = axes[2].imshow(pred_2d, cmap='viridis', interpolation='bilinear',
-                            vmin=global_min, vmax=global_max)  # 统一范围
-        axes[2].set_title(f"Predicted t={time_step:.2f}", fontsize=10)
-        plt.colorbar(im3, ax=axes[2], shrink=0.8)
+        # 真实压力图 - 显示分辨率信息
+        im2 = ax2.imshow(true_2d, cmap='viridis', interpolation='nearest',
+                        vmin=global_min, vmax=global_max)
+        ax2.set_title(f"True ({true_res}) t={time_step:.2f}", fontsize=12)
+        plt.colorbar(im2, ax=ax2, shrink=0.8)
+        
+        # 预测压力图 - 显示分辨率信息
+        im3 = ax3.imshow(pred_2d, cmap='viridis', interpolation='nearest',
+                        vmin=global_min, vmax=global_max)
+        ax3.set_title(f"Predicted ({pred_res}) t={time_step:.2f}", fontsize=12)
+        plt.colorbar(im3, ax=ax3, shrink=0.8)
         
     except Exception as e:
         print(f"绘制图像失败: {e}")

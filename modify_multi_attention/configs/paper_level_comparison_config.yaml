@@ -1,0 +1,354 @@
+# 论文级别多模型对比配置文件
+# 使用真实Darcy Flow数据集进行多参数多模型对比实验
+# 数据路径: F:\Zhaoyang\Sparse_to_Dense_Transformer\2D_DarcyFlow_beta0.1_Train.hdf5
+# 创建时间: 2025-01-24
+
+# 实验配置
+experiment:
+  name: "paper_level_comparison"
+  description: "论文级别的模型对比实验"
+  mode: "paper_standard_comparison"  # 设置为论文标准对比模式
+  save_dir: "results/paper_level_comparison"
+  debug_mode: false  # 关闭调试模式以提高训练速度
+  
+# 数据配置
+data:
+  data_dir: "data/processed"
+  data_path: "F:/Zhaoyang/Sparse_to_Dense_Transformer/2D_DarcyFlow_beta0.1_Train.hdf5"  # 添加数据路径
+  max_samples: 1000    # 减少样本数量以加快实验速度
+  batch_size: 64       # 优化后的批次大小
+  num_workers: 12      # 增加数据加载线程
+  prefetch_factor: 4   # 预取因子
+  persistent_workers: true  # 保持工作进程
+  pin_memory: true
+  shuffle: true
+  
+  # 数据分割
+  train_ratio: 0.7
+  valid_ratio: 0.15
+  test_ratio: 0.15
+  
+  # 数据预处理
+  normalize: true
+  crop_size: [64, 64]
+  
+  # 处理配置
+  processing:
+    mode: "downsample"
+    downsample:
+      method: "bilinear"
+      backend: "opencv"
+      input_resolution: [32, 32]    # 修正：输入应该是低分辨率
+      output_resolution: [128, 128]  # 修正：输出应该是高分辨率
+      aspect_ratio: "preserve"
+      antialias: false
+    crop:
+      input_resolution: [128, 128]
+      output_resolution: [128, 128]
+  
+  # 时间步配置
+  time_steps: [1, 2, 3, 4, 5]
+
+# 训练配置
+training:
+  epochs: 100          # 设置为100轮训练
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  scheduler: "cosine"
+  warmup_epochs: 5     # 减少预热轮数
+  
+  # 早停配置 - 已禁用
+  early_stopping:
+    enabled: false     # 取消早停机制
+    patience: 10       # 减少早停耐心值
+    min_delta: 0.0001
+  
+  # 检查点配置
+  checkpoint:
+    save_best: true
+    save_interval: 20
+    save_last: true
+  
+  # 设备配置
+  device: "cuda"
+  mixed_precision: true
+  use_dataparallel: false
+  
+  # 梯度累积配置（提高显存利用率）
+  gradient_accumulation_steps: 1  # 减少梯度累积步数
+  
+  # 内存优化配置
+  memory_optimization:
+    gradient_checkpointing: false   # 禁用梯度检查点以提高速度
+    empty_cache_frequency: 20       # 减少缓存清理频率
+    max_memory_fraction: 0.9        # 最大显存使用比例
+
+# 损失配置
+loss:
+  mse_weight: 1.0
+  l1_weight: 0.0
+  ssim_weight: 0.0
+  perceptual_weight: 0.0
+  gradient_weight: 0.0
+  frequency_weight: 0.0
+  
+  # SVD损失（可选）
+  svd_loss:
+    enabled: false
+    base_weight: 0.7
+    svd_weights: [0.1, 0.1, 0.05, 0.03, 0.02]
+    topk: 5
+
+# 注意力机制配置
+attention:
+  type: "self"
+  comparison_types: ["self", "se", "cbam", "eca"]
+
+# 模型配置 - 论文级别多参数对比
+models:
+  # === 小规模模型组 (100万-300万参数) ===
+  
+  # 轻量级MLP - 约150万参数
+  mlp_small:
+    model_type: mlp
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [256, 256, 128]
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: false
+    target_params_range: [1000000, 3000000]
+  
+  # 轻量级Transformer - 约200万参数
+  transformer_small:
+    model_type: transformer
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 128
+    num_heads: 4
+    num_layers: 2
+    dropout: 0.1
+    seq_len: 16
+    pe_type: "sinusoidal_1d"
+    use_memory_film: false
+    max_time_steps: 100
+    output_head_type: "global"
+    time_encoding: "embedding"
+  
+  # 轻量级UNet - 约180万参数
+  unet_small:
+    model_type: unet
+    input_dim: 1024
+    output_dim: 16384
+    base_ch: 16
+    num_levels: 3
+    use_attention: false
+    bilinear: true
+    dropout: 0.1
+  
+  # 轻量级FNO - 约160万参数
+  fno_small:
+    model_type: fno
+    input_dim: 1024
+    output_dim: 16384
+    width: 32
+    modes1: 8
+    modes2: 8
+    num_layers: 2
+    activation: "gelu"
+  
+  # === 中规模模型组 (500万-800万参数) ===
+  
+  # 中等MLP - 约600万参数
+  mlp_medium:
+    model_type: mlp
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [512, 512, 256, 128]
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: true
+    target_params_range: [5000000, 8000000]
+  
+  # 中等Transformer - 约680万参数
+  transformer_medium:
+    model_type: transformer
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 256
+    num_heads: 8
+    num_layers: 3
+    dropout: 0.1
+    seq_len: 16
+    pe_type: "sinusoidal_1d"
+    use_memory_film: false
+    max_time_steps: 100
+    output_head_type: "global"
+    time_encoding: "embedding"
+  
+  # 中等UNet - 约700万参数
+  unet_medium:
+    model_type: unet
+    input_dim: 1024
+    output_dim: 16384
+    base_ch: 32
+    num_levels: 4
+    use_attention: false
+    bilinear: true
+    dropout: 0.1
+  
+  # 中等FNO - 约650万参数
+  fno_medium:
+    model_type: fno
+    input_dim: 1024
+    output_dim: 16384
+    width: 64
+    modes1: 12
+    modes2: 12
+    num_layers: 4
+    activation: "gelu"
+  
+  # === 大规模模型组 (1500万-2500万参数) ===
+  
+  # 大型MLP - 约2000万参数
+  mlp_large:
+    model_type: mlp
+    input_dim: 1024
+    output_dim: 16384
+    hidden_dims: [1024, 1024, 512, 256]
+    dropout: 0.1
+    use_batch_norm: true
+    use_residual: true
+    target_params_range: [15000000, 25000000]
+  
+  # 大型Transformer - 约2200万参数
+  transformer_large:
+    model_type: transformer
+    input_dim: 1024
+    output_dim: 16384
+    d_model: 512
+    num_heads: 16
+    num_layers: 4
+    dropout: 0.1
+    seq_len: 16
+    pe_type: "sinusoidal_1d"
+    use_memory_film: false
+    max_time_steps: 100
+    output_head_type: "global"
+    time_encoding: "embedding"
+  
+  # 大型UNet - 约1800万参数
+  unet_large:
+    model_type: unet
+    input_dim: 1024
+    output_dim: 16384
+    base_ch: 64
+    num_levels: 5
+    use_attention: true
+    bilinear: false
+    dropout: 0.1
+  
+  # 大型FNO - 约2100万参数
+  fno_large:
+    model_type: fno
+    input_dim: 1024
+    output_dim: 16384
+    width: 128
+    modes1: 16
+    modes2: 16
+    num_layers: 6
+    activation: "gelu"
+
+# 评估配置
+evaluation:
+  metrics: ["mse", "mae", "r2", "psnr", "ssim"]
+  visualization:
+    enabled: true
+    interval: 20
+    max_samples: 5
+    save_plots: true
+    plot_types: ["prediction", "error", "loss_curve", "triplet"]
+
+# 对比配置
+comparison:
+  parameter_fair:
+    enabled: true
+    target_params: 5000000  # 500万参数基准
+    tolerance: 2.0          # 允许2倍差异
+  
+  multi_model:
+    enabled: true
+    models: [
+      "mlp_small", "transformer_small", "unet_small", "fno_small",
+      "mlp_medium", "transformer_medium", "unet_medium", "fno_medium",
+      "mlp_large", "transformer_large", "unet_large", "fno_large"
+    ]
+    generate_report: true
+    generate_plots: true
+  
+  loss_comparison:
+    enabled: false
+
+# 论文标准对比配置
+paper_standard_comparison:
+  enabled: true
+  scales: ["small", "medium", "large"]
+  models: ["transformer", "unet", "mlp", "fno"]
+  target_parameters:
+    small: 100000      # 10万参数
+    medium: 1000000    # 100万参数
+    large: 10000000    # 1000万参数
+  tolerance: 0.1       # 参数量容忍度（10%）
+  
+  # 每个规模的训练配置
+  scale_configs:
+    small:
+      epochs: 100        # 统一设置为100轮
+      batch_size: 128     # 小模型可以使用更大批次
+      learning_rate: 0.001
+    medium:
+      epochs: 100        # 统一设置为100轮
+      batch_size: 64      # 中等模型适中批次
+      learning_rate: 0.0005
+    large:
+      epochs: 100        # 统一设置为100轮
+      batch_size: 32      # 大模型保持较小批次避免OOM
+      learning_rate: 0.0001
+
+# 系统配置
+system:
+  adaptive_resources: true
+  memory_management:
+    auto_cleanup: true
+    cleanup_interval: 20      # 减少清理间隔
+    max_memory_usage: 0.95    # 提高最大内存使用率
+  
+  adaptive_batch_size:
+    enabled: true
+    min_batch_size: 16        # 提高最小批次大小
+    max_batch_size: 256       # 提高最大批次大小
+    memory_threshold: 0.95    # 提高内存阈值
+
+# 输出配置
+output:
+  save_model: true
+  save_predictions: true
+  save_metrics: true
+  generate_report: true
+  report_format: "markdown"
+  generate_plots: true
+  plot_format: "png"
+  export_results: true
+  export_format: "json"
+
+# 调试配置
+debug:
+  enabled: false
+  verbose: false
+  profile_memory: false
+  profile_time: false
+  save_debug_info: false
+
+# 预设配置（空配置节，防止配置处理错误）
+presets: {}

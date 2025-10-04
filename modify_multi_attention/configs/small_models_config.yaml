@@ -1,0 +1,115 @@
+# Small规模模型并行训练配置
+# 包含: mlp_small, transformer_small, unet_small, fno_small
+
+experiment:
+  name: "small_models_parallel"
+  description: "Small规模模型并行训练"
+  mode: "paper_standard_comparison"
+  save_dir: "results/small_models"
+  debug_mode: false
+
+data:
+  data_dir: "data/processed"
+  data_path: "F:/Zhaoyang/Sparse_to_Dense_Transformer/2D_DarcyFlow_beta0.1_Train.hdf5"
+  max_samples: 1000
+  batch_size: 32      # 减小批次大小以节省显存
+  num_workers: 4      # 减少工作线程
+  prefetch_factor: 2
+  persistent_workers: true
+  pin_memory: true
+  shuffle: true
+  
+  train_ratio: 0.7
+  valid_ratio: 0.15
+  test_ratio: 0.15
+  
+  normalize: true
+  crop_size: [64, 64]  # 保留crop配置作为备选
+  time_steps: [1, 2, 3, 4, 5]
+  
+  # 数据处理模式配置
+  processing:
+    mode: "downsample"  # 可选: "crop" 或 "downsample"
+    downsample:
+      method: "bilinear"     # 降采样方法: bilinear, bicubic, nearest, area
+      backend: "opencv"      # 后端: opencv, pil, torch
+      input_resolution: [128, 128]   # 输入分辨率
+      output_resolution: [64, 64]    # 输出分辨率
+      preserve_aspect_ratio: true    # 保持宽高比
+      antialias: true               # 抗锯齿
+    crop:
+      input_resolution: [128, 128]   # 裁剪输入分辨率
+      output_resolution: [64, 64]    # 裁剪输出分辨率
+
+training:
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  scheduler: "cosine"
+  warmup_epochs: 5
+  
+  early_stopping:
+    enabled: false
+    patience: 10
+    min_delta: 0.0001
+
+device:
+  cuda_device: 0
+  mixed_precision: true
+
+paper_standard_comparison:
+  enabled: true
+  save_individual_results: true
+  generate_comparison_plots: true
+
+# Small规模模型配置
+models:
+  active_model: transformer
+  
+  transformer:
+    model_type: transformer
+    d_model: 256
+    num_heads: 8
+    num_layers: 4
+    dropout: 0.1
+    target_params: 2000000
+  
+  mlp:
+    model_type: mlp
+    hidden_dims: [1024, 256, 128]
+    dropout: 0.1
+    activation: relu
+    target_params: 1500000
+  
+  unet:
+    model_type: unet
+    in_channels: 1
+    out_channels: 1
+    features: [32, 64, 128, 256]
+    dropout: 0.1
+    target_params: 1800000
+  
+  fno:
+    model_type: fno
+    modes: 12
+    width: 64
+    layers: 4
+    dropout: 0.1
+    target_params: 1600000  # 160万参数
+
+comparison:
+  multi_model:
+    enabled: true
+    models: ["mlp_small", "transformer_small", "unet_small", "fno_small"]
+    
+visualization:
+  enabled: true
+  save_plots: true
+  plot_format: "png"
+  
+output:
+  save_models: true
+  save_predictions: false
+  save_metrics: true
+  report_format: "markdown"
